@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-container":"#e8dddd","slate-line":"#E2E8F0","text-high-contrast":"#0F172A","collocation-indigo":"#4338CA","secondary-fixed-dim":"#cfc4c4","pos-verb-text":"#B91C1C","on-secondary":"#ffffff","on-background":"#111c2d","pos-noun-bg":"#DBEAFE","surface-container-lowest":"#ffffff","on-primary-container":"#fffafa","error":"#ba1a1a","pos-noun-text":"#1D4ED8","error-container":"#ffdad6","secondary-fixed":"#ebe0e0","primary-fixed":"#ffdad6","on-tertiary":"#ffffff","surface-crimson-subtle":"#FEF2F2","on-tertiary-fixed-variant":"#0039b5","tertiary-fixed":"#dce1ff","text-disabled":"#94A3B8","surface-container-high":"#dee8ff","outline":"#926f6b","on-primary-fixed":"#410002","tertiary":"#1b4dd7","on-error-container":"#93000a","inverse-primary":"#ffb4ab","surface-container":"#e7eeff","border-crimson-tint":"#FECACA","background":"#f9f9ff","primary-container":"#e31e24","tertiary-container":"#3f68f1","text-body":"#1E293B","tertiary-fixed-dim":"#b7c4ff","on-secondary-fixed-variant":"#4c4545","on-primary-fixed-variant":"#93000d","pos-adj-bg":"#DCFCE7","inverse-surface":"#263143","canvas-slate":"#F8FAFC","primary-fixed-dim":"#ffb4ab","card-white":"#FFFFFF","crimson-primary":"#E31E24","on-tertiary-container":"#fdfaff","surface-dim":"#cfdaf2","inverse-on-surface":"#ecf1ff","surface-tint":"#c00014","on-tertiary-fixed":"#001551","surface-container-highest":"#d8e3fb","on-secondary-fixed":"#201a1b","surface-container-low":"#f0f3ff","surface-variant":"#d8e3fb","pos-adv-bg":"#EDE9FE","outline-variant":"#e7bdb8","secondary":"#645c5d","pos-adj-text":"#15803D","surface":"#f9f9ff","pos-verb-bg":"#FEE2E2","surface-bright":"#f9f9ff","on-error":"#ffffff","surface-crimson-soft":"#FEE2E2","crimson-dark":"#B91C1C","on-primary":"#ffffff","text-muted":"#64748B","on-surface-variant":"#5d3f3c","on-secondary-container":"#696161","pos-adv-text":"#6D28D9","on-surface":"#111c2d","primary":"#ba0013"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"gutter-mobile":"0.75rem","space-sm":"0.5rem","space-xl":"2rem",margin:"2rem","space-xs":"0.25rem","space-md":"1rem","margin-mobile":"1rem","space-lg":"1.5rem",gutter:"1.25rem"},fontFamily:{"label-md":["Inter"],"body-md-semibold":["Inter"],"body-sm":["Inter"],"body-md":["Inter"],"headline-sm":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-lg":["Inter"],"display-lg":["Plus Jakarta Sans"],"label-uppercase":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],caption:["Inter"]},fontSize:{"label-md":["12px",{lineHeight:"16px",fontWeight:"600"}],"body-md-semibold":["14px",{lineHeight:"20px",fontWeight:"600"}],"body-sm":["13px",{lineHeight:"18px",fontWeight:"400"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}],"headline-sm":["16px",{lineHeight:"24px",fontWeight:"600"}],"headline-lg":["24px",{lineHeight:"32px",letterSpacing:"-0.015em",fontWeight:"700"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"label-uppercase":["11px",{lineHeight:"14px",letterSpacing:"0.05em",fontWeight:"700"}],"headline-lg-mobile":["20px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"700"}],"headline-md":["18px",{lineHeight:"26px",letterSpacing:"-0.01em",fontWeight:"600"}],caption:["10px",{lineHeight:"12px",fontWeight:"600"}]}}}};</script></head><body class="bg-canvas-slate font-body-md text-text-body antialiased"><aside class="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden"><div class="flex flex-col flex-1 overflow-y-auto"><div class="h-16 px-space-md flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.02)]"><div class="flex items-center gap-space-sm"><img alt="LinearVocab Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XzbjKXKOZ0H_95Ysqo44ZYbnrNeSln4u6SkHpKeqtR7O9EeyIXE27NYD3jKWkcWpqoMRS6Ams0dLpp_NUcKCL2dh5RVHiL2Egk4keaVWoCHREpGnQKjDj6nczl6xJm18eyjyFvDnxiA6TJ4Q6s6NuKp2bhQ0z614_h67Lyam175SMdJ9gn9PBcc-m9mLy0eR1KQwfnXPJwa636zNSWW4mzwf2GWbI-R3n1aOq9dM798OS03khqWi3Ec7w"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-text-high-contrast leading-none">LinearVocab</span><span class="font-caption text-caption text-text-muted mt-0.5">DOL METHODOLOGY LMS</span></div></div></div><div class="px-space-md py-space-sm flex flex-col gap-space-lg"><div class="flex flex-col gap-space-xs"><div class="px-space-xs py-space-xs"><span class="font-label-uppercase text-label-uppercase tracking-wider text-text-muted uppercase">VIEWS</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-crimson-subtle text-crimson-primary font-body-md-semibold rounded-lg"><a aria-current="page" class="flex items-center justify-between px-space-sm py-2 transition-colors bg-surface-crimson-subtle text-crimson-primary font-body-md-semibold rounded-lg" data-path="all-vocabulary" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">library_books</span><span class="font-body-md text-body-md">All Vocabulary</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark">Master</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="word-families" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">account_tree</span><span class="font-body-md text-body-md">Word Families</span></div></a></nav></div><div class="flex flex-col gap-space-xs"><div class="px-space-xs py-space-xs flex items-center justify-between"><span class="font-label-uppercase text-label-uppercase tracking-wider text-text-muted uppercase">READING LISTS</span><button class="w-5 h-5 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[16px]">add</span></button></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-crimson-subtle text-crimson-primary font-body-md-semibold rounded-lg"><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="reading-list-cambridge-18" href="#"><div class="flex items-center gap-space-sm truncate"><span class="material-symbols-outlined text-[18px] text-text-muted">article</span><span class="font-body-sm text-body-sm truncate">LIST 01 - Cambridge 18</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-canvas-slate text-text-muted">24</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="reading-list-business-article" href="#"><div class="flex items-center gap-space-sm truncate"><span class="material-symbols-outlined text-[18px] text-text-muted">article</span><span class="font-body-sm text-body-sm truncate">LIST 02 - Business Article</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-canvas-slate text-text-muted">15</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="reading-list-climate-change" href="#"><div class="flex items-center gap-space-sm truncate"><span class="material-symbols-outlined text-[18px] text-text-muted">article</span><span class="font-body-sm text-body-sm truncate">LIST 03 - Climate Change</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-canvas-slate text-text-muted">19</span></a></nav></div><div class="flex flex-col gap-space-xs"><div class="px-space-xs py-space-xs"><span class="font-label-uppercase text-label-uppercase tracking-wider text-text-muted uppercase">CATEGORIES</span></div><div class="flex flex-wrap gap-1.5 px-space-xs pt-1"><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-crimson-subtle text-crimson-primary hover:bg-surface-crimson-soft transition-colors" type="button"><span class="font-label-md text-label-md">Người</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-crimson-dark">18</span></button><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-canvas-slate text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" type="button"><span class="font-label-md text-label-md">Văn phòng</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-text-muted">32</span></button><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-canvas-slate text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" type="button"><span class="font-label-md text-label-md">Finance</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-text-muted">14</span></button><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-canvas-slate text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" type="button"><span class="font-label-md text-label-md">IELTS Acad</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-text-muted">45</span></button></div></div></div></div><div class="p-space-md shadow-[0_-1px_8px_rgba(0,0,0,0.02)] bg-card-white"><div class="flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-surface-crimson-subtle text-crimson-primary"><span class="material-symbols-outlined text-[18px]">cloud_done</span><span class="absolute top-0 right-0 w-2 h-2 rounded-full bg-pos-adj-text"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md text-text-high-contrast">DOL Cloud Sync</span><span class="font-caption text-caption text-text-muted">Updated 2m ago</span></div></div><button class="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">sync</span></button></div></div></aside><div class="pl-[260px]"><header class="fixed top-0 left-[260px] right-0 h-16 bg-card-white/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg gap-space-md"><div class="flex items-center flex-1 max-w-2xl gap-space-md"><div class="relative flex-1"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">search</span><input class="w-full h-10 pl-10 pr-space-md bg-canvas-slate rounded-lg text-body-sm font-body-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:bg-card-white shadow-[0_1px_3px_rgba(15,23,42,0.05)] transition-all" placeholder="Search vocabulary, patterns, collocations, or Vietnamese meanings..." type="text"/></div><div class="hidden xl:flex items-center gap-1.5 p-1 bg-canvas-slate rounded-lg"><button class="px-2.5 py-1 rounded font-label-md text-label-md bg-card-white text-crimson-primary shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all" type="button">All</button><button class="px-2.5 py-1 rounded font-label-md text-label-md text-pos-noun-text hover:bg-pos-noun-bg transition-colors" type="button">Noun (n)</button><button class="px-2.5 py-1 rounded font-label-md text-pos-verb-text hover:bg-pos-verb-bg transition-colors" type="button">Verb (v)</button><button class="px-2.5 py-1 rounded font-label-md text-pos-adj-text hover:bg-pos-adj-bg transition-colors" type="button">Adj (adj)</button><button class="px-2.5 py-1 rounded font-label-md text-pos-adv-text hover:bg-pos-adv-bg transition-colors" type="button">Adv (adv)</button></div></div><div class="flex items-center gap-space-sm"><button class="w-9 h-9 rounded-lg flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span></button><button class="w-9 h-9 rounded-lg flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">settings</span></button><div class="h-5 w-px bg-slate-line mx-1"></div><div class="flex items-center gap-space-sm pl-1"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.1)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden md:flex flex-col text-left"><span class="font-label-md text-label-md text-text-high-contrast leading-tight">Lê Hoàng</span><span class="font-caption text-caption text-text-muted leading-tight">IELTS 8.5 Master</span></div></div></div></header><main class="relative pt-16 min-h-screen bg-canvas-slate"><div class="flex flex-col w-full">
+<!-- TOP STATS & MASTHEAD SECTION -->
+<section class="p-space-lg lg:p-space-xl flex flex-col gap-space-lg bg-surface-container-lowest">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
+<!-- Title & Breadcrumb -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center gap-space-xs text-text-muted">
+<span class="font-body-sm text-body-sm">LinearVocab</span>
+<span class="material-symbols-outlined text-[16px] text-text-disabled">chevron_right</span>
+<span class="font-body-sm text-body-sm text-crimson-primary font-body-md-semibold">Kho từ vựng trung tâm</span>
+</div>
+<div class="flex items-baseline gap-space-sm flex-wrap">
+<h1 class="font-display-lg text-display-lg text-text-high-contrast tracking-tight">Tất cả từ vựng</h1>
+<span class="font-headline-sm text-headline-sm text-text-muted font-normal">(Master Vocabulary List)</span>
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-crimson-subtle">
+<span class="w-2 h-2 rounded-full bg-crimson-primary animate-pulse"></span>
+<span class="font-label-md text-label-md text-crimson-dark">1,248 từ vựng hoạt động</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-text-muted max-w-2xl">
+          Hệ thống cấu trúc từ vựng ma trận theo phương pháp Linearthinking của DOL. Phân bổ đa tầng nghĩa, ngữ cảnh collocation và mẫu câu ứng dụng chuẩn hóa.
+        </p>
+</div>
+<!-- Quick Action Buttons -->
+<div class="flex items-center gap-space-sm flex-wrap">
+<div class="flex items-center p-1 bg-canvas-slate rounded-lg">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-text-body hover:bg-card-white hover:shadow-sm transition-all" title="Xuất dữ liệu Excel" type="button">
+<span class="material-symbols-outlined text-[18px] text-text-muted">ios_share</span>
+<span class="font-body-sm text-body-sm">Xuất Excel</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-text-body hover:bg-card-white hover:shadow-sm transition-all" title="Nhập danh sách từ" type="button">
+<span class="material-symbols-outlined text-[18px] text-text-muted">file_upload</span>
+<span class="font-body-sm text-body-sm">Nhập file</span>
+</button>
+</div>
+<button class="flex items-center gap-2 px-space-md py-2 rounded-lg bg-crimson-primary text-on-primary hover:bg-crimson-dark shadow-sm transition-all transform active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span class="font-body-md-semibold text-body-md-semibold">+ Thêm Từ Mới (Add Vocab)</span>
+</button>
+</div>
+</div>
+<!-- METRICS & LEARNING ANALYTICS BANNER -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-space-md pt-space-xs">
+<div class="p-space-md rounded-xl bg-canvas-slate flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-uppercase text-label-uppercase text-text-muted">TỔNG MẪU PATTERN</span>
+<span class="font-display-lg text-display-lg text-text-high-contrast leading-none mt-1">2,842</span>
+<span class="font-caption text-caption text-pos-adj-text mt-1 flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +34 tuần này
+          </span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-pos-noun-bg flex items-center justify-center text-pos-noun-text">
+<span class="material-symbols-outlined text-[24px]">account_tree</span>
+</div>
+</div>
+<div class="p-space-md rounded-xl bg-canvas-slate flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-uppercase text-label-uppercase text-text-muted">COLLOCATIONS CHUẨN</span>
+<span class="font-display-lg text-display-lg text-text-high-contrast leading-none mt-1">4,190</span>
+<span class="font-caption text-caption text-text-muted mt-1">Chuẩn Oxford &amp; Cambridge</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-collocation-indigo">
+<span class="material-symbols-outlined text-[24px]">hub</span>
+</div>
+</div>
+<div class="p-space-md rounded-xl bg-canvas-slate flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-uppercase text-label-uppercase text-text-muted">TỪ VỰNG HỌC THUẬT (C1+)</span>
+<span class="font-display-lg text-display-lg text-text-high-contrast leading-none mt-1">68%</span>
+<span class="font-caption text-caption text-crimson-dark mt-1">DOL IELTS Band 7.5 - 9.0</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-surface-crimson-soft flex items-center justify-center text-crimson-primary">
+<span class="material-symbols-outlined text-[24px]">grade</span>
+</div>
+</div>
+<div class="p-space-md rounded-xl bg-canvas-slate flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-uppercase text-label-uppercase text-text-muted">TIẾN ĐỘ ĐỒNG BỘ AI</span>
+<span class="font-display-lg text-display-lg text-text-high-contrast leading-none mt-1">100%</span>
+<span class="font-caption text-caption text-pos-adj-text mt-1 flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">done_all</span> Đã xác thực audio IPA
+          </span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-pos-adj-bg flex items-center justify-center text-pos-adj-text">
+<span class="material-symbols-outlined text-[24px]">verified</span>
+</div>
+</div>
+</div>
+</section>
+<!-- SEARCH, POS PILL FILTERS & TOOLBAR -->
+<section class="p-space-lg flex flex-col gap-space-md bg-canvas-slate">
+<div class="bg-card-white p-space-md rounded-xl shadow-sm flex flex-col gap-space-md">
+<!-- Search row & view mode controllers -->
+<div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
+<!-- Main Search Bar -->
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">manage_search</span>
+<input class="w-full h-11 pl-11 pr-10 bg-canvas-slate rounded-lg text-body-sm font-body-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:bg-card-white transition-all shadow-sm" placeholder="Tìm theo từ vựng, pattern (+ sb for sth), collocation, nghĩa tiếng Việt..." type="text"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-body" type="button">
+<span class="material-symbols-outlined text-[18px]">mic</span>
+</button>
+</div>
+<!-- Filter Selectors & View toggles -->
+<div class="flex items-center gap-space-sm flex-wrap">
+<!-- Category Select -->
+<div class="relative">
+<button class="flex items-center gap-2 h-11 px-3.5 bg-canvas-slate rounded-lg text-text-body hover:bg-surface-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-text-muted">category</span>
+<span class="font-body-sm text-body-sm font-body-md-semibold">Danh mục: Tất cả</span>
+<span class="material-symbols-outlined text-[18px] text-text-muted">arrow_drop_down</span>
+</button>
+</div>
+<!-- Word Family Toggle -->
+<button class="flex items-center gap-2 h-11 px-3.5 bg-canvas-slate hover:bg-surface-crimson-subtle hover:text-crimson-primary text-text-body rounded-lg transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">account_tree</span>
+<span class="font-body-sm text-body-sm">Cây Word Family</span>
+</button>
+<!-- Display Density Picker -->
+<div class="flex items-center bg-canvas-slate p-1 rounded-lg">
+<button class="w-9 h-9 flex items-center justify-center rounded-lg bg-card-white text-crimson-primary shadow-sm" title="Mật độ hiển thị chuẩn" type="button">
+<span class="material-symbols-outlined text-[18px]">density_medium</span>
+</button>
+<button class="w-9 h-9 flex items-center justify-center rounded-lg text-text-muted hover:text-text-body transition-colors" title="Mật độ hiển thị thu gọn" type="button">
+<span class="material-symbols-outlined text-[18px]">density_small</span>
+</button>
+</div>
+</div>
+</div>
+<!-- POS Filter Row with counts -->
+<div class="flex items-center justify-between gap-space-sm pt-space-xs overflow-x-auto">
+<div class="flex items-center gap-2 flex-nowrap">
+<span class="font-label-uppercase text-label-uppercase text-text-muted uppercase shrink-0 mr-1">Bộ lọc từ loại:</span>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-crimson-primary text-on-primary shadow-sm shrink-0" type="button">
+<span class="font-body-sm text-body-sm font-body-md-semibold">Tất cả</span>
+<span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-crimson-dark text-on-primary">1,248</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pos-noun-bg text-pos-noun-text hover:brightness-95 transition-all shrink-0" type="button">
+<span class="font-body-sm text-body-sm font-body-md-semibold">Danh từ (n)</span>
+<span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-card-white text-pos-noun-text">584</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pos-verb-bg text-pos-verb-text hover:brightness-95 transition-all shrink-0" type="button">
+<span class="font-body-sm text-body-sm font-body-md-semibold">Động từ (v)</span>
+<span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-card-white text-pos-verb-text">392</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pos-adj-bg text-pos-adj-text hover:brightness-95 transition-all shrink-0" type="button">
+<span class="font-body-sm text-body-sm font-body-md-semibold">Tính từ (adj)</span>
+<span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-card-white text-pos-adj-text">210</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pos-adv-bg text-pos-adv-text hover:brightness-95 transition-all shrink-0" type="button">
+<span class="font-body-sm text-body-sm font-body-md-semibold">Trạng từ (adv)</span>
+<span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-card-white text-pos-adv-text">62</span>
+</button>
+</div>
+<div class="hidden xl:flex items-center gap-space-sm text-text-muted font-body-sm text-body-sm shrink-0">
+<span class="material-symbols-outlined text-[16px] text-pos-adj-text">check_circle</span>
+<span>Đã gắn ma trận Linearthinking: 100%</span>
+</div>
+</div>
+</div>
+<!-- MULTI-LAYERED VOCABULARY DATA TABLE -->
+<div class="bg-card-white rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[1200px]">
+<!-- Crimson Table Header -->
+<thead>
+<tr class="bg-crimson-dark text-on-primary font-label-uppercase text-label-uppercase tracking-wider select-none">
+<th class="py-3.5 px-space-md w-[220px]" scope="col">
+<div class="flex items-center gap-1.5">
+<span>Từ vựng &amp; Nhãn</span>
+<span class="material-symbols-outlined text-[14px] opacity-75">swap_vert</span>
+</div>
+</th>
+<th class="py-3.5 px-space-md w-[120px]" scope="col">
+<div class="flex items-center gap-1.5">
+<span>Dạng từ</span>
+<span class="material-symbols-outlined text-[14px] opacity-75">filter_alt</span>
+</div>
+</th>
+<th class="py-3.5 px-space-md w-[180px]" scope="col">Mẫu câu (Pattern)</th>
+<th class="py-3.5 px-space-md w-[200px]" scope="col">Cụm từ (Collocation)</th>
+<th class="py-3.5 px-space-md w-[170px]" scope="col">Đồng nghĩa (Synonym)</th>
+<th class="py-3.5 px-space-md w-[260px]" scope="col">Ý nghĩa ngữ cảnh (Vietnamese)</th>
+<th class="py-3.5 px-space-md min-w-[280px]" scope="col">Ví dụ &amp; Ghi chú Linearthinking</th>
+<th class="py-3.5 px-space-sm w-[70px] text-center" scope="col">Thao tác</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y-0">
+<!-- ========================================== -->
+<!-- WORD 1: "lease" (3 SUB-ROWS GROUP) -->
+<!-- ========================================== -->
+<!-- Sub-row 1 of 'lease' -->
+<tr class="hover:bg-surface-crimson-subtle/50 transition-colors group">
+<!-- Spanning cell for Word 1 -->
+<td class="p-space-md align-top bg-card-white shadow-sm" rowspan="3">
+<div class="flex flex-col gap-1.5 sticky top-20">
+<div class="flex items-center justify-between">
+<span class="font-headline-lg text-headline-lg text-text-high-contrast font-bold tracking-tight">lease</span>
+<button class="w-8 h-8 rounded-full bg-surface-crimson-subtle hover:bg-surface-crimson-soft text-crimson-primary flex items-center justify-center transition-colors" title="Nghe phát âm chuẩn" type="button">
+<span class="material-symbols-outlined text-[18px]">volume_up</span>
+</button>
+</div>
+<span class="font-body-md text-body-md text-text-muted font-mono tracking-wide">/liːs/</span>
+<div class="flex flex-wrap gap-1 mt-2">
+<span class="px-2 py-0.5 rounded-full bg-surface-crimson-subtle text-crimson-dark font-caption text-caption">Văn phòng</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-text-body font-caption text-caption">Bất động sản</span>
+<span class="px-2 py-0.5 rounded-full bg-canvas-slate text-text-muted font-caption text-caption">IELTS 6.5+</span>
+</div>
+<div class="mt-3 pt-3 flex items-center gap-1.5 text-text-muted">
+<span class="material-symbols-outlined text-[14px]">account_tree</span>
+<span class="font-caption text-caption">Word Family: 3 dạng</span>
+</div>
+</div>
+</td>
+<!-- Form -->
+<td class="p-space-md align-top bg-card-white">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-pos-verb-bg text-pos-verb-text font-body-md-semibold text-[12px]">
+                  (v) Động từ
+                </span>
+</td>
+<!-- Pattern -->
+<td class="p-space-md align-top bg-card-white">
+<span class="font-mono text-[12px] bg-canvas-slate px-2 py-1 rounded text-crimson-dark font-body-md-semibold inline-block">
+                  + sth from sb
+                </span>
+</td>
+<!-- Collocation -->
+<td class="p-space-md align-top text-text-muted bg-card-white">—</td>
+<!-- Synonym -->
+<td class="p-space-md align-top bg-card-white">
+<span class="text-text-high-contrast">rent, hire</span>
+</td>
+<!-- Meaning -->
+<td class="p-space-md align-top bg-card-white">
+<p class="font-body-md-semibold text-body-md text-text-high-contrast">
+                  thuê, mướn từ ai đó (ngắn/dài hạn)
+                </p>
+</td>
+<!-- Example & Notes -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1">
+<p class="italic text-text-body">
+                    "They <strong class="text-crimson-primary font-body-md-semibold not-italic">leased</strong> the premises from a local developer."
+                  </p>
+<p class="text-text-muted text-[12px]">Họ đã thuê lại cơ sở mặt bằng từ một nhà phát triển địa phương.</p>
+</div>
+</td>
+<!-- Actions -->
+<td class="p-space-md align-top text-center bg-card-white">
+<button class="w-8 h-8 rounded hover:bg-canvas-slate text-text-muted hover:text-crimson-primary transition-colors inline-flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Sub-row 2 of 'lease' -->
+<tr class="hover:bg-surface-crimson-subtle/50 transition-colors group">
+<!-- Form -->
+<td class="p-space-md align-top bg-canvas-slate/20">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-pos-verb-bg text-pos-verb-text font-body-md-semibold text-[12px]">
+                  (v) Động từ
+                </span>
+</td>
+<!-- Pattern -->
+<td class="p-space-md align-top bg-canvas-slate/20">
+<span class="font-mono text-[12px] bg-canvas-slate px-2 py-1 rounded text-crimson-dark font-body-md-semibold inline-block">
+                  + sb sth
+                </span>
+</td>
+<!-- Collocation -->
+<td class="p-space-md align-top bg-canvas-slate/20">
+<span class="px-2 py-0.5 rounded bg-surface-container text-collocation-indigo font-body-md-semibold text-[12px] inline-block">
+                  lease out
+                </span>
+</td>
+<!-- Synonym -->
+<td class="p-space-md align-top text-text-muted bg-canvas-slate/20">—</td>
+<!-- Meaning -->
+<td class="p-space-md align-top bg-canvas-slate/20">
+<p class="font-body-md-semibold text-body-md text-text-high-contrast">
+                  cho ai đó thuê lại cái gì
+                </p>
+</td>
+<!-- Example & Notes -->
+<td class="p-space-md align-top bg-canvas-slate/20">
+<div class="flex flex-col gap-1">
+<p class="italic text-text-body">
+                    "He <strong class="text-crimson-primary font-body-md-semibold not-italic">leased</strong> his apartment to an international student."
+                  </p>
+<p class="text-text-muted text-[12px]">Ông ấy đã cho một sinh viên quốc tế thuê lại căn hộ của mình.</p>
+</div>
+</td>
+<!-- Actions -->
+<td class="p-space-md align-top text-center bg-canvas-slate/20">
+<button class="w-8 h-8 rounded hover:bg-canvas-slate text-text-muted hover:text-crimson-primary transition-colors inline-flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Sub-row 3 of 'lease' -->
+<tr class="hover:bg-surface-crimson-subtle/50 transition-colors group">
+<!-- Form -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-pos-noun-bg text-pos-noun-text font-body-md-semibold text-[12px]">
+                    (n) Danh từ
+                  </span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container font-mono text-[10px] text-text-high-contrast font-bold">[C]</span>
+</div>
+</td>
+<!-- Pattern -->
+<td class="p-space-md align-top text-text-muted bg-card-white">—</td>
+<!-- Collocation -->
+<td class="p-space-md align-top bg-card-white">
+<span class="px-2 py-0.5 rounded bg-surface-container text-collocation-indigo font-body-md-semibold text-[12px] inline-block">
+                  lease agreement
+                </span>
+<div class="text-[11px] text-text-muted mt-1">sign a lease, expire</div>
+</td>
+<!-- Synonym -->
+<td class="p-space-md align-top bg-card-white">
+<span class="text-text-high-contrast">rental contract, charter</span>
+</td>
+<!-- Meaning -->
+<td class="p-space-md align-top bg-card-white">
+<p class="font-body-md-semibold text-body-md text-text-high-contrast">
+                  hợp đồng thuê mướn (dài hạn)
+                </p>
+<span class="text-text-muted text-[12px]">Thời hạn cam kết tài chính</span>
+</td>
+<!-- Example & Notes -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1.5">
+<p class="italic text-text-body">
+                    "The <strong class="text-crimson-primary font-body-md-semibold not-italic">lease</strong> expires next June."
+                  </p>
+<div class="flex items-start gap-1.5 p-2 rounded-lg bg-surface-crimson-subtle text-crimson-dark">
+<span class="material-symbols-outlined text-[16px] shrink-0 mt-0.5 text-crimson-primary">lightbulb</span>
+<span class="text-[11px] leading-tight">
+<strong class="font-body-md-semibold">Linearthinking DOL:</strong> TOEIC &amp; IELTS Reading thường bẫy sự khác biệt giữa <em>tenant</em> (người thuê) và <em>landlord</em> khi nói về 'lease terms'.
+                    </span>
+</div>
+</div>
+</td>
+<!-- Actions -->
+<td class="p-space-md align-top text-center bg-card-white">
+<button class="w-8 h-8 rounded hover:bg-canvas-slate text-text-muted hover:text-crimson-primary transition-colors inline-flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- ========================================== -->
+<!-- WORD 2: "accountant" -->
+<!-- ========================================== -->
+<tr class="hover:bg-surface-crimson-subtle/50 transition-colors group bg-canvas-slate/10">
+<!-- Vocab & Tags -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="font-headline-lg text-headline-lg text-text-high-contrast font-bold tracking-tight">accountant</span>
+<button class="w-8 h-8 rounded-full bg-surface-crimson-subtle hover:bg-surface-crimson-soft text-crimson-primary flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">volume_up</span>
+</button>
+</div>
+<span class="font-body-md text-body-md text-text-muted font-mono tracking-wide">/əˈkaʊntənt/</span>
+<div class="flex flex-wrap gap-1 mt-2">
+<span class="px-2 py-0.5 rounded-full bg-pos-noun-bg text-pos-noun-text font-caption text-caption">Từ vựng chỉ người</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container text-text-body font-caption text-caption">Văn phòng</span>
+</div>
+</div>
+</td>
+<!-- Form -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex items-center gap-1.5">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-pos-noun-bg text-pos-noun-text font-body-md-semibold text-[12px]">
+                    (n) Danh từ
+                  </span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container font-mono text-[10px] text-text-high-contrast font-bold">[C]</span>
+</div>
+</td>
+<!-- Pattern -->
+<td class="p-space-md align-top text-text-muted bg-card-white">—</td>
+<!-- Collocation -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1">
+<span class="px-2 py-0.5 rounded bg-surface-container text-collocation-indigo font-body-md-semibold text-[12px] inline-block">
+                    chief accountant
+                  </span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-collocation-indigo font-body-md-semibold text-[12px] inline-block">
+                    chartered accountant
+                  </span>
+</div>
+</td>
+<!-- Synonym -->
+<td class="p-space-md align-top bg-card-white">
+<span class="text-text-high-contrast">auditor, bookkeeper</span>
+</td>
+<!-- Meaning -->
+<td class="p-space-md align-top bg-card-white">
+<p class="font-body-md-semibold text-body-md text-text-high-contrast">
+                  nhân viên kế toán, kiểm toán viên
+                </p>
+<span class="text-text-muted text-[12px]">Chuyên viên phụ trách số sách thu chi</span>
+</td>
+<!-- Example & Notes -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1">
+<p class="italic text-text-body">
+                    "She works as a senior <strong class="text-crimson-primary font-body-md-semibold not-italic">accountant</strong> for an international audit firm."
+                  </p>
+<p class="text-text-muted text-[12px]">Cô ấy làm kế toán cấp cao cho một công ty kiểm toán quốc tế.</p>
+</div>
+</td>
+<!-- Actions -->
+<td class="p-space-md align-top text-center bg-card-white">
+<button class="w-8 h-8 rounded hover:bg-canvas-slate text-text-muted hover:text-crimson-primary transition-colors inline-flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- ========================================== -->
+<!-- WORD 3: "compensate" -->
+<!-- ========================================== -->
+<tr class="hover:bg-surface-crimson-subtle/50 transition-colors group">
+<!-- Vocab & Tags -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="font-headline-lg text-headline-lg text-text-high-contrast font-bold tracking-tight">compensate</span>
+<button class="w-8 h-8 rounded-full bg-surface-crimson-subtle hover:bg-surface-crimson-soft text-crimson-primary flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">volume_up</span>
+</button>
+</div>
+<span class="font-body-md text-body-md text-text-muted font-mono tracking-wide">/ˈkɒmpənseɪt/</span>
+<div class="flex flex-wrap gap-1 mt-2">
+<span class="px-2 py-0.5 rounded-full bg-surface-crimson-subtle text-crimson-dark font-caption text-caption">Business</span>
+<span class="px-2 py-0.5 rounded-full bg-pos-verb-bg text-pos-verb-text font-caption text-caption">IELTS Band 7+</span>
+</div>
+</div>
+</td>
+<!-- Form -->
+<td class="p-space-md align-top bg-card-white">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-pos-verb-bg text-pos-verb-text font-body-md-semibold text-[12px]">
+                  (v) Động từ
+                </span>
+</td>
+<!-- Pattern -->
+<td class="p-space-md align-top bg-card-white">
+<span class="font-mono text-[12px] bg-canvas-slate px-2 py-1 rounded text-crimson-dark font-body-md-semibold inline-block">
+                  + sb for sth
+                </span>
+</td>
+<!-- Collocation -->
+<td class="p-space-md align-top bg-card-white">
+<span class="px-2 py-0.5 rounded bg-surface-container text-collocation-indigo font-body-md-semibold text-[12px] inline-block">
+                  compensate victims
+                </span>
+<div class="text-[11px] text-text-muted mt-1">adequately compensate</div>
+</td>
+<!-- Synonym -->
+<td class="p-space-md align-top bg-card-white">
+<span class="text-text-high-contrast">reimburse, make up for, recompense</span>
+</td>
+<!-- Meaning -->
+<td class="p-space-md align-top bg-card-white">
+<p class="font-body-md-semibold text-body-md text-text-high-contrast">
+                  bồi thường, đền bù cho ai vì điều gì
+                </p>
+<span class="text-text-muted text-[12px]">Khắc phục thiệt hại hoặc mất mát</span>
+</td>
+<!-- Example & Notes -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1.5">
+<p class="italic text-text-body">
+                    "The company agreed to <strong class="text-crimson-primary font-body-md-semibold not-italic">compensate</strong> workers for their injuries."
+                  </p>
+<p class="text-text-muted text-[12px]">Công ty đồng ý bồi thường cho công nhân các khoản thương tật.</p>
+</div>
+</td>
+<!-- Actions -->
+<td class="p-space-md align-top text-center bg-card-white">
+<button class="w-8 h-8 rounded hover:bg-canvas-slate text-text-muted hover:text-crimson-primary transition-colors inline-flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- ========================================== -->
+<!-- WORD 4: "resilient" -->
+<!-- ========================================== -->
+<tr class="hover:bg-surface-crimson-subtle/50 transition-colors group bg-canvas-slate/10">
+<!-- Vocab & Tags -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<span class="font-headline-lg text-headline-lg text-text-high-contrast font-bold tracking-tight">resilient</span>
+<button class="w-8 h-8 rounded-full bg-surface-crimson-subtle hover:bg-surface-crimson-soft text-crimson-primary flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">volume_up</span>
+</button>
+</div>
+<span class="font-body-md text-body-md text-text-muted font-mono tracking-wide">/rɪˈzɪliənt/</span>
+<div class="flex flex-wrap gap-1 mt-2">
+<span class="px-2 py-0.5 rounded-full bg-pos-adj-bg text-pos-adj-text font-caption text-caption">Tính cách &amp; Tâm lý</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-crimson-subtle text-crimson-dark font-caption text-caption">Kinh tế</span>
+</div>
+</div>
+</td>
+<!-- Form -->
+<td class="p-space-md align-top bg-card-white">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-pos-adj-bg text-pos-adj-text font-body-md-semibold text-[12px]">
+                  (adj) Tính từ
+                </span>
+</td>
+<!-- Pattern -->
+<td class="p-space-md align-top bg-card-white">
+<span class="font-mono text-[12px] bg-canvas-slate px-2 py-1 rounded text-crimson-dark font-body-md-semibold inline-block">
+                  + to sth
+                </span>
+</td>
+<!-- Collocation -->
+<td class="p-space-md align-top bg-card-white">
+<span class="px-2 py-0.5 rounded bg-surface-container text-collocation-indigo font-body-md-semibold text-[12px] inline-block">
+                  resilient economy
+                </span>
+<div class="text-[11px] text-text-muted mt-1">resilient supply chain</div>
+</td>
+<!-- Synonym -->
+<td class="p-space-md align-top bg-card-white">
+<span class="text-text-high-contrast">tough, durable, hardy, buoyant</span>
+</td>
+<!-- Meaning -->
+<td class="p-space-md align-top bg-card-white">
+<p class="font-body-md-semibold text-body-md text-text-high-contrast">
+                  kiên cường, có khả năng phục hồi nhanh
+                </p>
+<span class="text-text-muted text-[12px]">Không bị khuất phục trước khủng hoảng</span>
+</td>
+<!-- Example & Notes -->
+<td class="p-space-md align-top bg-card-white">
+<div class="flex flex-col gap-1.5">
+<p class="italic text-text-body">
+                    "The local economy proved remarkably <strong class="text-crimson-primary font-body-md-semibold not-italic">resilient</strong> in the face of recession."
+                  </p>
+<div class="flex items-start gap-1.5 p-2 rounded-lg bg-surface-container text-collocation-indigo">
+<span class="material-symbols-outlined text-[16px] shrink-0 mt-0.5">tips_and_updates</span>
+<span class="text-[11px] leading-tight">
+<strong class="font-body-md-semibold">Collocation Tip:</strong> Rất hay dùng trong Writing Task 2 cho chủ đề <em>Economic recovery &amp; climate change</em>.
+                    </span>
+</div>
+</div>
+</td>
+<!-- Actions -->
+<td class="p-space-md align-top text-center bg-card-white">
+<button class="w-8 h-8 rounded hover:bg-canvas-slate text-text-muted hover:text-crimson-primary transition-colors inline-flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Quick Inline Add row trigger for teachers/students -->
+<div class="p-space-md bg-canvas-slate/50 flex items-center justify-center">
+<button class="flex items-center gap-2 px-space-md py-2 rounded-lg text-crimson-primary bg-card-white hover:bg-surface-crimson-subtle transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span class="font-body-sm text-body-sm font-body-md-semibold">+ Thêm Nghĩa / Cụm Từ Nhanh Cho Từ Vựng</span>
+</button>
+</div>
+<!-- BOTTOM PAGINATION & METRICS FOOTER -->
+<div class="p-space-md bg-card-white flex flex-col sm:flex-row items-center justify-between gap-space-md">
+<!-- Record counts & items per page -->
+<div class="flex items-center gap-space-md flex-wrap">
+<span class="font-body-sm text-body-sm text-text-muted">
+            Hiển thị <strong class="text-text-high-contrast font-body-md-semibold">1 - 25</strong> trong số <strong class="text-text-high-contrast font-body-md-semibold">1,248</strong> từ vựng
+          </span>
+<div class="flex items-center gap-1.5">
+<span class="font-caption text-caption text-text-muted uppercase">Số dòng:</span>
+<select class="h-8 px-2 bg-canvas-slate rounded text-body-sm font-body-sm text-text-high-contrast focus:outline-none focus:bg-card-white">
+<option value="25">25 / trang</option>
+<option value="50">50 / trang</option>
+<option value="100">100 / trang</option>
+</select>
+</div>
+</div>
+<!-- Pagination Page Controls -->
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-text-disabled hover:bg-canvas-slate transition-colors" disabled="" type="button">
+<span class="material-symbols-outlined text-[18px]">first_page</span>
+</button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-text-disabled hover:bg-canvas-slate transition-colors" disabled="" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-crimson-primary text-on-primary font-body-md-semibold text-body-sm shadow-sm" type="button">1</button>
+<button class="w-8 h-8 rounded-lg text-text-body hover:bg-canvas-slate font-body-sm text-body-sm transition-colors" type="button">2</button>
+<button class="w-8 h-8 rounded-lg text-text-body hover:bg-canvas-slate font-body-sm text-body-sm transition-colors" type="button">3</button>
+<span class="px-1 text-text-muted text-body-sm">...</span>
+<button class="w-8 h-8 rounded-lg text-text-body hover:bg-canvas-slate font-body-sm text-body-sm transition-colors" type="button">50</button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-text-body hover:bg-canvas-slate transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-text-body hover:bg-canvas-slate transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">last_page</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- QUICK FLOATING STATUS / BATCH SELECTION DRAWER (Optional utility dock) -->
+<div class="p-space-lg pt-0">
+<div class="bg-surface-container rounded-xl p-space-md flex flex-col md:flex-row items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-card-white flex items-center justify-center text-collocation-indigo shadow-sm">
+<span class="material-symbols-outlined text-[22px]">auto_stories</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-headline-sm text-text-high-contrast leading-tight">Phương pháp Linearthinking Vocabulary</span>
+<span class="font-body-sm text-body-sm text-text-muted">Học từ vựng qua hệ thống logic: Bản chất từ (Core meaning) ➔ Biến thể ngữ cảnh (Sense) ➔ Cụm kết hợp cố định (Collocation).</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm shrink-0">
+<button class="px-space-md py-2 rounded-lg bg-card-white text-text-body hover:bg-canvas-slate font-body-sm text-body-sm font-body-md-semibold shadow-sm transition-all" type="button">
+          Xem hướng dẫn mẫu
+        </button>
+<button class="px-space-md py-2 rounded-lg bg-collocation-indigo text-on-primary hover:brightness-110 font-body-sm text-body-sm font-body-md-semibold shadow-sm transition-all" type="button">
+          Luyện tập ma trận từ
+        </button>
+</div>
+</div>
+</div>
+</div></main></div></body></html>

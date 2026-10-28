@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinearVocab LMS - English Vocabulary Learning</title>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet"/>
+    <!-- Material Symbols Outlined -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+    <!-- Tailwind CSS with Academic Design System Tokens -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "crimson-primary": "#E31E24",
+              "crimson-dark": "#B91C1C",
+              "surface-crimson-subtle": "#FEF2F2",
+              "surface-crimson-soft": "#FEE2E2",
+              "border-crimson-tint": "#FECACA",
+              "canvas-slate": "#F8FAFC",
+              "card-white": "#FFFFFF",
+              "slate-line": "#E2E8F0",
+              "text-high-contrast": "#0F172A",
+              "text-body": "#1E293B",
+              "text-muted": "#64748B",
+              "text-disabled": "#94A3B8",
+              "pos-noun-text": "#1D4ED8",
+              "pos-noun-bg": "#DBEAFE",
+              "pos-verb-text": "#B91C1C",
+              "pos-verb-bg": "#FEE2E2",
+              "pos-adj-text": "#15803D",
+              "pos-adj-bg": "#DCFCE7",
+              "pos-adv-text": "#6D28D9",
+              "pos-adv-bg": "#EDE9FE",
+              "collocation-indigo": "#4338CA",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-low": "#f0f3ff",
+              "surface-container": "#e7eeff",
+              "surface-container-high": "#dee8ff",
+              "surface-container-highest": "#d8e3fb",
+              "surface-variant": "#d8e3fb",
+              "primary": "#ba0013",
+              "on-primary": "#ffffff",
+            },
+            borderRadius: {
+              DEFAULT: "0.25rem",
+              lg: "0.5rem",
+              xl: "0.75rem",
+              "2xl": "1rem",
+              full: "9999px"
+            },
+            fontFamily: {
+              "body": ["Inter", "sans-serif"],
+              "headline": ["Plus Jakarta Sans", "sans-serif"],
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        color: #1E293B;
+        background-color: #F8FAFC;
+        margin: 0;
+        padding: 0;
+      }
+      h1, h2, h3, h4, .font-headline {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+      }
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #F1F5F9;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #CBD5E1;
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94A3B8;
+      }
+    </style>
+  </head>
+  <body class="bg-canvas-slate antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

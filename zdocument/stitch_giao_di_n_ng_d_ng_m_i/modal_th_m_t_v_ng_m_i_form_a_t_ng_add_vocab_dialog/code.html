@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-container":"#e8dddd","slate-line":"#E2E8F0","text-high-contrast":"#0F172A","collocation-indigo":"#4338CA","secondary-fixed-dim":"#cfc4c4","pos-verb-text":"#B91C1C","on-secondary":"#ffffff","on-background":"#111c2d","pos-noun-bg":"#DBEAFE","surface-container-lowest":"#ffffff","on-primary-container":"#fffafa","error":"#ba1a1a","pos-noun-text":"#1D4ED8","error-container":"#ffdad6","secondary-fixed":"#ebe0e0","primary-fixed":"#ffdad6","on-tertiary":"#ffffff","surface-crimson-subtle":"#FEF2F2","on-tertiary-fixed-variant":"#0039b5","tertiary-fixed":"#dce1ff","text-disabled":"#94A3B8","surface-container-high":"#dee8ff","outline":"#926f6b","on-primary-fixed":"#410002","tertiary":"#1b4dd7","on-error-container":"#93000a","inverse-primary":"#ffb4ab","surface-container":"#e7eeff","border-crimson-tint":"#FECACA","background":"#f9f9ff","primary-container":"#e31e24","tertiary-container":"#3f68f1","text-body":"#1E293B","tertiary-fixed-dim":"#b7c4ff","on-secondary-fixed-variant":"#4c4545","on-primary-fixed-variant":"#93000d","pos-adj-bg":"#DCFCE7","inverse-surface":"#263143","canvas-slate":"#F8FAFC","primary-fixed-dim":"#ffb4ab","card-white":"#FFFFFF","crimson-primary":"#E31E24","on-tertiary-container":"#fdfaff","surface-dim":"#cfdaf2","inverse-on-surface":"#ecf1ff","surface-tint":"#c00014","on-tertiary-fixed":"#001551","surface-container-highest":"#d8e3fb","on-secondary-fixed":"#201a1b","surface-container-low":"#f0f3ff","surface-variant":"#d8e3fb","pos-adv-bg":"#EDE9FE","outline-variant":"#e7bdb8","secondary":"#645c5d","pos-adj-text":"#15803D","surface":"#f9f9ff","pos-verb-bg":"#FEE2E2","surface-bright":"#f9f9ff","on-error":"#ffffff","surface-crimson-soft":"#FEE2E2","crimson-dark":"#B91C1C","on-primary":"#ffffff","text-muted":"#64748B","on-surface-variant":"#5d3f3c","on-secondary-container":"#696161","pos-adv-text":"#6D28D9","on-surface":"#111c2d","primary":"#ba0013"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"gutter-mobile":"0.75rem","space-sm":"0.5rem","space-xl":"2rem",margin:"2rem","space-xs":"0.25rem","space-md":"1rem","margin-mobile":"1rem","space-lg":"1.5rem",gutter:"1.25rem"},fontFamily:{"label-md":["Inter"],"body-md-semibold":["Inter"],"body-sm":["Inter"],"body-md":["Inter"],"headline-sm":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-lg":["Inter"],"display-lg":["Plus Jakarta Sans"],"label-uppercase":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],caption:["Inter"]},fontSize:{"label-md":["12px",{lineHeight:"16px",fontWeight:"600"}],"body-md-semibold":["14px",{lineHeight:"20px",fontWeight:"600"}],"body-sm":["13px",{lineHeight:"18px",fontWeight:"400"}],"body-md":["14px",{lineHeight:"20px",fontWeight:"400"}],"headline-sm":["16px",{lineHeight:"24px",fontWeight:"600"}],"headline-lg":["24px",{lineHeight:"32px",letterSpacing:"-0.015em",fontWeight:"700"}],"body-lg":["16px",{lineHeight:"24px",fontWeight:"400"}],"display-lg":["32px",{lineHeight:"40px",letterSpacing:"-0.02em",fontWeight:"700"}],"label-uppercase":["11px",{lineHeight:"14px",letterSpacing:"0.05em",fontWeight:"700"}],"headline-lg-mobile":["20px",{lineHeight:"28px",letterSpacing:"-0.01em",fontWeight:"700"}],"headline-md":["18px",{lineHeight:"26px",letterSpacing:"-0.01em",fontWeight:"600"}],caption:["10px",{lineHeight:"12px",fontWeight:"600"}]}}}};</script></head><body class="bg-canvas-slate font-body-md text-text-body antialiased"><aside class="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden"><div class="flex flex-col flex-1 overflow-y-auto"><div class="h-16 px-space-md flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.02)]"><div class="flex items-center gap-space-sm"><img alt="LinearVocab Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XzbjKXKOZ0H_95Ysqo44ZYbnrNeSln4u6SkHpKeqtR7O9EeyIXE27NYD3jKWkcWpqoMRS6Ams0dLpp_NUcKCL2dh5RVHiL2Egk4keaVWoCHREpGnQKjDj6nczl6xJm18eyjyFvDnxiA6TJ4Q6s6NuKp2bhQ0z614_h67Lyam175SMdJ9gn9PBcc-m9mLy0eR1KQwfnXPJwa636zNSWW4mzwf2GWbI-R3n1aOq9dM798OS03khqWi3Ec7w"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-text-high-contrast leading-none">LinearVocab</span><span class="font-caption text-caption text-text-muted mt-0.5">DOL METHODOLOGY LMS</span></div></div></div><div class="px-space-md py-space-sm flex flex-col gap-space-lg"><div class="flex flex-col gap-space-xs"><div class="px-space-xs py-space-xs"><span class="font-label-uppercase text-label-uppercase tracking-wider text-text-muted uppercase">VIEWS</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-crimson-subtle text-crimson-primary font-body-md-semibold rounded-lg"><a aria-current="page" class="flex items-center justify-between px-space-sm py-2 transition-colors bg-surface-crimson-subtle text-crimson-primary font-body-md-semibold rounded-lg" data-path="all-vocabulary" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">library_books</span><span class="font-body-md text-body-md">All Vocabulary</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark">Master</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="word-families" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[18px]">account_tree</span><span class="font-body-md text-body-md">Word Families</span></div></a></nav></div><div class="flex flex-col gap-space-xs"><div class="px-space-xs py-space-xs flex items-center justify-between"><span class="font-label-uppercase text-label-uppercase tracking-wider text-text-muted uppercase">READING LISTS</span><button class="w-5 h-5 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[16px]">add</span></button></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-crimson-subtle text-crimson-primary font-body-md-semibold rounded-lg"><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="reading-list-cambridge-18" href="#"><div class="flex items-center gap-space-sm truncate"><span class="material-symbols-outlined text-[18px] text-text-muted">article</span><span class="font-body-sm text-body-sm truncate">LIST 01 - Cambridge 18</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-canvas-slate text-text-muted">24</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="reading-list-business-article" href="#"><div class="flex items-center gap-space-sm truncate"><span class="material-symbols-outlined text-[18px] text-text-muted">article</span><span class="font-body-sm text-body-sm truncate">LIST 02 - Business Article</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-canvas-slate text-text-muted">15</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" data-path="reading-list-climate-change" href="#"><div class="flex items-center gap-space-sm truncate"><span class="material-symbols-outlined text-[18px] text-text-muted">article</span><span class="font-body-sm text-body-sm truncate">LIST 03 - Climate Change</span></div><span class="font-caption text-caption px-1.5 py-0.5 rounded-full bg-canvas-slate text-text-muted">19</span></a></nav></div><div class="flex flex-col gap-space-xs"><div class="px-space-xs py-space-xs"><span class="font-label-uppercase text-label-uppercase tracking-wider text-text-muted uppercase">CATEGORIES</span></div><div class="flex flex-wrap gap-1.5 px-space-xs pt-1"><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-crimson-subtle text-crimson-primary hover:bg-surface-crimson-soft transition-colors" type="button"><span class="font-label-md text-label-md">Người</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-crimson-dark">18</span></button><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-canvas-slate text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" type="button"><span class="font-label-md text-label-md">Văn phòng</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-text-muted">32</span></button><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-canvas-slate text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" type="button"><span class="font-label-md text-label-md">Finance</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-text-muted">14</span></button><button class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-canvas-slate text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary transition-colors" type="button"><span class="font-label-md text-label-md">IELTS Acad</span><span class="font-caption text-caption px-1 rounded-full bg-card-white text-text-muted">45</span></button></div></div></div></div><div class="p-space-md shadow-[0_-1px_8px_rgba(0,0,0,0.02)] bg-card-white"><div class="flex items-center justify-between"><div class="flex items-center gap-space-sm"><div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-surface-crimson-subtle text-crimson-primary"><span class="material-symbols-outlined text-[18px]">cloud_done</span><span class="absolute top-0 right-0 w-2 h-2 rounded-full bg-pos-adj-text"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md text-text-high-contrast">DOL Cloud Sync</span><span class="font-caption text-caption text-text-muted">Updated 2m ago</span></div></div><button class="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[18px]">sync</span></button></div></div></aside><div class="pl-[260px]"><header class="fixed top-0 left-[260px] right-0 h-16 bg-card-white/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 flex items-center justify-between px-space-lg gap-space-md"><div class="flex items-center flex-1 max-w-2xl gap-space-md"><div class="relative flex-1"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">search</span><input class="w-full h-10 pl-10 pr-space-md bg-canvas-slate rounded-lg text-body-sm font-body-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:bg-card-white shadow-[0_1px_3px_rgba(15,23,42,0.05)] transition-all" placeholder="Search vocabulary, patterns, collocations, or Vietnamese meanings..." type="text"/></div><div class="hidden xl:flex items-center gap-1.5 p-1 bg-canvas-slate rounded-lg"><button class="px-2.5 py-1 rounded font-label-md text-label-md bg-card-white text-crimson-primary shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all" type="button">All</button><button class="px-2.5 py-1 rounded font-label-md text-label-md text-pos-noun-text hover:bg-pos-noun-bg transition-colors" type="button">Noun (n)</button><button class="px-2.5 py-1 rounded font-label-md text-pos-verb-text hover:bg-pos-verb-bg transition-colors" type="button">Verb (v)</button><button class="px-2.5 py-1 rounded font-label-md text-pos-adj-text hover:bg-pos-adj-bg transition-colors" type="button">Adj (adj)</button><button class="px-2.5 py-1 rounded font-label-md text-pos-adv-text hover:bg-pos-adv-bg transition-colors" type="button">Adv (adv)</button></div></div><div class="flex items-center gap-space-sm"><button class="w-9 h-9 rounded-lg flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span></button><button class="w-9 h-9 rounded-lg flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">settings</span></button><div class="h-5 w-px bg-slate-line mx-1"></div><div class="flex items-center gap-space-sm pl-1"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.1)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="hidden md:flex flex-col text-left"><span class="font-label-md text-label-md text-text-high-contrast leading-tight">Lê Hoàng</span><span class="font-caption text-caption text-text-muted leading-tight">IELTS 8.5 Master</span></div></div></div></header><main class="relative pt-16 min-h-screen bg-canvas-slate"><div class="flex flex-col w-full relative">
+<!-- Background Dashboard Simulation (Content preview behind backdrop) -->
+<div class="p-space-lg flex flex-col gap-space-lg opacity-40 pointer-events-none select-none filter blur-[1px]">
+<!-- Top Action Bar -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-md">
+<span class="font-headline-lg text-headline-lg text-text-high-contrast">All Vocabulary</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark font-caption text-caption">128 Words</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<div class="h-10 px-4 rounded-lg bg-card-white shadow-sm flex items-center gap-2 text-text-muted font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+<span>Filter Status</span>
+</div>
+<div class="h-10 px-4 rounded-lg bg-crimson-primary text-on-primary font-body-md-semibold text-body-md-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>Add Vocabulary</span>
+</div>
+</div>
+</div>
+<!-- Dummy Table Layout -->
+<div class="rounded-xl bg-card-white shadow-sm overflow-hidden flex flex-col">
+<div class="grid grid-cols-12 bg-crimson-dark text-on-primary py-3 px-4 font-label-uppercase text-label-uppercase">
+<div class="col-span-3">Vocabulary / Word Family</div>
+<div class="col-span-2">Part of Speech</div>
+<div class="col-span-3">Vietnamese Meaning</div>
+<div class="col-span-3">Example Sentence</div>
+<div class="col-span-1 text-right">Actions</div>
+</div>
+<div class="divide-y divide-slate-line font-body-sm text-body-sm">
+<div class="grid grid-cols-12 py-4 px-4 items-center bg-card-white">
+<div class="col-span-3 font-body-md-semibold text-body-md-semibold text-text-high-contrast">fluctuate (/ˈflʌk.tʃu.eɪt/)</div>
+<div class="col-span-2"><span class="px-2 py-0.5 rounded-full bg-pos-verb-bg text-pos-verb-text font-caption text-caption">Verb</span></div>
+<div class="col-span-3 text-text-body">dao động, biến động bất thường</div>
+<div class="col-span-3 text-text-muted truncate">Prices fluctuate wildly throughout the year.</div>
+<div class="col-span-1 flex justify-end gap-1 text-text-muted">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</div>
+</div>
+<div class="grid grid-cols-12 py-4 px-4 items-center bg-canvas-slate">
+<div class="col-span-3 font-body-md-semibold text-body-md-semibold text-text-high-contrast">rigorous (/ˈrɪɡ.ər.əs/)</div>
+<div class="col-span-2"><span class="px-2 py-0.5 rounded-full bg-pos-adj-bg text-pos-adj-text font-caption text-caption">Adjective</span></div>
+<div class="col-span-3 text-text-body">nghiêm ngặt, chặt chẽ, khắt khe</div>
+<div class="col-span-3 text-text-muted truncate">A rigorous analysis revealed significant flaws.</div>
+<div class="col-span-1 flex justify-end gap-1 text-text-muted">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- BACKDROP OVERLAY & MODAL CONTAINER -->
+<div class="fixed inset-0 top-16 left-[260px] bg-slate-900/45 backdrop-blur-[2px] z-50 flex items-center justify-center p-space-md overflow-y-auto">
+<!-- Modal Card (1000px max width, modern elevated design) -->
+<div class="relative w-full max-w-[1000px] bg-card-white rounded-2xl shadow-[0_20px_35px_-10px_rgba(15,23,42,0.22)] flex flex-col my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+<!-- Top Red Accent Bar -->
+<div class="h-1.5 w-full bg-crimson-primary"></div>
+<!-- MODAL HEADER -->
+<div class="px-space-xl pt-space-lg pb-space-md flex items-start justify-between bg-card-white">
+<div class="flex items-start gap-space-md">
+<div class="w-11 h-11 rounded-xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary shadow-sm shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[24px]">menu_book</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm">
+<h2 class="font-headline-lg text-headline-lg text-text-high-contrast">Thêm Từ Vựng Mới (Add New Vocabulary)</h2>
+<span class="px-2 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark font-caption text-caption uppercase tracking-wider">LinearVocab™</span>
+</div>
+<p class="font-body-sm text-body-sm text-text-muted mt-1">
+              Thêm từ loại, cấu trúc pattern, collocation và gán vào bài đọc hoặc danh mục phù hợp theo phương pháp DOL.
+            </p>
+</div>
+</div>
+<button aria-label="Close dialog" class="w-9 h-9 rounded-lg flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-all cursor-pointer" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- SCROLLABLE BODY CONTENT -->
+<div class="px-space-xl py-space-md max-h-[calc(86vh-160px)] overflow-y-auto flex flex-col gap-space-xl bg-canvas-slate/40">
+<!-- SECTION 1: CORE WORD & METADATA -->
+<div class="p-space-lg rounded-xl bg-card-white shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-crimson-primary text-[20px]">font_download</span>
+<span class="font-headline-sm text-headline-sm text-text-high-contrast">1. Thông tin từ gốc &amp; Danh mục (Core &amp; Tags)</span>
+</div>
+<span class="font-caption text-caption text-text-muted">Các mục (*) là bắt buộc</span>
+</div>
+<!-- 3-Column Grid for Primary Inputs -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-space-md">
+<!-- Input 1: Vocabulary & Phonetic -->
+<div class="md:col-span-4 flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-high-contrast flex items-center justify-between">
+<span>Từ vựng tiếng Anh (Vocabulary) <span class="text-crimson-primary">*</span></span>
+<span class="font-caption text-caption text-text-muted">IPA auto</span>
+</label>
+<div class="relative flex items-center">
+<input class="w-full h-10 pl-3 pr-24 bg-card-white rounded-lg text-body-md-semibold font-body-md-semibold text-text-high-contrast shadow-sm focus:outline-none focus:bg-surface-crimson-subtle/30" type="text" value="lease"/>
+<div class="absolute right-2 flex items-center gap-1 px-2 py-1 rounded bg-canvas-slate text-text-muted font-caption text-caption">
+<span class="text-crimson-primary font-mono text-body-sm font-body-sm leading-none">/liːs/</span>
+<button class="hover:text-crimson-primary text-text-muted transition-colors" title="Nghe phát âm" type="button">
+<span class="material-symbols-outlined text-[16px]">volume_up</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Input 2: Word Family -->
+<div class="md:col-span-4 flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-high-contrast">
+                Word Family (Gia đình từ)
+              </label>
+<div class="min-h-10 p-1.5 rounded-lg bg-card-white shadow-sm flex flex-wrap items-center gap-1.5">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-crimson-subtle text-crimson-dark font-caption text-caption">
+<span>lessor (n)</span>
+<span class="material-symbols-outlined text-[13px] hover:text-crimson-primary cursor-pointer">close</span>
+</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-crimson-subtle text-crimson-dark font-caption text-caption">
+<span>lessee (n)</span>
+<span class="material-symbols-outlined text-[13px] hover:text-crimson-primary cursor-pointer">close</span>
+</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-crimson-subtle text-crimson-dark font-caption text-caption">
+<span>leasing (n)</span>
+<span class="material-symbols-outlined text-[13px] hover:text-crimson-primary cursor-pointer">close</span>
+</span>
+<input class="flex-1 min-w-[50px] h-6 px-1 text-body-sm font-body-sm bg-transparent outline-none placeholder:text-text-disabled" placeholder="+ thêm..." type="text"/>
+</div>
+</div>
+<!-- Input 3: Reading Note List -->
+<div class="md:col-span-4 flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-high-contrast flex items-center justify-between">
+<span>Thẻ bài đọc (Reading Note List)</span>
+<button class="text-crimson-primary font-caption text-caption hover:underline" type="button">+ Tạo thẻ mới</button>
+</label>
+<div class="relative">
+<select class="w-full h-10 pl-9 pr-8 bg-card-white rounded-lg text-body-sm font-body-sm text-text-high-contrast shadow-sm appearance-none focus:outline-none cursor-pointer">
+<option selected="">LIST 01 - Cambridge 18 Test 1 Pass 2</option>
+<option>LIST 02 - Business Article Harvard Review</option>
+<option>LIST 03 - Climate Change Solutions 2024</option>
+<option>IELTS Academic Writing Task 2 Vocab</option>
+</select>
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[18px]">article</span>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[18px] pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Input 4: Categories (Full Width) -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-high-contrast">
+              Danh mục (Categories) - Chọn nhiều chủ đề
+            </label>
+<div class="p-2.5 rounded-lg bg-canvas-slate shadow-inner flex flex-wrap items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-crimson-primary text-on-primary font-body-sm font-body-sm shadow-sm">
+<span class="material-symbols-outlined text-[14px]">check</span>
+<span>Từ vựng kinh doanh (Business)</span>
+<button class="hover:opacity-80 transition-opacity ml-0.5" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-crimson-primary text-on-primary font-body-sm font-body-sm shadow-sm">
+<span class="material-symbols-outlined text-[14px]">check</span>
+<span>Pháp lý &amp; Hợp đồng (Legal)</span>
+<button class="hover:opacity-80 transition-opacity ml-0.5" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<button class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-card-white text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle shadow-sm transition-all font-body-sm font-body-sm" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>Thêm danh mục</span>
+</button>
+<div class="flex items-center gap-1.5 ml-auto">
+<span class="px-2 py-0.5 rounded bg-card-white text-text-muted font-caption text-caption shadow-sm">Bất động sản (Real Estate)</span>
+<span class="px-2 py-0.5 rounded bg-card-white text-text-muted font-caption text-caption shadow-sm">Tài chính (Finance)</span>
+</div>
+</div>
+</div>
+<!-- General Note input -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-text-high-contrast flex items-center justify-between">
+<span>Ghi chú chung (General Pedagogical Note)</span>
+<span class="font-caption text-caption text-text-muted">Gợi ý nhớ từ / Context DOL</span>
+</label>
+<div class="relative">
+<input class="w-full h-9 pl-8 pr-3 bg-card-white rounded-lg text-body-sm font-body-sm text-text-body shadow-sm focus:outline-none focus:bg-surface-crimson-subtle/20" type="text" value="Từ quan trọng hay ra trong IELTS Reading Section 2"/>
+<span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[16px]">sticky_note_2</span>
+</div>
+</div>
+</div>
+<!-- SECTION 2: WORD FORMS & SENSES BUILDER -->
+<div class="rounded-xl bg-card-white shadow-sm overflow-hidden flex flex-col">
+<!-- Section Tab Bar -->
+<div class="px-space-lg pt-space-md bg-canvas-slate/80 flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-2">
+<button class="px-4 py-2.5 rounded-t-lg bg-card-white font-headline-sm text-headline-sm text-crimson-primary flex items-center gap-2 shadow-sm relative" type="button">
+<span class="w-2 h-2 rounded-full bg-crimson-primary"></span>
+<span>Form 1: Động từ (Verb)</span>
+<span class="px-1.5 py-0.2 rounded-full bg-surface-crimson-soft text-crimson-dark font-caption text-caption">2 senses</span>
+<!-- Active bottom highlight bar -->
+<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-crimson-primary"></div>
+</button>
+<button class="px-4 py-2.5 rounded-t-lg text-text-muted hover:text-text-high-contrast hover:bg-card-white/60 font-body-md-semibold text-body-md-semibold flex items-center gap-2 transition-all" type="button">
+<span>Form 2: Danh từ (Noun) [C]</span>
+<span class="px-1.5 py-0.2 rounded-full bg-canvas-slate text-text-muted font-caption text-caption">1 sense</span>
+</button>
+</div>
+<button class="inline-flex items-center gap-1.5 px-3 py-1.5 mb-1.5 rounded-lg bg-surface-crimson-subtle text-crimson-primary hover:bg-surface-crimson-soft font-body-sm font-body-sm transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[16px]">add_circle</span>
+<span class="font-body-md-semibold text-body-md-semibold">+ Thêm từ loại khác (Add Form)</span>
+</button>
+</div>
+<!-- Active Form Content Area -->
+<div class="p-space-lg flex flex-col gap-space-md bg-card-white">
+<!-- Form Header & Part of Speech Selector -->
+<div class="flex flex-wrap items-center justify-between gap-space-sm bg-surface-crimson-subtle/50 p-space-sm rounded-lg">
+<div class="flex items-center gap-space-sm">
+<span class="font-label-md text-label-md text-text-high-contrast">Từ loại được chọn:</span>
+<div class="relative">
+<select class="h-8 pl-3 pr-8 rounded-md bg-card-white text-crimson-dark font-body-md-semibold text-body-md-semibold shadow-sm appearance-none focus:outline-none cursor-pointer">
+<option selected="">Verb (Động từ) - v.</option>
+<option>Noun (Danh từ) - n.</option>
+<option>Adjective (Tính từ) - adj.</option>
+<option>Adverb (Phó từ) - adv.</option>
+<option>Preposition (Giới từ) - prep.</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-crimson-primary text-[16px] pointer-events-none">expand_more</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-pos-verb-bg text-pos-verb-text font-caption text-caption">
+                  Active Lexical Pattern
+                </span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-caption text-caption text-text-muted">Linear Syntax Matrix</span>
+<span class="material-symbols-outlined text-text-muted text-[16px]">account_tree</span>
+</div>
+</div>
+<!-- RELATIONAL SENSES TABLE -->
+<div class="rounded-xl overflow-hidden shadow-sm bg-card-white">
+<!-- Table Headers -->
+<div class="grid grid-cols-12 bg-crimson-primary text-on-primary py-2.5 px-3 font-label-uppercase text-label-uppercase tracking-wider">
+<div class="col-span-2 flex items-center gap-1">
+<span>Pattern / Cấu trúc</span>
+<span class="material-symbols-outlined text-[13px] opacity-75">alt_route</span>
+</div>
+<div class="col-span-2 flex items-center gap-1">
+<span>Collocation</span>
+<span class="material-symbols-outlined text-[13px] opacity-75">link</span>
+</div>
+<div class="col-span-2 flex items-center gap-1">
+<span>Synonym (Đồng nghĩa)</span>
+</div>
+<div class="col-span-2 flex items-center gap-1">
+<span>Nghĩa Tiếng Việt</span>
+</div>
+<div class="col-span-3 flex items-center gap-1">
+<span>Ví dụ &amp; Ghi chú (Example)</span>
+</div>
+<div class="col-span-1 text-center">
+<span>Xóa</span>
+</div>
+</div>
+<!-- Table Row 1 -->
+<div class="grid grid-cols-12 p-2.5 gap-2 items-start bg-card-white hover:bg-surface-crimson-subtle/30 transition-colors shadow-sm">
+<!-- Col 1: Pattern -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-canvas-slate text-body-sm font-body-sm text-collocation-indigo font-mono shadow-sm focus:outline-none focus:bg-card-white" type="text" value="+ sth from sb"/>
+</div>
+<!-- Col 2: Collocation -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-canvas-slate text-body-sm font-body-sm text-text-muted shadow-sm focus:outline-none focus:bg-card-white" type="text" value="-"/>
+</div>
+<!-- Col 3: Synonym -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-canvas-slate text-body-sm font-body-sm text-text-body shadow-sm focus:outline-none focus:bg-card-white" type="text" value="rent, hire"/>
+</div>
+<!-- Col 4: Nghĩa Tiếng Việt -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-canvas-slate text-body-sm-semibold font-body-md-semibold text-text-high-contrast shadow-sm focus:outline-none focus:bg-card-white" type="text" value="thuê, mướn từ ai đó"/>
+</div>
+<!-- Col 5: Example Textarea -->
+<div class="col-span-3">
+<textarea class="w-full p-1.5 rounded bg-canvas-slate text-body-sm font-body-sm text-text-body resize-none shadow-sm focus:outline-none focus:bg-card-white leading-tight" rows="2">They leased the land from local farmers.</textarea>
+</div>
+<!-- Col 6: Actions -->
+<div class="col-span-1 flex justify-center pt-1.5">
+<button class="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-soft transition-colors cursor-pointer" title="Xóa dòng này" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<!-- Table Row 2 -->
+<div class="grid grid-cols-12 p-2.5 gap-2 items-start bg-canvas-slate/50 hover:bg-surface-crimson-subtle/30 transition-colors shadow-sm">
+<!-- Col 1: Pattern -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-card-white text-body-sm font-body-sm text-collocation-indigo font-mono shadow-sm focus:outline-none focus:bg-card-white" type="text" value="+ sb sth"/>
+</div>
+<!-- Col 2: Collocation -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-card-white text-body-sm-semibold font-body-md-semibold text-collocation-indigo shadow-sm focus:outline-none focus:bg-card-white" type="text" value="lease out"/>
+</div>
+<!-- Col 3: Synonym -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-card-white text-body-sm font-body-sm text-text-muted shadow-sm focus:outline-none focus:bg-card-white" type="text" value="-"/>
+</div>
+<!-- Col 4: Nghĩa Tiếng Việt -->
+<div class="col-span-2">
+<input class="w-full h-8 px-2.5 rounded bg-card-white text-body-sm-semibold font-body-md-semibold text-text-high-contrast shadow-sm focus:outline-none focus:bg-card-white" type="text" value="cho ai đó thuê cái gì"/>
+</div>
+<!-- Col 5: Example Textarea -->
+<div class="col-span-3">
+<textarea class="w-full p-1.5 rounded bg-card-white text-body-sm font-body-sm text-text-body resize-none shadow-sm focus:outline-none focus:bg-card-white leading-tight" rows="2">The owner leased him the commercial unit.</textarea>
+</div>
+<!-- Col 6: Actions -->
+<div class="col-span-1 flex justify-center pt-1.5">
+<button class="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-soft transition-colors cursor-pointer" title="Xóa dòng này" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Add Row Action Button -->
+<button class="w-full py-2.5 rounded-lg bg-surface-crimson-subtle text-crimson-primary hover:bg-surface-crimson-soft flex items-center justify-center gap-2 font-body-md-semibold text-body-md-semibold shadow-sm transition-all cursor-pointer" type="button">
+<span class="material-symbols-outlined text-[18px]">add_circle_outline</span>
+<span>+ Thêm nét nghĩa / Pattern / Collocation mới (Add Meaning Row)</span>
+</button>
+</div>
+</div>
+</div>
+<!-- MODAL FOOTER -->
+<div class="px-space-xl py-space-md bg-card-white shadow-[0_-4px_12px_rgba(15,23,42,0.03)] flex flex-wrap items-center justify-between gap-space-md">
+<!-- Left Side: Toggle switch -->
+<label class="flex items-center gap-space-sm cursor-pointer select-none group">
+<div class="relative">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-10 h-5 bg-text-disabled rounded-full peer-checked:bg-crimson-primary peer-focus:outline-none transition-colors shadow-inner"></div>
+<div class="absolute left-0.5 top-0.5 bg-card-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
+</div>
+<div class="flex flex-col">
+<span class="font-body-sm-semibold font-body-md-semibold text-text-high-contrast text-body-sm group-hover:text-crimson-primary transition-colors">
+              Tự động phát hiện phiên âm &amp; audio từ từ điển Cambridge
+            </span>
+<span class="font-caption text-caption text-text-muted">Đồng bộ tự động chuẩn DOL LinearThinking LMS</span>
+</div>
+</label>
+<!-- Right Side: Secondary & Primary CTAs -->
+<div class="flex items-center gap-space-sm">
+<button class="px-5 py-2.5 rounded-lg bg-canvas-slate hover:bg-secondary-container text-text-body font-body-md-semibold text-body-md-semibold shadow-sm transition-all cursor-pointer" type="button">
+            Hủy bỏ (Cancel)
+          </button>
+<button class="px-6 py-2.5 rounded-lg bg-crimson-primary hover:bg-crimson-dark text-on-primary font-body-md-semibold text-body-md-semibold flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer" type="button">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span>Lưu Từ Vựng (Save Vocabulary)</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div></main></div></body></html>
