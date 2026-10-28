@@ -3,6 +3,7 @@ package com.dolvocab.app.service.impl;
 import com.dolvocab.app.dto.response.WordFamilyResponse;
 import com.dolvocab.app.entity.Vocabulary;
 import com.dolvocab.app.entity.WordFamily;
+import com.dolvocab.app.entity.enums.PartOfSpeech;
 import com.dolvocab.app.repository.WordFamilyRepository;
 import com.dolvocab.app.service.WordFamilyService;
 import lombok.RequiredArgsConstructor;
@@ -22,21 +23,31 @@ public class WordFamilyServiceImpl implements WordFamilyService {
     @Transactional(readOnly = true)
     public List<WordFamilyResponse> getAllWordFamilies() {
         List<WordFamily> families = wordFamilyRepository.findAll();
-        List<WordFamilyResponse> responses = new ArrayList<>();
+        return families.stream().map(this::mapToResponse).toList();
+    }
 
-        for (WordFamily wf : families) {
-            List<String> words = wf.getVocabularies().stream()
-                    .map(Vocabulary::getWord)
-                    .toList();
-
-            responses.add(WordFamilyResponse.builder()
-                    .id(wf.getId())
-                    .rootWord(wf.getRootWord())
-                    .description(wf.getDescription())
-                    .words(words)
-                    .build());
+    @Override
+    @Transactional(readOnly = true)
+    public List<WordFamilyResponse> searchWordFamilies(String keyword) {
+        List<WordFamily> families = wordFamilyRepository.findAll();
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return families.stream().map(this::mapToResponse).toList();
         }
-        return responses;
+
+        String q = keyword.trim().toLowerCase();
+        return families.stream()
+                .map(this::mapToResponse)
+                .filter(wf -> (wf.getRootWord() != null && wf.getRootWord().toLowerCase().contains(q)) ||
+                        (wf.getWords() != null && wf.getWords().stream().anyMatch(w -> w != null && w.toLowerCase().contains(q))))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WordFamilyResponse getWordFamilyById(Long id) {
+        WordFamily wf = wordFamilyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
+        return mapToResponse(wf);
     }
 
     @Override
@@ -53,5 +64,85 @@ public class WordFamilyServiceImpl implements WordFamilyService {
                                 .description(description)
                                 .build()
                 ));
+    }
+
+    @Override
+    @Transactional
+    public WordFamilyResponse createWordFamily(String rootWord, String description) {
+        WordFamily wf = getOrCreateWordFamily(rootWord, description);
+        return mapToResponse(wf);
+    }
+
+    @Override
+    @Transactional
+    public void deleteWordFamily(Long id) {
+        WordFamily wf = wordFamilyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
+
+        if (wf.getVocabularies() != null) {
+            for (Vocabulary v : wf.getVocabularies()) {
+                v.setWordFamily(null);
+            }
+        }
+        wordFamilyRepository.delete(wf);
+    }
+
+    private WordFamilyResponse mapToResponse(WordFamily wf) {
+        List<String> words = new ArrayList<>();
+        List<WordFamilyResponse.MemberVocabResponse> memberVocabs = new ArrayList<>();
+
+        if (wf.getVocabularies() != null) {
+            for (Vocabulary v : wf.getVocabularies()) {
+                words.add(v.getWord());
+
+                String pos = "v";
+                String posLabel = "Verb";
+                if (!v.getForms().isEmpty()) {
+                    pos = formatPosBadge(v.getForms().get(0).getPartOfSpeech());
+                    posLabel = formatPosLabel(v.getForms().get(0).getPartOfSpeech());
+                }
+
+                memberVocabs.add(WordFamilyResponse.MemberVocabResponse.builder()
+                        .id(v.getId())
+                        .word(v.getWord())
+                        .pos(pos)
+                        .posLabel(posLabel)
+                        .meaning(v.getMeaning())
+                        .phonetic(v.getPhonetic())
+                        .build());
+            }
+        }
+
+        return WordFamilyResponse.builder()
+                .id(wf.getId())
+                .rootWord(wf.getRootWord())
+                .description(wf.getDescription())
+                .words(words)
+                .memberVocabs(memberVocabs)
+                .build();
+    }
+
+    private String formatPosBadge(PartOfSpeech pos) {
+        if (pos == null) return "v";
+        return switch (pos) {
+            case N -> "n";
+            case V -> "v";
+            case ADJ -> "adj";
+            case ADV -> "adv";
+            case IDIOM -> "idiom";
+            default -> pos.name().toLowerCase();
+        };
+    }
+
+    private String formatPosLabel(PartOfSpeech pos) {
+        if (pos == null) return "Verb";
+        return switch (pos) {
+            case N -> "Noun";
+            case V -> "Verb";
+            case ADJ -> "Adjective";
+            case ADV -> "Adverb";
+            case IDIOM -> "Idioms";
+            default -> pos.getDescription();
+        };
     }
 }

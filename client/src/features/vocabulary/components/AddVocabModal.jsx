@@ -42,6 +42,16 @@ const POS_OPTIONS = [
     dotColor: 'bg-purple-600',
   },
   {
+    id: 'phrasal_verb',
+    label: 'Phrasal Verb (Cụm động từ)',
+    shortLabel: 'Phrasal Verb',
+    desc: 'Từ đồng nghĩa & Nhóm từ',
+    colorActive: 'bg-white text-teal-700 shadow-xs ring-2 ring-teal-500/25 border-teal-400 font-bold',
+    colorInactive: 'bg-slate-50/70 hover:bg-white text-teal-700 border-slate-200/90 hover:border-teal-200 font-semibold',
+    badgeColor: 'bg-teal-50 text-teal-800 border-teal-300',
+    dotColor: 'bg-teal-600',
+  },
+  {
     id: 'idiom',
     label: 'Idioms (Thành ngữ / Cụm từ)',
     shortLabel: 'Idioms',
@@ -61,67 +71,145 @@ export default function AddVocabModal({
   readingLists = [],
   categories = [],
   vocabList = [],
+  wordFamilies = [],
+  defaultCategory = null,
   onOpenAddReadingListModal,
+  onOpenAddCategoryModal,
 }) {
   // SECTION 1: Core Word & Metadata
   const [word, setWord] = useState('');
-  const [meaning, setMeaning] = useState('');
+  const [meanings, setMeanings] = useState(['']);
+  // Primary meaning (first item) for backward compatibility
+  const meaning = meanings[0] || '';
+
+  const handleAddMeaning = () => {
+    setMeanings((prev) => [...prev, '']);
+  };
+
+  const handleUpdateMeaning = (idx, val) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      copy[idx] = val;
+      return copy;
+    });
+  };
+
+  const handleRemoveMeaning = (idx) => {
+    setMeanings((prev) => {
+      if (prev.length <= 1) return [''];
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const [pos, setPos] = useState('v');
+  const hasPhonetic = pos !== 'idiom' && pos !== 'phrasal_verb';
   const [phonetic, setPhonetic] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
   const [isFetchingDict, setIsFetchingDict] = useState(false);
 
-  // Auto-fetch phonetic IPA and human audio MP3 from Free Dictionary API
+  const lastFetchedWordRef = useRef('');
+
+  // Auto-fetch phonetic IPA and human audio MP3 with multi-source fallback (skip for idiom and phrasal_verb)
   const fetchDictionaryData = async (wordToSearch) => {
+    if (!hasPhonetic) return;
     const query = (wordToSearch || word).trim();
     if (!query) return;
 
     setIsFetchingDict(true);
     try {
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(query)}`);
-      if (!res.ok) {
-        setIsFetchingDict(false);
-        return;
-      }
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const entry = data[0];
-        // 1. Extract standard IPA phonetic
-        let foundPhonetic = entry.phonetic || '';
-        if (!foundPhonetic && entry.phonetics && entry.phonetics.length > 0) {
-          const withText = entry.phonetics.find((p) => p.text && p.text.trim());
-          if (withText) foundPhonetic = withText.text;
-        }
-        if (foundPhonetic) {
-          setPhonetic(foundPhonetic.trim());
-        }
+      let foundPhonetic = '';
+      let foundAudio = '';
 
-        // 2. Extract human audio MP3
-        let foundAudio = '';
-        if (entry.phonetics && entry.phonetics.length > 0) {
-          const preferred = entry.phonetics.find(
-            (p) => p.audio && (p.audio.includes('-us.mp3') || p.audio.includes('-uk.mp3'))
-          );
-          if (preferred) {
-            foundAudio = preferred.audio;
-          } else {
-            const anyAudio = entry.phonetics.find((p) => p.audio && p.audio.trim().endsWith('.mp3'));
-            if (anyAudio) foundAudio = anyAudio.audio;
+      // 1. Try Free Dictionary API
+      try {
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            for (const item of data) {
+              if (item.phonetic && item.phonetic.trim()) {
+                foundPhonetic = item.phonetic.trim();
+                break;
+              }
+              if (item.phonetics && item.phonetics.length > 0) {
+                const withText = item.phonetics.find((p) => p.text && p.text.trim());
+                if (withText) {
+                  foundPhonetic = withText.text.trim();
+                  break;
+                }
+              }
+            }
+
+            for (const item of data) {
+              if (item.phonetics && item.phonetics.length > 0) {
+                const preferred = item.phonetics.find(
+                  (p) => p.audio && (p.audio.includes('-us.mp3') || p.audio.includes('-uk.mp3'))
+                );
+                if (preferred) {
+                  foundAudio = preferred.audio;
+                  break;
+                }
+                if (!foundAudio) {
+                  const anyAudio = item.phonetics.find((p) => p.audio && p.audio.trim().endsWith('.mp3'));
+                  if (anyAudio) foundAudio = anyAudio.audio;
+                }
+              }
+            }
           }
         }
-        if (foundAudio) {
-          setAudioUrl(foundAudio.trim());
+      } catch (err) {
+        console.warn('Free Dictionary API failed, trying Datamuse fallback:', err);
+      }
+
+      // 2. Fallback to Datamuse API if phonetic is not yet found
+      if (!foundPhonetic) {
+        try {
+          const dmRes = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(query)}&qe=sp&md=r&ipa=1`);
+          if (dmRes.ok) {
+            const dmData = await dmRes.json();
+            if (Array.isArray(dmData) && dmData.length > 0) {
+              const matched = dmData.find((d) => d.word.toLowerCase() === query.toLowerCase()) || dmData[0];
+              if (matched && matched.tags) {
+                const ipaTag = matched.tags.find((t) => t.startsWith('ipa_pron:'));
+                if (ipaTag) {
+                  const rawIpa = ipaTag.replace('ipa_pron:', '').trim();
+                  if (rawIpa) {
+                    foundPhonetic = `/${rawIpa}/`;
+                  }
+                }
+              }
+            }
+          }
+        } catch (dmErr) {
+          console.warn('Datamuse API fallback failed:', dmErr);
         }
       }
+
+      // 3. Fallback to high-quality native US audio if not found
+      if (!foundAudio && query) {
+        foundAudio = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(query)}&type=2`;
+      }
+
+      if (foundPhonetic) {
+        setPhonetic(foundPhonetic);
+        lastFetchedWordRef.current = query.toLowerCase();
+      }
+      if (foundAudio) {
+        setAudioUrl(foundAudio);
+      }
     } catch (err) {
-      console.warn('Free Dictionary API lookup failed:', err);
+      console.warn('Fetch dictionary error:', err);
     } finally {
       setIsFetchingDict(false);
     }
   };
-  const [pos, setPos] = useState('v');
   const [countability, setCountability] = useState('[C]');
-  const [wordFamilyInput, setWordFamilyInput] = useState('');
-  const [wordFamily, setWordFamily] = useState([]);
+  const [selectedWordFamilyId, setSelectedWordFamilyId] = useState(null);
+  const [selectedRootWord, setSelectedRootWord] = useState('');
+  const [wordFamilySearchInput, setWordFamilySearchInput] = useState('');
+  const [isFamilyDropdownOpen, setIsFamilyDropdownOpen] = useState(false);
+  const [hoveredFamily, setHoveredFamily] = useState(null);
+  const familyDropdownRef = useRef(null);
   const [selectedReadingList, setSelectedReadingList] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -149,19 +237,62 @@ export default function AddVocabModal({
       note: '',
     },
   ]);
+  const [phrasalVerbs, setPhrasalVerbs] = useState([
+    {
+      id: 301,
+      phrase: '',
+      meaning: '',
+      example: '',
+      note: '',
+    },
+  ]);
 
   // Populate form if editing, or reset if creating new
   useEffect(() => {
     if (!isOpen) return;
 
     if (initialVocab) {
+      lastFetchedWordRef.current = (initialVocab.word || '').trim().toLowerCase();
       setWord(initialVocab.word || '');
-      setMeaning(initialVocab.meaning || initialVocab.forms?.[0]?.meaning || '');
-      setPos(initialVocab.pos || initialVocab.forms?.[0]?.pos || 'v');
+      // Populate multiple meanings if available
+      if (Array.isArray(initialVocab.meanings) && initialVocab.meanings.length > 0) {
+        setMeanings(initialVocab.meanings);
+      } else if (initialVocab.meaning) {
+        const parts = initialVocab.meaning.includes(';')
+          ? initialVocab.meaning.split(';').map((s) => s.trim()).filter(Boolean)
+          : [initialVocab.meaning.trim()];
+        setMeanings(parts.length > 0 ? parts : ['']);
+      } else if (initialVocab.forms?.[0]?.meaning) {
+        setMeanings([initialVocab.forms[0].meaning.trim()]);
+      } else {
+        setMeanings(['']);
+      }
+      const currentPos = initialVocab.pos || initialVocab.forms?.[0]?.pos || 'v';
+      setPos(currentPos);
       setCountability(initialVocab.countability || initialVocab.forms?.[0]?.countability || '[C]');
-      setPhonetic(initialVocab.phonetic || '');
-      setAudioUrl(initialVocab.audioUrl || '');
-      setWordFamily(initialVocab.wordFamily || []);
+      if (currentPos === 'idiom' || currentPos === 'phrasal_verb') {
+        setPhonetic('');
+        setAudioUrl('');
+      } else {
+        setPhonetic(initialVocab.phonetic || '');
+        setAudioUrl(initialVocab.audioUrl || '');
+      }
+      if (initialVocab.wordFamilyId) {
+        setSelectedWordFamilyId(initialVocab.wordFamilyId);
+        setSelectedRootWord(initialVocab.rootWord || (initialVocab.wordFamily?.[0]) || '');
+      } else if (initialVocab.rootWord) {
+        setSelectedWordFamilyId(null);
+        setSelectedRootWord(initialVocab.rootWord);
+      } else if (Array.isArray(initialVocab.wordFamily) && initialVocab.wordFamily.length > 0) {
+        setSelectedWordFamilyId(null);
+        setSelectedRootWord(initialVocab.wordFamily[0].split(' ')[0]);
+      } else {
+        setSelectedWordFamilyId(null);
+        setSelectedRootWord('');
+      }
+      setWordFamilySearchInput('');
+      setIsFamilyDropdownOpen(false);
+      setHoveredFamily(null);
       setSelectedReadingList(initialVocab.readingListId || '');
       setSelectedCategories(initialVocab.categories || []);
 
@@ -194,7 +325,7 @@ export default function AddVocabModal({
       }
 
       const rawCollocations = (initialVocab.forms || []).filter(
-        (f) => Boolean(f.collocation && f.collocation.trim())
+        (f) => Boolean(f.collocation && f.collocation.trim() && f.type !== 'phrasal_verb')
       );
       if (rawCollocations.length > 0) {
         setCollocations(
@@ -217,17 +348,46 @@ export default function AddVocabModal({
           },
         ]);
       }
+
+      const rawPhrasalVerbs = (initialVocab.forms || []).filter(
+        (f) => f.type === 'phrasal_verb' || f.pos === 'phrasal_verb' || Boolean(f.phrase)
+      );
+      if (rawPhrasalVerbs.length > 0) {
+        setPhrasalVerbs(
+          rawPhrasalVerbs.map((pv, idx) => ({
+            id: Date.now() + 200 + idx,
+            phrase: pv.phrase || pv.collocation || pv.pattern || '',
+            meaning: pv.meaning || '',
+            example: pv.example || '',
+            note: pv.note || '',
+          }))
+        );
+      } else {
+        setPhrasalVerbs([
+          {
+            id: 301,
+            phrase: '',
+            meaning: '',
+            example: '',
+            note: '',
+          },
+        ]);
+      }
     } else {
       // Reset for creating new word
+      lastFetchedWordRef.current = '';
       setWord('');
-      setMeaning('');
+      setMeanings(['']);
       setPhonetic('');
       setAudioUrl('');
       setPos('v');
       setCountability('[C]');
-      setWordFamily([]);
-      setWordFamilyInput('');
-      setSelectedCategories([]);
+      setSelectedWordFamilyId(null);
+      setSelectedRootWord('');
+      setWordFamilySearchInput('');
+      setIsFamilyDropdownOpen(false);
+      setHoveredFamily(null);
+      setSelectedCategories(defaultCategory ? [defaultCategory] : []);
       setSynonyms('');
       setPatterns([
         {
@@ -247,19 +407,76 @@ export default function AddVocabModal({
           note: '',
         },
       ]);
+      setPhrasalVerbs([
+        {
+          id: 301,
+          phrase: '',
+          meaning: '',
+          example: '',
+          note: '',
+        },
+      ]);
       if (readingLists.length > 0) {
         setSelectedReadingList(readingLists[0].id);
       }
     }
-  }, [isOpen, initialVocab, readingLists]);
+  }, [isOpen, initialVocab, readingLists, defaultCategory]);
+
+  // Auto-fetch phonetic IPA and audio MP3 with 400ms debounce when user stops typing (skip for idiom and phrasal_verb)
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!hasPhonetic) {
+      setPhonetic('');
+      setAudioUrl('');
+      lastFetchedWordRef.current = '';
+      return;
+    }
+    const trimmed = word.trim();
+    if (!trimmed) {
+      if (!initialVocab) {
+        setPhonetic('');
+        setAudioUrl('');
+      }
+      lastFetchedWordRef.current = '';
+      return;
+    }
+
+    // Skip only if we already have phonetic and it's the exact same word
+    if (phonetic && trimmed.toLowerCase() === lastFetchedWordRef.current.toLowerCase()) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      fetchDictionaryData(trimmed);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [word, isOpen, phonetic, initialVocab, hasPhonetic]);
 
   // Check duplicate word in real-time
   const duplicateMatch = useMemo(() => {
-    if (!word.trim() || !vocabList?.length) return null;
-    return vocabList.find(
-      (v) => v.word.toLowerCase() === word.trim().toLowerCase()
+    const trimmedWord = word.trim().toLowerCase();
+    if (!trimmedWord || !vocabList?.length) return null;
+
+    return (
+      vocabList.find((v) => {
+        // If we are editing an existing vocab, ignore the item itself
+        if (initialVocab) {
+          const isSameId =
+            initialVocab.id != null &&
+            v.id != null &&
+            String(v.id) === String(initialVocab.id);
+          const isSameOriginalWord =
+            initialVocab.word &&
+            v.word?.trim().toLowerCase() === initialVocab.word.trim().toLowerCase();
+          if (isSameId || isSameOriginalWord) {
+            return false;
+          }
+        }
+        return v.word?.trim().toLowerCase() === trimmedWord;
+      }) || null
     );
-  }, [word, vocabList]);
+  }, [word, vocabList, initialVocab]);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -276,9 +493,15 @@ export default function AddVocabModal({
       ) {
         setIsReadingListDropdownOpen(false);
       }
+      if (
+        familyDropdownRef.current &&
+        !familyDropdownRef.current.contains(event.target)
+      ) {
+        setIsFamilyDropdownOpen(false);
+      }
     };
 
-    if (isCategoryDropdownOpen || isReadingListDropdownOpen) {
+    if (isCategoryDropdownOpen || isReadingListDropdownOpen || isFamilyDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
@@ -317,12 +540,12 @@ export default function AddVocabModal({
     synonyms,
     patterns,
     collocations,
+    phrasalVerbs,
     selectedReadingList,
     selectedCategories,
-    wordFamily,
+    selectedRootWord,
+    selectedWordFamilyId,
   ]);
-
-  if (!isOpen) return null;
 
   // Handle POS switch in Section 1
   const handleSelectPos = (newPos) => {
@@ -330,22 +553,73 @@ export default function AddVocabModal({
     if (newPos === 'n' && !countability) {
       setCountability('[C]');
     }
-  };
-
-  // Add word family chip
-  const handleAddWordFamily = (e) => {
-    if (e.key === 'Enter' && wordFamilyInput.trim()) {
-      e.preventDefault();
-      const trimmed = wordFamilyInput.trim();
-      if (!wordFamily.includes(trimmed)) {
-        setWordFamily([...wordFamily, trimmed]);
-      }
-      setWordFamilyInput('');
+    if (newPos === 'idiom' || newPos === 'phrasal_verb') {
+      setPhonetic('');
+      setAudioUrl('');
+      lastFetchedWordRef.current = '';
     }
   };
 
-  const handleRemoveWordFamily = (item) => {
-    setWordFamily(wordFamily.filter((wf) => wf !== item));
+  // Filter Word Families for search dropdown
+  const filteredWordFamilies = useMemo(() => {
+    if (!wordFamilies || wordFamilies.length === 0) return [];
+    const q = wordFamilySearchInput.trim().toLowerCase();
+    if (!q) return wordFamilies;
+
+    return wordFamilies.filter((wf) => {
+      const matchRoot = wf.rootWord?.toLowerCase().includes(q);
+      const matchWords = wf.words?.some((w) => w?.toLowerCase().includes(q));
+      const matchMembers = wf.memberVocabs?.some((m) => m.word?.toLowerCase().includes(q));
+      return matchRoot || matchWords || matchMembers;
+    });
+  }, [wordFamilies, wordFamilySearchInput]);
+
+  const handleSelectFamily = (family) => {
+    setSelectedWordFamilyId(family.id);
+    setSelectedRootWord(family.rootWord);
+    setWordFamilySearchInput('');
+    setIsFamilyDropdownOpen(false);
+    setHoveredFamily(null);
+  };
+
+  const handleCreateNewFamily = (text) => {
+    const trimmed = (text || wordFamilySearchInput).trim();
+    if (!trimmed) return;
+
+    const existing = wordFamilies.find(
+      (wf) => wf.rootWord?.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      setSelectedWordFamilyId(existing.id);
+      setSelectedRootWord(existing.rootWord);
+    } else {
+      setSelectedWordFamilyId(null);
+      setSelectedRootWord(trimmed);
+    }
+    setWordFamilySearchInput('');
+    setIsFamilyDropdownOpen(false);
+    setHoveredFamily(null);
+  };
+
+  const handleRemoveWordFamily = () => {
+    setSelectedWordFamilyId(null);
+    setSelectedRootWord('');
+    setWordFamilySearchInput('');
+    setIsFamilyDropdownOpen(false);
+    setHoveredFamily(null);
+  };
+
+  const handleWordFamilyInputKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (hoveredFamily) {
+        handleSelectFamily(hoveredFamily);
+      } else if (wordFamilySearchInput.trim()) {
+        handleCreateNewFamily(wordFamilySearchInput.trim());
+      }
+    } else if (e.key === 'Escape') {
+      setIsFamilyDropdownOpen(false);
+    }
   };
 
   // Toggle Category in Dropdown
@@ -405,6 +679,30 @@ export default function AddVocabModal({
     setCollocations(collocations.filter((c) => c.id !== colId));
   };
 
+  // --- PHRASAL VERBS HANDLERS ---
+  const handleAddPhrasalVerb = () => {
+    setPhrasalVerbs([
+      ...phrasalVerbs,
+      {
+        id: Date.now(),
+        phrase: word.trim() ? `${word.trim()} ` : '',
+        meaning: '',
+        example: '',
+        note: '',
+      },
+    ]);
+  };
+
+  const handleUpdatePhrasalVerb = (pvId, field, val) => {
+    setPhrasalVerbs(
+      phrasalVerbs.map((pv) => (pv.id === pvId ? { ...pv, [field]: val } : pv))
+    );
+  };
+
+  const handleDeletePhrasalVerb = (pvId) => {
+    setPhrasalVerbs(phrasalVerbs.filter((pv) => pv.id !== pvId));
+  };
+
   // Form submission
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
@@ -412,10 +710,12 @@ export default function AddVocabModal({
       alert('Vui lòng nhập Từ vựng tiếng Anh / Cụm từ!');
       return;
     }
-    if (!meaning.trim()) {
+    const validMeanings = meanings.map((m) => m.trim()).filter(Boolean);
+    if (validMeanings.length === 0) {
       alert('Vui lòng nhập Nghĩa của từ (nét nghĩa chung) ở Mục 1!');
       return;
     }
+    const compiledMeaning = validMeanings.join('; ');
 
     const currentOption = POS_OPTIONS.find((p) => p.id === pos);
     const posLabel = currentOption ? currentOption.shortLabel : 'Verb';
@@ -431,10 +731,47 @@ export default function AddVocabModal({
         pattern: '',
         collocation: '',
         synonym: synonyms?.trim() || '',
-        meaning: meaning.trim(),
+        meaning: compiledMeaning,
         example: '',
         note: '',
       });
+    } else if (pos === 'phrasal_verb') {
+      // 2. Phrasal Verb: Synonyms + Group of Phrasal Verbs
+      phrasalVerbs.forEach((pv) => {
+        const phraseClean = pv.phrase.trim();
+        if (phraseClean) {
+          compiledForms.push({
+            type: 'phrasal_verb',
+            pos: 'phrasal_verb',
+            posLabel: 'Phrasal Verb',
+            countability: null,
+            pattern: '',
+            collocation: '',
+            phrase: phraseClean,
+            synonym: synonyms?.trim() || '',
+            meaning: compiledMeaning,
+            example: (pv.example || '').trim(),
+            note: (pv.note || '').trim(),
+          });
+        }
+      });
+
+      // Fallback base form if user didn't enter specific phrasal verbs
+      if (compiledForms.length === 0) {
+        compiledForms.push({
+          type: 'phrasal_verb',
+          pos: 'phrasal_verb',
+          posLabel: 'Phrasal Verb',
+          countability: null,
+          pattern: '',
+          collocation: '',
+          phrase: word.trim(),
+          synonym: synonyms?.trim() || '',
+          meaning: compiledMeaning,
+          example: '',
+          note: '',
+        });
+      }
     } else if (pos === 'n') {
       // 2. Noun: Countability + Collocations only
       collocations.forEach((c) => {
@@ -447,7 +784,7 @@ export default function AddVocabModal({
             pattern: '',
             collocation: c.collocation.trim(),
             synonym: synonyms?.trim() || '',
-            meaning: c.meaning.trim() || meaning.trim(),
+            meaning: c.meaning.trim() || compiledMeaning,
             example: c.example.trim(),
             note: c.note.trim(),
           });
@@ -464,7 +801,7 @@ export default function AddVocabModal({
           pattern: '',
           collocation: '',
           synonym: synonyms?.trim() || '',
-          meaning: meaning.trim(),
+          meaning: compiledMeaning,
           example: '',
           note: '',
         });
@@ -481,7 +818,7 @@ export default function AddVocabModal({
             pattern: p.pattern.trim(),
             collocation: '',
             synonym: synonyms?.trim() || '',
-            meaning: p.meaning.trim() || meaning.trim(),
+            meaning: p.meaning.trim() || compiledMeaning,
             example: p.example.trim(),
             note: p.note.trim(),
           });
@@ -498,7 +835,7 @@ export default function AddVocabModal({
             pattern: '',
             collocation: c.collocation.trim(),
             synonym: synonyms?.trim() || '',
-            meaning: c.meaning.trim() || meaning.trim(),
+            meaning: c.meaning.trim() || compiledMeaning,
             example: c.example.trim(),
             note: c.note.trim(),
           });
@@ -515,7 +852,7 @@ export default function AddVocabModal({
           pattern: '',
           collocation: '',
           synonym: synonyms?.trim() || '',
-          meaning: meaning.trim(),
+          meaning: compiledMeaning,
           example: '',
           note: '',
         });
@@ -527,18 +864,15 @@ export default function AddVocabModal({
     const newVocab = {
       id: initialVocab?.id || Date.now(),
       word: word.trim(),
-      meaning: meaning.trim(),
-      phonetic: phonetic.trim() || `/${word.trim()}/`,
-      audioUrl: audioUrl.trim(),
+      meaning: compiledMeaning,
+      meanings: validMeanings,
+      phonetic: hasPhonetic ? (phonetic.trim() || `/${word.trim()}/`) : '',
+      audioUrl: hasPhonetic ? audioUrl.trim() : '',
       pos: pos,
       posLabel: posLabel,
-      countability: pos === 'n' ? countability : null,
-      wordFamily:
-        wordFamily.length > 0
-          ? wordFamily
-          : pos !== 'idiom'
-          ? [`${word.trim()} (${pos})`]
-          : [word.trim()],
+      wordFamilyId: selectedWordFamilyId || null,
+      rootWord: selectedRootWord ? selectedRootWord.trim() : null,
+      wordFamily: selectedRootWord ? [selectedRootWord.trim()] : [],
       readingListId: selectedReadingList,
       readingListName: matchedList
         ? matchedList.code || matchedList.shortTitle || matchedList.title
@@ -552,11 +886,17 @@ export default function AddVocabModal({
 
     // Reset form to fresh state
     setWord('');
-    setMeaning('');
+    setMeanings(['']);
+    setPhonetic('');
+    setAudioUrl('');
+    lastFetchedWordRef.current = '';
     setPos('v');
     setCountability('[C]');
-    setWordFamily([]);
-    setWordFamilyInput('');
+    setSelectedWordFamilyId(null);
+    setSelectedRootWord('');
+    setWordFamilySearchInput('');
+    setIsFamilyDropdownOpen(false);
+    setHoveredFamily(null);
     setSelectedCategories([]);
     setSynonyms('');
     setPatterns([
@@ -582,6 +922,8 @@ export default function AddVocabModal({
 
   // Helper info for current POS
   const currentPosConfig = POS_OPTIONS.find((p) => p.id === pos) || POS_OPTIONS[0];
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
@@ -661,8 +1003,8 @@ export default function AddVocabModal({
                   Từ loại (Part of Speech) <span className="text-crimson-primary">*</span>
                 </label>
 
-                {/* 5 POS Options Pills */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 pt-0.5">
+                {/* 6 POS Options Pills */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-0.5">
                   {POS_OPTIONS.map((opt) => {
                     const isActive = pos === opt.id;
                     return (
@@ -687,13 +1029,17 @@ export default function AddVocabModal({
               </div>
 
               {/* Field 2: Word or Phrase */}
-              <div className="md:col-span-6 flex flex-col gap-1.5">
+              <div className={`${hasPhonetic ? 'md:col-span-6' : 'md:col-span-12'} flex flex-col gap-1.5`}>
                 <label className="h-5 text-xs font-bold text-text-high-contrast flex items-center justify-between">
                   <span>
                     Từ vựng / Cụm từ tiếng Anh <span className="text-crimson-primary">*</span>
                   </span>
                   <span className="text-[11px] font-normal text-text-muted">
-                    {pos === 'idiom' ? 'e.g. on cloud nine, a hot potato' : 'e.g. lease, fluctuate, accountant'}
+                    {pos === 'idiom'
+                      ? 'e.g. on cloud nine, a hot potato'
+                      : pos === 'phrasal_verb'
+                      ? 'e.g. take, look, get (động từ gốc)'
+                      : 'e.g. lease, fluctuate, accountant'}
                   </span>
                 </label>
                 <div className="relative">
@@ -702,11 +1048,19 @@ export default function AddVocabModal({
                     value={word}
                     onChange={(e) => setWord(e.target.value)}
                     onBlur={() => {
-                      if (word.trim() && !phonetic) {
-                        fetchDictionaryData(word);
+                      if (!hasPhonetic) return;
+                      const trimmed = word.trim();
+                      if (trimmed && (!phonetic || trimmed.toLowerCase() !== lastFetchedWordRef.current.toLowerCase())) {
+                        fetchDictionaryData(trimmed);
                       }
                     }}
-                    placeholder={pos === 'idiom' ? 'Nhập thành ngữ hoặc cụm từ...' : 'Nhập từ vựng tiếng Anh...'}
+                    placeholder={
+                      pos === 'idiom'
+                        ? 'Nhập thành ngữ hoặc cụm từ...'
+                        : pos === 'phrasal_verb'
+                        ? 'Nhập động từ gốc (e.g. take, look, get)...'
+                        : 'Nhập từ vựng tiếng Anh...'
+                    }
                     className={`w-full h-11 pl-3.5 pr-8 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-sm font-semibold text-text-high-contrast border transition-all outline-none ${
                       duplicateMatch
                         ? 'border-amber-400 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'
@@ -722,6 +1076,7 @@ export default function AddVocabModal({
                         setWord('');
                         setPhonetic('');
                         setAudioUrl('');
+                        lastFetchedWordRef.current = '';
                       }}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                     >
@@ -739,140 +1094,176 @@ export default function AddVocabModal({
                 )}
               </div>
 
-              {/* Field 3: Phonetic IPA & Native Audio */}
-              <div className="md:col-span-6 flex flex-col gap-1.5">
-                <label className="h-5 text-xs font-bold text-text-high-contrast flex items-center justify-between">
-                  <span>Phiên âm IPA &amp; Audio</span>
-                  <span className="text-[11px] font-normal text-text-muted">
-                    {audioUrl ? 'Đã có audio bản xứ' : 'Tự động hoặc sửa trực tiếp'}
-                  </span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={phonetic}
-                    onChange={(e) => setPhonetic(e.target.value)}
-                    placeholder="e.g. /liːs/ hoặc gõ sửa trực tiếp..."
-                    className="w-full h-11 pl-3.5 pr-32 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-mono font-bold text-crimson-primary border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none"
-                  />
-                  {audioUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        try {
-                          new Audio(audioUrl).play();
-                        } catch (e) {
-                          console.error(e);
-                        }
-                      }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                      title="Nghe thử phát âm chuẩn người thật (.mp3)"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">volume_up</span>
-                      <span>Nghe thử bản xứ</span>
-                    </button>
-                  ) : (
-                    word.trim() && (
+              {/* Field 3: Phonetic IPA & Native Audio (Only for standard POS, omitted for idiom & phrasal_verb) */}
+              {hasPhonetic && (
+                <div className="md:col-span-6 flex flex-col gap-1.5">
+                  <label className="h-5 text-xs font-bold text-text-high-contrast flex items-center justify-between">
+                    <span>Phiên âm IPA &amp; Audio</span>
+                    {isFetchingDict ? (
+                      <span className="text-[11px] font-semibold text-crimson-primary flex items-center gap-1 animate-pulse">
+                        <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
+                        <span>Đang tra phiên âm...</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-normal text-text-muted">
+                        {audioUrl ? 'Đã có audio bản xứ' : 'Tự động hoặc sửa trực tiếp'}
+                      </span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={phonetic}
+                      onChange={(e) => setPhonetic(e.target.value)}
+                      placeholder={isFetchingDict ? 'Đang tự động lấy phiên âm...' : 'e.g. /liːs/ hoặc gõ sửa trực tiếp...'}
+                      className={`w-full h-11 pl-3.5 pr-32 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-mono font-bold text-crimson-primary border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none ${
+                        isFetchingDict ? 'border-crimson-primary/40 bg-red-50/20' : ''
+                      }`}
+                    />
+                    {isFetchingDict ? (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg bg-red-50 text-crimson-primary border border-red-200 text-[11px] font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                        <span>Đang tra...</span>
+                      </div>
+                    ) : audioUrl ? (
                       <button
                         type="button"
                         onClick={() => {
-                          if ('speechSynthesis' in window) {
-                            const u = new SpeechSynthesisUtterance(word.trim());
-                            u.lang = 'en-US';
-                            window.speechSynthesis.speak(u);
+                          try {
+                            new Audio(audioUrl).play();
+                          } catch (e) {
+                            console.error(e);
                           }
                         }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
-                        title="Phát âm qua giọng đọc máy (TTS)"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                        title="Nghe thử phát âm chuẩn người thật (.mp3)"
                       >
                         <span className="material-symbols-outlined text-[14px]">volume_up</span>
-                        <span>Phát âm (TTS)</span>
+                        <span>Nghe thử bản xứ</span>
                       </button>
-                    )
-                  )}
+                    ) : word.trim() ? (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {!phonetic && (
+                          <button
+                            type="button"
+                            onClick={() => fetchDictionaryData(word)}
+                            className="px-2 py-1 rounded-lg bg-red-50 text-crimson-primary hover:bg-red-100 border border-red-200 text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-0.5"
+                            title="Bấm để tra phiên âm ngay"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">search</span>
+                            <span>Tra IPA</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if ('speechSynthesis' in window) {
+                              const u = new SpeechSynthesisUtterance(word.trim());
+                              u.lang = 'en-US';
+                              window.speechSynthesis.speak(u);
+                            }
+                          }}
+                          className="px-2 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
+                          title="Phát âm qua giọng đọc máy (TTS)"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">volume_up</span>
+                          <span>TTS</span>
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              )}
 
 
-              {/* Field 4: CORE / GENERAL MEANING OF THE WORD */}
-              <div className="md:col-span-12 flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
-                  <span>
-                    Nghĩa của từ (Nét nghĩa chung) <span className="text-crimson-primary">*</span>
-                  </span>
-                  <span className="text-[11px] font-normal text-text-muted">
-                    Nét nghĩa tiếng Việt cơ bản của từ vựng / cụm từ này
-                  </span>
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-                    translate
-                  </span>
-                  <input
-                    type="text"
-                    value={meaning}
-                    onChange={(e) => setMeaning(e.target.value)}
-                    placeholder={
-                      pos === 'v'
-                        ? 'e.g. thuê, mướn tài sản (ngắn hạn hoặc dài hạn)'
-                        : pos === 'n'
-                        ? 'e.g. nhân viên kế toán, kiểm toán / hợp đồng thuê mướn'
-                        : pos === 'adj'
-                        ? 'e.g. có thể chịu trách nhiệm, đáng tin cậy'
-                        : pos === 'adv'
-                        ? 'e.g. một cách đáng kể, rõ rệt'
-                        : 'e.g. cực kỳ vui sướng, hạnh phúc ngập tràn'
-                    }
-                    className="w-full h-11 pl-10 pr-3.5 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-semibold text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none"
-                    required
-                  />
-                  {meaning && (
-                    <button
-                      type="button"
-                      onClick={() => setMeaning('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">cancel</span>
-                    </button>
-                  )}
+              {/* Field 4: CORE / GENERAL MEANING OF THE WORD (Supports multiple general meanings) */}
+              <div className="md:col-span-12 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-text-high-contrast flex items-center gap-1.5">
+                    <span>Nghĩa của từ (Nét nghĩa chung)</span>
+                    <span className="text-crimson-primary">*</span>
+                    {meanings.length > 1 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-crimson-primary border border-red-200">
+                        {meanings.length} nét nghĩa
+                      </span>
+                    )}
+                  </label>
+                  
+                  {/* Nút + Thêm nét nghĩa thay thế câu chữ tĩnh */}
+                  <button
+                    type="button"
+                    onClick={handleAddMeaning}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-crimson-primary bg-red-50 hover:bg-red-100/90 border border-red-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Bấm để thêm nét nghĩa thứ 2, thứ 3..."
+                  >
+                    <span className="material-symbols-outlined text-[16px] font-bold">add</span>
+                    <span>Thêm nét nghĩa</span>
+                  </button>
                 </div>
-              </div>
 
-              {/* Field 5: Word Family Tags */}
-              <div className="md:col-span-4 flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
-                  <span>Gia đình từ (Word Family)</span>
-                  <span className="text-[11px] font-normal text-text-muted">Nhấn Enter</span>
-                </label>
-                <div className="min-h-[46px] p-2 bg-slate-50/70 rounded-xl border border-slate-200 flex flex-wrap items-center gap-1.5 focus-within:border-crimson-primary focus-within:bg-white focus-within:ring-4 focus-within:ring-crimson-primary/10 transition-all">
-                  {wordFamily.map((item) => (
-                    <span
-                      key={item}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white text-xs font-medium text-text-body border border-slate-200/90 shadow-2xs group"
-                    >
-                      <span>{item}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveWordFamily(item)}
-                        className="text-slate-400 group-hover:text-crimson-primary hover:bg-slate-100 rounded p-0.5 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[13px] block">close</span>
-                      </button>
-                    </span>
+                <div className="flex flex-col gap-2">
+                  {meanings.map((m, idx) => (
+                    <div key={idx} className="flex items-center gap-2 animate-in fade-in duration-200">
+                      <div className="relative flex-1">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                          translate
+                        </span>
+                        {idx > 0 && (
+                          <span className="absolute left-9 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 text-slate-700">
+                            #{idx + 1}
+                          </span>
+                        )}
+                        <input
+                          type="text"
+                          value={m}
+                          onChange={(e) => handleUpdateMeaning(idx, e.target.value)}
+                          placeholder={
+                            idx === 0
+                              ? pos === 'v'
+                                ? 'e.g. thuê, mướn tài sản (ngắn hạn hoặc dài hạn)'
+                                : pos === 'n'
+                                ? 'e.g. nhân viên kế toán, kiểm toán / hợp đồng thuê mướn'
+                                : pos === 'adj'
+                                ? 'e.g. có thể chịu trách nhiệm, đáng tin cậy'
+                                : pos === 'adv'
+                                ? 'e.g. một cách đáng kể, rõ rệt'
+                                : 'e.g. cực kỳ vui sướng, hạnh phúc ngập tràn'
+                              : `Nhập nét nghĩa thứ ${idx + 1} (e.g. hợp đồng thuê mướn, sự biến động...)`
+                          }
+                          className={`w-full h-11 pr-8 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-semibold text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none ${
+                            idx > 0 ? 'pl-16' : 'pl-10'
+                          }`}
+                          required={idx === 0}
+                          autoFocus={idx > 0}
+                        />
+                        {m && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateMeaning(idx, '')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">cancel</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Nút xóa nét nghĩa bổ sung nếu có từ 2 nét nghĩa trở lên */}
+                      {idx > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMeaning(idx)}
+                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-crimson-primary border border-slate-200 hover:border-red-200 transition-all cursor-pointer shrink-0 shadow-2xs"
+                          title="Xóa nét nghĩa này"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      )}
+                    </div>
                   ))}
-                  <input
-                    type="text"
-                    value={wordFamilyInput}
-                    onChange={(e) => setWordFamilyInput(e.target.value)}
-                    onKeyDown={handleAddWordFamily}
-                    placeholder="+ Thêm từ (e.g. lessor)..."
-                    className="flex-1 min-w-[120px] bg-transparent text-xs px-2 py-1 outline-none text-text-high-contrast placeholder:text-slate-400"
-                  />
                 </div>
               </div>
-
-              {/* Field 6: Reading Note List Dropdown (Nằm giữa Word Family và Categories) */}
-              <div className="md:col-span-4 flex flex-col gap-1.5 relative" ref={readingListDropdownRef}>
+              {/* Field 5: Reading Note List Dropdown */}
+              <div className="md:col-span-6 flex flex-col gap-1.5 relative" ref={readingListDropdownRef}>
                 <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
                   <span>Gán vào thẻ List bài đọc</span>
                   {(() => {
@@ -1011,8 +1402,8 @@ export default function AddVocabModal({
                 )}
               </div>
 
-              {/* Field 7: Categories Dropdown */}
-              <div className="md:col-span-4 flex flex-col gap-1.5 relative" ref={categoryDropdownRef}>
+              {/* Field 6: Categories Dropdown */}
+              <div className="md:col-span-6 flex flex-col gap-1.5 relative" ref={categoryDropdownRef}>
                 <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
                   <span>Danh mục áp dụng (Categories)</span>
                   <span className="text-[11px] font-normal text-text-muted">
@@ -1059,6 +1450,18 @@ export default function AddVocabModal({
                     <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px]">
                       <span className="font-semibold text-slate-500">Danh sách danh mục</span>
                       <div className="flex items-center gap-2">
+                        {onOpenAddCategoryModal && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCategoryDropdownOpen(false);
+                              onOpenAddCategoryModal();
+                            }}
+                            className="text-crimson-primary hover:underline font-bold mr-1"
+                          >
+                            + Tạo mới
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setSelectedCategories(categories.map((c) => c.name))}
@@ -1077,32 +1480,255 @@ export default function AddVocabModal({
                       </div>
                     </div>
                     <div className="divide-y divide-slate-50">
-                      {categories.map((cat) => {
-                        const isSelected = selectedCategories.includes(cat.name);
-                        return (
-                          <label
-                            key={cat.id}
-                            className={`px-3.5 py-2.5 flex items-center gap-3 cursor-pointer transition-colors text-xs select-none ${
-                              isSelected
-                                ? 'bg-rose-50/50 hover:bg-rose-50/80 font-semibold text-text-high-contrast'
-                                : 'hover:bg-slate-50 text-slate-700'
-                            }`}
+                      {categories.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-text-muted">
+                          <p>Chưa có danh mục nào.</p>
+                          {onOpenAddCategoryModal && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCategoryDropdownOpen(false);
+                                onOpenAddCategoryModal();
+                              }}
+                              className="mt-1 text-crimson-primary font-bold hover:underline"
+                            >
+                              + Bấm vào đây để tạo
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        categories.map((cat) => {
+                          const isSelected = selectedCategories.includes(cat.name);
+                          return (
+                            <label
+                              key={cat.id}
+                              className={`px-3.5 py-2.5 flex items-center gap-3 cursor-pointer transition-colors text-xs select-none ${
+                                isSelected
+                                  ? 'bg-rose-50/50 hover:bg-rose-50/80 font-semibold text-text-high-contrast'
+                                  : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleCategory(cat.name)}
+                                className="w-4 h-4 rounded text-crimson-primary accent-crimson-primary border-slate-300 focus:ring-crimson-primary cursor-pointer"
+                              />
+                              <span 
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: cat.colorCode || '#E31E24' }}
+                              />
+                              <span className="flex-1">{cat.name}</span>
+                              {cat.count !== undefined && (
+                                <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-normal">
+                                  {cat.count} từ
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Field 7: Word Family Tags & Dropdown Search (Row riêng phía dưới) */}
+              <div className="md:col-span-12 flex flex-col gap-1.5 relative" ref={familyDropdownRef}>
+                <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span>Gia đình từ (Word Family)</span>
+                    <span className="text-[11px] font-normal text-text-muted">
+                      (Tùy chọn - để trống nếu không thuộc gia đình từ nào)
+                    </span>
+                  </div>
+                  <span className="text-[11px] font-normal text-text-muted">
+                    {selectedRootWord ? 'Đã gán cụm từ' : 'Nhập từ đại diện & Enter'}
+                  </span>
+                </label>
+
+                {/* Input box or Selected Chip */}
+                <div
+                  onClick={() => {
+                    if (!selectedRootWord) {
+                      setIsFamilyDropdownOpen(true);
+                    }
+                  }}
+                  className={`min-h-[46px] p-2 bg-slate-50/70 rounded-xl border flex flex-wrap items-center gap-1.5 transition-all cursor-text ${
+                    isFamilyDropdownOpen
+                      ? 'border-crimson-primary bg-white ring-4 ring-crimson-primary/10'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {selectedRootWord ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white text-xs font-bold text-text-high-contrast border border-slate-200/90 shadow-2xs group hover:border-slate-300 transition-colors">
+                      <span className="material-symbols-outlined text-[15px] text-crimson-primary">account_tree</span>
+                      <span className="text-crimson-primary font-bold">{selectedRootWord}</span>
+                      {selectedWordFamilyId && (
+                        <span className="text-[10px] font-medium text-text-muted bg-slate-100 px-1.5 py-0.2 rounded">
+                          Đã liên kết
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveWordFamily();
+                        }}
+                        title="Bỏ chọn Word Family (để trống)"
+                        className="text-slate-400 group-hover:text-crimson-primary hover:bg-slate-100 rounded p-0.5 transition-colors ml-0.5"
+                      >
+                        <span className="material-symbols-outlined text-[13px] block">close</span>
+                      </button>
+                    </span>
+                  ) : (
+                    <input
+                      type="text"
+                      value={wordFamilySearchInput}
+                      onChange={(e) => {
+                        setWordFamilySearchInput(e.target.value);
+                        if (!isFamilyDropdownOpen) setIsFamilyDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsFamilyDropdownOpen(true)}
+                      onKeyDown={handleWordFamilyInputKeyDown}
+                      placeholder="+ Nhập từ đại diện (ví dụ: account) hoặc tìm kiếm gia đình từ đang có..."
+                      className="flex-1 min-w-[240px] bg-transparent text-xs px-2 py-1 outline-none text-text-high-contrast placeholder:text-slate-400"
+                    />
+                  )}
+                </div>
+
+                {/* Dropdown Menu when searching / adding word family */}
+                {isFamilyDropdownOpen && !selectedRootWord && (
+                  <div className="absolute top-full left-0 w-full max-w-2xl mt-1.5 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 overflow-hidden animate-in fade-in duration-150">
+                    <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-slate-100 max-h-[320px]">
+                      {/* Left list: Existing word families matching search */}
+                      <div className="sm:w-3/5 p-2 flex flex-col gap-1 overflow-y-auto max-h-[280px]">
+                        <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center justify-between">
+                          <span>Gia đình từ ({filteredWordFamilies.length})</span>
+                          {wordFamilySearchInput.trim() && (
+                            <span className="text-crimson-primary font-normal lowercase truncate max-w-[120px]">
+                              "{wordFamilySearchInput.trim()}"
+                            </span>
+                          )}
+                        </div>
+
+                        {filteredWordFamilies.length === 0 ? (
+                          <div className="px-3 py-3 text-center text-xs text-text-muted">
+                            {wordFamilies.length === 0
+                              ? 'Chưa có cụm Word Family nào trong hệ thống.'
+                              : 'Không tìm thấy gia đình từ nào khớp.'}
+                          </div>
+                        ) : (
+                          filteredWordFamilies.map((wf) => {
+                            const isHovered = hoveredFamily?.id === wf.id;
+                            const memberCount = wf.memberVocabs?.length || wf.words?.length || 0;
+                            return (
+                              <div
+                                key={wf.id}
+                                onMouseEnter={() => setHoveredFamily(wf)}
+                                onClick={() => handleSelectFamily(wf)}
+                                className={`px-2.5 py-2 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors ${
+                                  isHovered
+                                    ? 'bg-surface-crimson-subtle text-crimson-primary font-bold'
+                                    : 'hover:bg-slate-50 text-text-high-contrast'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                  <span className="material-symbols-outlined text-[15px] text-crimson-primary shrink-0">
+                                    account_tree
+                                  </span>
+                                  <span className="truncate">{wf.rootWord}</span>
+                                  <span className="text-[10px] font-medium text-text-muted bg-slate-100 px-1.5 py-0.2 rounded shrink-0">
+                                    {memberCount} từ
+                                  </span>
+                                </div>
+                                <span className="material-symbols-outlined text-[14px] text-slate-400">
+                                  chevron_right
+                                </span>
+                              </div>
+                            );
+                          })
+                        )}
+
+                        {/* Option: Create new word family with typed word */}
+                        {wordFamilySearchInput.trim() && (
+                          <div
+                            onClick={() => handleCreateNewFamily(wordFamilySearchInput.trim())}
+                            className="mt-1 px-2.5 py-2 rounded-lg cursor-pointer bg-slate-50 hover:bg-surface-crimson-subtle border border-dashed border-slate-200 hover:border-crimson-primary/40 text-text-high-contrast hover:text-crimson-primary flex items-center gap-1.5 text-xs font-semibold transition-colors"
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleToggleCategory(cat.name)}
-                              className="w-4 h-4 rounded text-crimson-primary accent-crimson-primary border-slate-300 focus:ring-crimson-primary cursor-pointer"
-                            />
-                            <span className="flex-1">{cat.name}</span>
-                            {cat.count !== undefined && (
-                              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-normal">
-                                {cat.count} từ
+                            <span className="material-symbols-outlined text-[15px] text-crimson-primary">add_circle</span>
+                            <span className="truncate">
+                              Tạo gia đình từ mới: <strong className="text-crimson-primary font-bold">"{wordFamilySearchInput.trim()}"</strong>
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right list: Preview of words in hovered family */}
+                      <div className="sm:w-2/5 p-2.5 bg-slate-50/60 flex flex-col gap-1.5 overflow-y-auto max-h-[280px]">
+                        {hoveredFamily ? (
+                          <>
+                            <div className="flex items-center justify-between pb-1 border-b border-slate-200/80">
+                              <span className="text-[11px] font-bold text-crimson-primary uppercase truncate">
+                                {hoveredFamily.rootWord}
                               </span>
-                            )}
-                          </label>
-                        );
-                      })}
+                              <span className="text-[10px] font-semibold text-text-muted bg-white px-1.5 py-0.2 rounded border border-slate-200 shrink-0">
+                                {hoveredFamily.memberVocabs?.length || hoveredFamily.words?.length || 0} từ
+                              </span>
+                            </div>
+
+                            <span className="text-[10px] font-bold text-text-muted uppercase">Các từ trong family:</span>
+
+                            <div className="flex flex-col gap-1">
+                              {hoveredFamily.memberVocabs && hoveredFamily.memberVocabs.length > 0 ? (
+                                hoveredFamily.memberVocabs.map((m) => (
+                                  <div
+                                    key={m.id || m.word}
+                                    className="p-1.5 rounded-md bg-white border border-slate-200/80 text-[11px] shadow-2xs"
+                                  >
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="font-bold text-text-high-contrast truncate">{m.word}</span>
+                                      {m.pos && (
+                                        <span className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase shrink-0 ${
+                                          m.pos === 'v' ? 'bg-red-50 text-red-600' :
+                                          m.pos === 'n' ? 'bg-blue-50 text-blue-600' :
+                                          m.pos === 'adj' ? 'bg-emerald-50 text-emerald-600' :
+                                          'bg-purple-50 text-purple-600'
+                                        }`}>
+                                          {m.pos}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {m.meaning && (
+                                      <p className="text-[10px] text-text-muted mt-0.5 line-clamp-1">
+                                        {m.meaning}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))
+                              ) : hoveredFamily.words && hoveredFamily.words.length > 0 ? (
+                                hoveredFamily.words.map((w, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-xs font-medium text-text-body"
+                                  >
+                                    {w}
+                                  </span>
+                                ))
+                              ) : (
+                                <p className="text-[10px] text-text-muted italic">Chưa có từ nào</p>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-center p-3 text-text-muted">
+                            <span className="material-symbols-outlined text-xl text-slate-300 mb-1">touch_app</span>
+                            <p className="text-[10px] leading-relaxed">
+                              Rê chuột vào một gia đình từ để xem các từ đang có
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1129,6 +1755,7 @@ export default function AddVocabModal({
                     {pos === 'n' && 'Cấu trúc Danh từ: Tính đếm & Collocations'}
                     {pos === 'adj' && 'Cấu trúc Tính từ: Pattern & Collocations'}
                     {pos === 'adv' && 'Cấu trúc Trạng từ: Pattern & Collocations'}
+                    {pos === 'phrasal_verb' && 'Cấu trúc Phrasal Verb: Từ đồng nghĩa & Nhóm từ'}
                     {pos === 'idiom' && 'Cấu trúc Idioms (Thành ngữ / Cụm từ)'}
                   </h3>
                   <p className="text-[11px] text-slate-400">
@@ -1136,6 +1763,7 @@ export default function AddVocabModal({
                     {pos === 'n' && 'Danh từ xuất hiện mục Tính đếm (Countability) và Collocations.'}
                     {pos === 'adj' && 'Tính từ xuất hiện mục Pattern cấu trúc và Collocations.'}
                     {pos === 'adv' && 'Trạng từ xuất hiện mục Pattern cấu trúc và Collocations.'}
+                    {pos === 'phrasal_verb' && 'Cụm động từ: gồm từ đồng nghĩa và danh sách các cụm từ thuộc nhóm (ví dụ: take up, take off, take over... thuộc chữ take).'}
                     {pos === 'idiom' && 'Thành ngữ / Cụm từ không cần cấu trúc thêm Pattern hay Collocation.'}
                   </p>
                 </div>
@@ -1169,8 +1797,165 @@ export default function AddVocabModal({
               </div>
             )}
 
-            {/* CASES 2, 3, 4, 5: V, N, ADJ, ADV */}
-            {pos !== 'idiom' && (
+            {/* CASE 2: PHRASAL VERB (Chỉ 2 trường: Từ đồng nghĩa & Nhóm từ) */}
+            {pos === 'phrasal_verb' && (
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col gap-5 animate-in fade-in duration-150">
+                
+                {/* TRƯỜNG 1: TỪ ĐỒNG NGHĨA CHUNG (SYNONYMS) */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 pb-4 border-b border-slate-100">
+                  <span className="text-xs font-bold text-slate-700 shrink-0 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[17px] text-teal-600">sync_alt</span>
+                    <span>1. Từ đồng nghĩa (Synonyms):</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={synonyms}
+                    onChange={(e) => setSynonyms(e.target.value)}
+                    placeholder="e.g. assume, depart, adopt, occupy..."
+                    className="flex-1 h-9 px-3.5 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-medium text-slate-800 border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all outline-none"
+                  />
+                </div>
+
+                {/* TRƯỜNG 2: NHÓM TỪ (GROUP OF PHRASAL VERBS) */}
+                <div className="flex flex-col gap-3 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center border border-teal-200/80 shadow-2xs">
+                        <span className="material-symbols-outlined text-[16px]">extension</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-700">
+                            2. Nhóm từ (Phrasal Verbs Group)
+                          </span>
+                          <span className="px-2 py-0.2 rounded-full bg-teal-50 text-teal-700 text-[10px] font-bold border border-teal-200">
+                            {phrasalVerbs.length} cụm từ
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          Ví dụ: các từ như <strong className="text-teal-800 font-semibold">{word.trim() ? `${word.trim()} up, ${word.trim()} off, ${word.trim()} over` : 'take up, take off, take over'}</strong> sẽ được xếp chung thành 1 nhóm phrasal verb của chữ <strong className="text-crimson-primary">{word.trim() || 'take'}</strong>.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddPhrasalVerb}
+                      className="px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 hover:bg-teal-100 text-xs font-bold text-teal-700 shadow-2xs transition-all flex items-center gap-1 active:scale-[0.98] cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      <span>Thêm cụm từ vào nhóm</span>
+                    </button>
+                  </div>
+
+                  {/* List of Phrasal Verbs in this Group */}
+                  <div className="flex flex-col gap-3 pt-1">
+                    {phrasalVerbs.map((pv, pvIdx) => (
+                      <div
+                        key={pv.id}
+                        className="p-3.5 sm:p-4 rounded-xl bg-slate-50/50 hover:bg-white border border-slate-200/90 shadow-2xs flex flex-col gap-3 hover:border-teal-300 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-md bg-teal-50 text-teal-800 text-[11px] font-bold border border-teal-200/70">
+                              Cụm #{pvIdx + 1}
+                            </span>
+                            {pv.phrase && (
+                              <span className="text-xs font-bold font-mono text-teal-900">
+                                {pv.phrase}
+                              </span>
+                            )}
+                          </div>
+                          {phrasalVerbs.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePhrasalVerb(pv.id)}
+                              className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                              title="Xóa cụm từ này"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">delete</span>
+                              <span className="hidden sm:inline">Xóa</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Row 1: Cụm Phrasal Verb & Ghi chú ngữ cảnh */}
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                          <div className="md:col-span-6 flex flex-col gap-1">
+                            <label className="text-[11px] font-bold text-text-high-contrast flex items-center justify-between">
+                              <span>Cụm Phrasal Verb *</span>
+                              <span className="text-[10px] text-teal-600 font-normal">Cụm từ</span>
+                            </label>
+                            <div className="relative">
+                              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 text-[15px]">
+                                extension
+                              </span>
+                              <input
+                                type="text"
+                                value={pv.phrase}
+                                onChange={(e) =>
+                                  handleUpdatePhrasalVerb(pv.id, 'phrase', e.target.value)
+                                }
+                                placeholder={word.trim() ? `e.g. ${word.trim()} up, ${word.trim()} off...` : 'e.g. take up, take off...'}
+                                className="w-full h-9 pl-9 pr-3 bg-white rounded-lg text-xs font-semibold text-teal-900 border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="md:col-span-6 flex flex-col gap-1">
+                            <label className="text-[11px] font-medium text-slate-500">
+                              Ghi chú ngữ cảnh
+                            </label>
+                            <input
+                              type="text"
+                              value={pv.note}
+                              onChange={(e) =>
+                                handleUpdatePhrasalVerb(pv.id, 'note', e.target.value)
+                              }
+                              placeholder="e.g. take up + sth (time/space/hobby)"
+                              className="w-full h-9 px-3 bg-white rounded-lg text-xs text-text-body border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Row 2: Ví dụ thực tế cho cụm từ này */}
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[11px] font-medium text-slate-500">
+                            Ví dụ thực tế cho cụm từ này
+                          </label>
+                          <input
+                            type="text"
+                            value={pv.example}
+                            onChange={(e) =>
+                              handleUpdatePhrasalVerb(pv.id, 'example', e.target.value)
+                            }
+                            placeholder="e.g. He decided to take up swimming to improve his health."
+                            className="w-full h-8 px-3 bg-white rounded-lg text-xs text-text-body border border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all outline-none"
+                          />
+                        </div>
+                      </div>
+                    ))}
+
+                    {phrasalVerbs.length === 0 && (
+                      <div className="py-4 px-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/50 text-center flex items-center justify-center gap-2 text-xs text-slate-400">
+                        <span>Chưa có cụm từ nào trong nhóm.</span>
+                        <button
+                          type="button"
+                          onClick={handleAddPhrasalVerb}
+                          className="text-teal-700 font-bold hover:underline cursor-pointer"
+                        >
+                          + Thêm cụm từ đầu tiên
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* CASES 3, 4, 5, 6: V, N, ADJ, ADV */}
+            {pos !== 'idiom' && pos !== 'phrasal_verb' && (
               <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col gap-5">
                 
                 {/* --- COUNTABILITY BLOCK (Chỉ hiển thị cho NOUN) --- */}
@@ -1239,9 +2024,6 @@ export default function AddVocabModal({
                             <span className="text-xs font-bold text-text-high-contrast">
                               1. Mẫu Pattern cấu trúc (Grammar Patterns)
                             </span>
-                            <span className="px-2 py-0.2 rounded-full bg-white text-crimson-primary text-[10px] font-bold border border-border-crimson-tint">
-                              {patterns.length} pattern
-                            </span>
                           </div>
                           <p className="text-[11px] text-slate-500">
                             {pos === 'v' && 'Các cấu trúc ngữ pháp như: + sth from sb, + to V, + sb into doing sth...'}
@@ -1254,7 +2036,7 @@ export default function AddVocabModal({
                       <button
                         type="button"
                         onClick={handleAddPattern}
-                        className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-crimson-primary text-xs font-bold text-slate-700 hover:text-crimson-primary shadow-2xs transition-all flex items-center gap-1 active:scale-[0.98]"
+                        className="px-3 py-1.5 rounded-lg bg-white border border-red-200 hover:border-crimson-primary text-xs font-bold text-crimson-primary shadow-2xs transition-all flex items-center gap-1 active:scale-[0.98] cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[16px]">add</span>
                         <span>Thêm Pattern</span>
@@ -1409,9 +2191,6 @@ export default function AddVocabModal({
                           <span className="text-xs font-bold text-text-high-contrast">
                             {pos === 'n' ? 'Mục Collocations chuẩn (Cụm từ cố định)' : '2. Collocations chuẩn (Cụm từ cố định)'}
                           </span>
-                          <span className="px-2 py-0.2 rounded-full bg-white text-collocation-indigo text-[10px] font-bold border border-indigo-200">
-                            {collocations.length} collocation
-                          </span>
                         </div>
                         <p className="text-[11px] text-slate-500">
                           Mỗi collocation là cụm từ đi kèm có nghĩa tiếng Việt riêng biệt.
@@ -1422,7 +2201,7 @@ export default function AddVocabModal({
                     <button
                       type="button"
                       onClick={handleAddCollocation}
-                      className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 hover:border-collocation-indigo text-xs font-bold text-collocation-indigo shadow-2xs transition-all flex items-center gap-1 active:scale-[0.98]"
+                      className="px-3 py-1.5 rounded-lg bg-white border border-indigo-200 hover:border-collocation-indigo text-xs font-bold text-collocation-indigo shadow-2xs transition-all flex items-center gap-1 active:scale-[0.98] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[16px]">add</span>
                       <span>Thêm Collocation</span>
@@ -1582,7 +2361,7 @@ export default function AddVocabModal({
             ) : word.trim() && meaning.trim() ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold animate-in fade-in">
                 <span className="material-symbols-outlined text-[16px] text-emerald-600">check_circle</span>
-                <span>Hợp lệ — Sẵn sàng lưu vào hệ thống</span>
+                <span>{initialVocab ? 'Hợp lệ — Sẵn sàng cập nhật thay đổi' : 'Hợp lệ — Sẵn sàng lưu vào hệ thống'}</span>
               </div>
             ) : word.trim() ? (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold animate-in fade-in">

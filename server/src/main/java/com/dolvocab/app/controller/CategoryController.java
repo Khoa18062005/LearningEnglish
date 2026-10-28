@@ -32,4 +32,24 @@ public class CategoryController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tạo danh mục thành công", created));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<CategoryResponse>> getCategoryById(@PathVariable Long id) {
+        CategoryResponse category = categoryService.getCategoryById(id);
+        return ResponseEntity.ok(ApiResponse.success(category));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
+            @PathVariable Long id,
+            @Valid @RequestBody CategoryCreateRequest request) {
+        CategoryResponse updated = categoryService.updateCategory(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật danh mục thành công", updated));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable Long id) {
+        categoryService.deleteCategory(id);
+        return ResponseEntity.ok(ApiResponse.success("Xóa danh mục thành công", null));
+    }
 }

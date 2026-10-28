@@ -138,15 +138,21 @@ public class VocabularyServiceImpl implements VocabularyService {
 
     private void handleWordFamily(Vocabulary vocab, VocabCreateRequest request) {
         if (request.getWordFamilyId() != null) {
-            wordFamilyRepository.findById(request.getWordFamilyId()).ifPresent(vocab::setWordFamily);
+            wordFamilyRepository.findById(request.getWordFamilyId())
+                    .ifPresentOrElse(vocab::setWordFamily, () -> vocab.setWordFamily(null));
         } else if (request.getRootWord() != null && !request.getRootWord().trim().isEmpty()) {
             WordFamily wf = wordFamilyService.getOrCreateWordFamily(request.getRootWord().trim(), null);
             vocab.setWordFamily(wf);
         } else if (request.getWordFamily() != null && !request.getWordFamily().isEmpty()) {
-            // First item as representative root word
-            String first = request.getWordFamily().get(0).split(" ")[0].trim();
-            WordFamily wf = wordFamilyService.getOrCreateWordFamily(first, null);
-            vocab.setWordFamily(wf);
+            String first = request.getWordFamily().get(0).trim();
+            if (!first.isEmpty()) {
+                WordFamily wf = wordFamilyService.getOrCreateWordFamily(first, null);
+                vocab.setWordFamily(wf);
+            } else {
+                vocab.setWordFamily(null);
+            }
+        } else {
+            vocab.setWordFamily(null);
         }
     }
 
@@ -250,7 +256,9 @@ public class VocabularyServiceImpl implements VocabularyService {
             } else {
                 // Flat form item (pattern or collocation)
                 String pattern = item.getPattern();
-                String collocation = item.getCollocation();
+                String collocation = (item.getCollocation() != null && !item.getCollocation().trim().isEmpty())
+                        ? item.getCollocation()
+                        : item.getPhrase();
                 String synonyms = item.getSynonym() != null ? item.getSynonym() : item.getSynonyms();
                 String meaning = item.getMeaning() != null ? item.getMeaning() : "Chưa cập nhật nghĩa";
                 String note = item.getNote() != null ? item.getNote() : item.getUsageNote();
@@ -295,9 +303,9 @@ public class VocabularyServiceImpl implements VocabularyService {
             if (vocab.getWordFamily().getVocabularies() != null) {
                 wfList = new ArrayList<>(vocab.getWordFamily().getVocabularies().stream().map(Vocabulary::getWord).toList());
             }
-        }
-        if (wfList.isEmpty() || !wfList.contains(vocab.getWord())) {
-            wfList.add(vocab.getWord());
+            if (!wfList.contains(vocab.getWord())) {
+                wfList.add(vocab.getWord());
+            }
         }
 
         // Primary POS & countability from first form
@@ -324,8 +332,20 @@ public class VocabularyServiceImpl implements VocabularyService {
             List<VocabDetailResponse.VocabSenseResponse> domainSenses = new ArrayList<>();
 
             for (VocabSense sense : form.getSenses()) {
-                String type = (sense.getCollocation() != null && !sense.getCollocation().trim().isEmpty())
-                        ? "collocation" : "pattern";
+                boolean isFormPhrasal = form.getPartOfSpeech() == PartOfSpeech.PHRASAL_VERB;
+                String type;
+                if (isFormPhrasal) {
+                    type = "phrasal_verb";
+                } else {
+                    type = (sense.getCollocation() != null && !sense.getCollocation().trim().isEmpty())
+                            ? "collocation" : "pattern";
+                }
+
+                String phrase = isFormPhrasal
+                        ? (sense.getCollocation() != null && !sense.getCollocation().trim().isEmpty()
+                                ? sense.getCollocation()
+                                : sense.getPattern())
+                        : null;
 
                 List<String> examples = sense.getExamples().stream()
                         .map(VocabExample::getExampleSentence)
@@ -338,8 +358,9 @@ public class VocabularyServiceImpl implements VocabularyService {
                         .pos(formPos)
                         .posLabel(formPosLabel)
                         .countability(formCountability)
-                        .pattern(sense.getPattern() != null ? sense.getPattern() : "")
-                        .collocation(sense.getCollocation() != null ? sense.getCollocation() : "")
+                        .pattern(isFormPhrasal ? "" : (sense.getPattern() != null ? sense.getPattern() : ""))
+                        .collocation(isFormPhrasal ? "" : (sense.getCollocation() != null ? sense.getCollocation() : ""))
+                        .phrase(phrase)
                         .synonym(sense.getSynonyms() != null ? sense.getSynonyms() : "")
                         .meaning(sense.getVietnameseMeaning())
                         .example(exampleStr)
@@ -400,7 +421,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case "v", "verb" -> PartOfSpeech.V;
             case "adj", "adjective" -> PartOfSpeech.ADJ;
             case "adv", "adverb" -> PartOfSpeech.ADV;
-            case "phrasal_verb" -> PartOfSpeech.PHRASAL_VERB;
+            case "phrasal_verb", "phrasal-verb", "phrasal verb", "phrv", "phv" -> PartOfSpeech.PHRASAL_VERB;
             case "idiom", "idioms" -> PartOfSpeech.IDIOM;
             case "prep" -> PartOfSpeech.PREP;
             default -> {
@@ -431,6 +452,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case V -> "v";
             case ADJ -> "adj";
             case ADV -> "adv";
+            case PHRASAL_VERB -> "phrasal_verb";
             case IDIOM -> "idiom";
             default -> pos.name().toLowerCase();
         };
@@ -443,6 +465,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case V -> "Verb";
             case ADJ -> "Adjective";
             case ADV -> "Adverb";
+            case PHRASAL_VERB -> "Phrasal Verb";
             case IDIOM -> "Idioms";
             default -> pos.getDescription();
         };

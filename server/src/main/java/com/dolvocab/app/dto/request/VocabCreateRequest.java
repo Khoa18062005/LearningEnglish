@@ -64,6 +64,8 @@ public class VocabCreateRequest {
         private String countability;
         private String pattern;
         private String collocation;
+        @JsonAlias({"phrase", "phrasalVerb"})
+        private String phrase;
         private String synonym;
         private String synonyms;
 

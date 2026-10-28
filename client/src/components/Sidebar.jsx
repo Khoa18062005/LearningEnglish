@@ -11,6 +11,11 @@ export default function Sidebar({
   categories,
   onOpenAddModal,
   onOpenAddReadingListModal,
+  onOpenAddCategoryModal,
+  onEditCategory,
+  onDeleteCategory,
+  onEditReadingList,
+  onDeleteReadingList,
 }) {
   return (
     <aside className="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden border-r border-slate-line">
@@ -45,9 +50,13 @@ export default function Sidebar({
             <nav className="flex flex-col gap-1">
               <button
                 type="button"
-                onClick={() => { setCurrentView('master'); setSelectedReadingListId(null); }}
+                onClick={() => {
+                  setCurrentView('master');
+                  setSelectedReadingListId(null);
+                  setSelectedCategory(null);
+                }}
                 className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm font-medium ${
-                  currentView === 'master' && !selectedReadingListId
+                  currentView === 'master' && !selectedReadingListId && !selectedCategory
                     ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
                     : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                 }`}
@@ -63,7 +72,11 @@ export default function Sidebar({
 
               <button
                 type="button"
-                onClick={() => { setCurrentView('word-families'); setSelectedReadingListId(null); }}
+                onClick={() => {
+                  setCurrentView('word-families');
+                  setSelectedReadingListId(null);
+                  setSelectedCategory(null);
+                }}
                 className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm font-medium ${
                   currentView === 'word-families'
                     ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
@@ -103,24 +116,27 @@ export default function Sidebar({
                 </button>
               ) : (
                 readingLists.map((list) => {
-                  const isActive = selectedReadingListId === list.id;
+                  const isActive = currentView === 'reading-list' && selectedReadingListId === list.id;
                   const displayCode = list.code || list.shortTitle || 'LIST';
                   const displayTitle = list.title || '';
                   return (
-                    <button
+                    <div
                       key={list.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedReadingListId(list.id);
-                        setCurrentView('reading-list');
-                      }}
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm ${
+                      className={`group relative flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm ${
                         isActive
                           ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
                           : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 truncate flex-1 min-w-0 pr-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedReadingListId(list.id);
+                          setSelectedCategory(null);
+                          setCurrentView('reading-list');
+                        }}
+                        className="flex items-center gap-2.5 truncate flex-1 min-w-0 pr-1 text-left cursor-pointer"
+                      >
                         <span className={`material-symbols-outlined text-[18px] shrink-0 ${isActive ? 'text-crimson-primary' : 'text-text-muted'}`}>
                           article
                         </span>
@@ -134,11 +150,49 @@ export default function Sidebar({
                             </span>
                           )}
                         </div>
+                      </button>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Hover action buttons */}
+                        <div className="hidden group-hover:flex items-center gap-0.5">
+                          {onEditReadingList && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditReadingList(list);
+                              }}
+                              title="Chỉnh sửa danh sách bài đọc"
+                              className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                            </button>
+                          )}
+                          {onDeleteReadingList && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteReadingList(list.id);
+                              }}
+                              title="Xóa danh sách bài đọc"
+                              className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-white transition-colors cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
+                            </button>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                            isActive
+                              ? 'bg-surface-crimson-soft text-crimson-dark font-bold'
+                              : 'bg-slate-100 text-text-muted'
+                          }`}
+                        >
+                          {list.count || 0}
+                        </span>
                       </div>
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-text-muted shrink-0">
-                        {list.count || 0}
-                      </span>
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -149,73 +203,98 @@ export default function Sidebar({
           <div className="flex flex-col gap-1">
             <div className="px-2 py-1 flex items-center justify-between">
               <span className="text-[11px] font-bold tracking-wider text-text-muted uppercase">CATEGORIES</span>
-              <div className="flex items-center gap-1.5">
-                {selectedCategory && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCategory(null)}
-                    className="text-[10px] text-crimson-primary font-semibold hover:underline"
-                    title="Xóa bộ lọc danh mục"
-                  >
-                    Xóa lọc
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={onOpenAddModal}
-                  title="Thêm danh mục mới"
-                  className="w-5 h-5 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={onOpenAddCategoryModal || onOpenAddModal}
+                title="Thêm danh mục mới"
+                className="w-5 h-5 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+              </button>
             </div>
             <nav className="flex flex-col gap-1">
               {categories.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-text-muted/60 italic">
-                  Chưa có danh mục nào
-                </div>
+                <button
+                  type="button"
+                  onClick={onOpenAddCategoryModal || onOpenAddModal}
+                  className="px-3 py-2 text-xs text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle rounded-lg flex items-center gap-1.5 transition-colors group text-left w-full"
+                >
+                  <span className="material-symbols-outlined text-[15px] text-text-muted group-hover:text-crimson-primary">add_circle</span>
+                  <span className="italic">Chưa có danh mục (Bấm để thêm)</span>
+                </button>
               ) : (
                 categories.map((cat) => {
-                  const isSelected = selectedCategory === cat.name;
+                  const isSelected = currentView === 'category' && selectedCategory === cat.name;
                   return (
-                    <button
+                    <div
                       key={cat.id}
-                      type="button"
-                      onClick={() => {
-                        const nextCat = isSelected ? null : cat.name;
-                        setSelectedCategory(nextCat);
-                        if (nextCat) {
-                          setCurrentView('master');
-                          setSelectedReadingListId(null);
-                        }
-                      }}
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm ${
+                      className={`group relative flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors text-left text-sm ${
                         isSelected
                           ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
                           : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 truncate">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory(cat.name);
+                          setSelectedReadingListId(null);
+                          setCurrentView('category');
+                        }}
+                        className="flex items-center gap-2 truncate flex-1 min-w-0 pr-1 text-left cursor-pointer"
+                      >
                         <span
-                          className={`material-symbols-outlined text-[18px] ${
+                          className={`material-symbols-outlined text-[18px] shrink-0 ${
                             isSelected ? 'text-crimson-primary' : 'text-text-muted'
                           }`}
+                          style={!isSelected && cat.colorCode ? { color: cat.colorCode } : {}}
                         >
                           label
                         </span>
                         <span className="text-[13px] truncate">{cat.name}</span>
+                      </button>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Hover action buttons */}
+                        <div className="hidden group-hover:flex items-center gap-0.5">
+                          {onEditCategory && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditCategory(cat);
+                              }}
+                              title="Chỉnh sửa danh mục"
+                              className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                            </button>
+                          )}
+                          {onDeleteCategory && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteCategory(cat);
+                              }}
+                              title="Xóa danh mục"
+                              className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-white transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
+                            </button>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                            isSelected
+                              ? 'bg-surface-crimson-soft text-crimson-dark font-bold'
+                              : 'bg-slate-100 text-text-muted'
+                          }`}
+                        >
+                          {cat.count || 0}
+                        </span>
                       </div>
-                      <span
-                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                          isSelected
-                            ? 'bg-surface-crimson-soft text-crimson-dark font-bold'
-                            : 'bg-slate-100 text-text-muted'
-                        }`}
-                      >
-                        {cat.count || 0}
-                      </span>
-                    </button>
+                    </div>
                   );
                 })
               )}

@@ -11,9 +11,20 @@ export default function ReadingListView({
   onDeleteReadingList,
   onUpdateReadingList,
   searchTerm = '',
+  setSearchTerm,
   selectedPos = 'all',
+  setSelectedPos,
 }) {
-  const [viewMode, setViewMode] = React.useState('cards');
+  const posOptions = [
+    { id: 'all', label: 'Tất cả', colorClass: 'text-text-body' },
+    { id: 'n', label: 'Danh từ (N)', colorClass: 'text-pos-noun-text hover:bg-pos-noun-bg' },
+    { id: 'v', label: 'Động từ (V)', colorClass: 'text-pos-verb-text hover:bg-pos-verb-bg' },
+    { id: 'adj', label: 'Tính từ (Adj)', colorClass: 'text-pos-adj-text hover:bg-pos-adj-bg' },
+    { id: 'adv', label: 'Trạng từ (Adv)', colorClass: 'text-pos-adv-text hover:bg-pos-adv-bg' },
+    { id: 'phrasal_verb', label: 'Cụm ĐT (Phrasal Verb)', colorClass: 'text-teal-700 hover:bg-teal-50' },
+    { id: 'idiom', label: 'Cụm từ (Idioms)', colorClass: 'text-amber-800 hover:bg-amber-50' },
+  ];
+
   const [showPassage, setShowPassage] = React.useState(Boolean(readingList?.passage));
   const [isEditing, setIsEditing] = React.useState(false);
   const [editCode, setEditCode] = React.useState(readingList?.code || readingList?.shortTitle || '');
@@ -136,47 +147,6 @@ export default function ReadingListView({
     return true;
   });
 
-  const getPosBadge = (pos, countability) => {
-    switch (pos) {
-      case 'n':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-pos-noun-bg text-pos-noun-text font-bold text-xs">
-            <span>(n)</span>
-            {countability && <span className="text-[10px] opacity-80">{countability}</span>}
-          </span>
-        );
-      case 'v':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-pos-verb-bg text-pos-verb-text font-bold text-xs">
-            (v)
-          </span>
-        );
-      case 'adj':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-pos-adj-bg text-pos-adj-text font-bold text-xs">
-            (adj)
-          </span>
-        );
-      case 'idiom':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-xs border border-amber-300">
-            (idiom)
-          </span>
-        );
-      case 'adv':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-pos-adv-bg text-pos-adv-text font-bold text-xs">
-            (adv)
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-bold text-xs">
-            {pos}
-          </span>
-        );
-    }
-  };
 
   const totalCollocationsCount = listWords.reduce(
     (acc, w) => acc + w.forms.filter((f) => f.type === 'collocation' || (f.collocation && !f.pattern)).length,
@@ -480,326 +450,91 @@ export default function ReadingListView({
           </section>
         )}
 
-        {/* VIEW MODE CONTROL TOOLBAR */}
+        {/* SEARCH & POS FILTERS TOOLBAR */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <h2 className="font-headline text-base font-extrabold text-text-high-contrast tracking-tight">
-              Danh sách từ vựng
-            </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200">
-              {listWords.length} từ
+          {/* Search Input (Bên trái) */}
+          <div className="relative flex-1 min-w-[240px] max-w-sm">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[19px]">
+              search
             </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
-            <button
-              type="button"
-              onClick={() => setViewMode('cards')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'cards'
-                  ? 'bg-white text-crimson-primary shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Xem dạng thẻ chi tiết (Card view)"
-            >
-              <span className="material-symbols-outlined text-[16px]">view_agenda</span>
-              <span>Dạng thẻ (Card)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white text-crimson-primary shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Xem dạng bảng ma trận (Table view)"
-            >
-              <span className="material-symbols-outlined text-[16px]">table_rows</span>
-              <span>Bảng ma trận</span>
-            </button>
-          </div>
-        </div>
-
-        {/* VIEW MODE: CARDS */}
-        {viewMode === 'cards' ? (
-          <div className="flex flex-col gap-4">
-            {listWords.map((item) => (
-              <VocabCard
-                key={item.id}
-                vocab={item}
-                onPronounce={onPronounce}
-                onEdit={onEditVocab}
-                onDelete={onDeleteVocab}
-                showReadingList={false}
-              />
-            ))}
-
-            {listWords.length === 0 && (
-              <div className="p-14 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
-                  <span className="material-symbols-outlined text-[28px]">article</span>
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-text-high-contrast">
-                    Chưa có từ vựng nào trong danh sách này
-                  </p>
-                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                    Bấm nút &ldquo;Thêm từ vào List này&rdquo; phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onOpenAddModal}
-                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">add</span>
-                  <span>Thêm từ vào List này</span>
-                </button>
-              </div>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm && setSearchTerm(e.target.value)}
+              placeholder="Tìm kiếm từ vựng, pattern, collocation, nghĩa..."
+              className="w-full h-10 pl-9 pr-8 bg-white rounded-xl text-xs text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:ring-2 focus:ring-crimson-primary/20 border border-slate-200/90 focus:border-crimson-primary shadow-xs transition-all"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm && setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-high-contrast text-xs cursor-pointer"
+                title="Xóa tìm kiếm"
+              >
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
             )}
           </div>
-        ) : (
-          /* VIEW MODE: TABLE */
-        <div className="bg-white rounded-xl border border-slate-line/80 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-line text-[11px] font-bold text-text-muted uppercase tracking-wider">
-                  <th className="py-3.5 px-4 w-[18%]">TỪ VỰNG</th>
-                  <th className="py-3.5 px-3 w-[10%]">TỪ LOẠI</th>
-                  <th className="py-3.5 px-3 w-[28%]">MẪU CẤU TRÚC / COLLOCATION</th>
-                  <th className="py-3.5 px-3 w-[14%]">TỪ ĐỒNG NGHĨA</th>
-                  <th className="py-3.5 px-4 w-[30%]">NGHĨA TIẾNG VIỆT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {listWords.map((item) => {
-                  // Calculate total rows: each form takes 1 row for main data, plus 1 row for note/example if present
-                  const totalRows = item.forms.reduce(
-                    (acc, f) => acc + (f.note || f.example ? 2 : 1),
-                    0
-                  );
 
-                  let isFirstRowOfWord = true;
-
-                  return item.forms.map((form, fIdx) => {
-                    const renderWordCell = isFirstRowOfWord;
-                    isFirstRowOfWord = false;
-                    const hasSubRow = Boolean(form.note || form.example);
-
-                    const isColloc =
-                      form.type === 'collocation' ||
-                      (!form.pattern && Boolean(form.collocation));
-                    const isPatt =
-                      form.type === 'pattern' ||
-                      (Boolean(form.pattern) && !form.collocation);
-
-                    return (
-                      <React.Fragment key={`${item.id}-form-${fIdx}`}>
-                        {/* Main Sense Row */}
-                        <tr
-                          className={`hover:bg-red-50/15 transition-colors ${
-                            renderWordCell ? 'border-t-2 border-slate-100' : ''
-                          } ${!hasSubRow ? 'border-b border-slate-line/80' : ''}`}
-                        >
-                          {/* Vocab Word Cell (Rendered on first row, spans totalRows) */}
-                          {renderWordCell && (
-                            <td
-                              rowSpan={totalRows}
-                              className="py-4 px-4 align-top border-r border-slate-line/60 bg-white"
-                            >
-                              <div className="flex flex-col gap-1.5 sticky top-4">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-headline font-extrabold text-base text-text-high-contrast tracking-tight">
-                                    {item.word}
-                                  </span>
-                                  {onEditVocab && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onEditVocab(item)}
-                                      title="Chỉnh sửa từ vựng này"
-                                      className="w-6 h-6 rounded-full bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">edit</span>
-                                    </button>
-                                  )}
-                                  {onDeleteVocab && (
-                                    <button
-                                      type="button"
-                                      onClick={() => onDeleteVocab(item.id)}
-                                      title="Xóa từ vựng này khỏi hệ thống"
-                                      className="w-6 h-6 rounded-full bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-400 flex items-center justify-center transition-all cursor-pointer"
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">delete</span>
-                                    </button>
-                                  )}
-                                </div>
-
-                                {item.categories && item.categories.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-0.5">
-                                    {item.categories.map((cat, cIdx) => (
-                                      <span
-                                        key={cIdx}
-                                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600"
-                                      >
-                                        {cat}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          )}
-
-                          {/* Từ loại */}
-                          <td className="py-3 px-3 align-middle">
-                            {getPosBadge(form.pos, form.countability)}
-                          </td>
-
-                          {/* Mẫu cấu trúc / Collocation */}
-                          <td className="py-3 px-3 align-middle">
-                            {isColloc && (
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                                  <span className="material-symbols-outlined text-[12px]">hub</span>
-                                  Collocation
-                                </span>
-                                <span className="text-[12px] font-bold text-collocation-indigo bg-indigo-50/70 px-2 py-0.5 rounded border border-indigo-100">
-                                  {form.collocation}
-                                </span>
-                              </div>
-                            )}
-
-                            {isPatt && (
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/80">
-                                  <span className="material-symbols-outlined text-[12px]">account_tree</span>
-                                  Pattern
-                                </span>
-                                <span className="font-mono text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                  {form.pattern}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Legacy fallback if both exist */}
-                            {!isColloc && !isPatt && form.pattern && form.collocation && (
-                              <div className="flex flex-col gap-1.5">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Pattern</span>
-                                  <span className="font-mono text-[11px] font-semibold text-slate-800">{form.pattern}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Colloc</span>
-                                  <span className="text-[11px] font-semibold text-collocation-indigo">{form.collocation}</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {!isColloc && !isPatt && !form.pattern && !form.collocation && (
-                              form.type === 'idiom' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
-                                  <span className="material-symbols-outlined text-[12px]">auto_stories</span>
-                                  Idiom / Cụm từ
-                                </span>
-                              ) : (
-                                <span className="text-text-disabled italic">—</span>
-                              )
-                            )}
-                          </td>
-
-                          {/* Từ đồng nghĩa */}
-                          <td className="py-3 px-3 align-middle text-text-muted text-[11px]">
-                            {form.synonym || <span className="text-text-disabled italic">—</span>}
-                          </td>
-
-                          {/* Nghĩa Tiếng Việt */}
-                          <td className="py-3 px-4 align-middle">
-                            <span className="font-semibold text-text-high-contrast text-xs leading-snug">
-                              {form.meaning || item.meaning}
-                            </span>
-                          </td>
-                        </tr>
-
-                        {/* Note & Example Row: 40% Ghi chú (trái) - 60% Ví dụ (phải) */}
-                        {hasSubRow && (
-                          <tr
-                            key={`${item.id}-form-${fIdx}-subrow`}
-                            className="hover:bg-red-50/15 transition-colors border-b border-slate-line/80"
-                          >
-                            <td colSpan={4} className="py-2.5 px-4 bg-slate-50/50">
-                              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-[11px]">
-                                {/* Left: Ghi chú ngữ cảnh (~40% = 5 cols) */}
-                                <div className="md:col-span-5 flex items-start gap-1.5 border-l-2 border-crimson-primary/70 pl-2.5">
-                                  <span className="font-semibold text-crimson-primary shrink-0 flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[13px]">lightbulb</span>
-                                    Ghi chú:
-                                  </span>
-                                  <span className="text-text-high-contrast font-medium leading-relaxed">
-                                    {form.note ? (
-                                      form.note.replace(/^Ghi chú:\s*/i, '')
-                                    ) : (
-                                      <span className="text-text-disabled italic font-normal">Không có ghi chú ngữ cảnh</span>
-                                    )}
-                                  </span>
-                                </div>
-
-                                {/* Right: Ví dụ thực tế (~60% = 7 cols) */}
-                                <div className="md:col-span-7 flex items-start gap-1.5 border-l-2 border-indigo-400 pl-2.5 text-slate-700 italic">
-                                  <span className="not-italic text-indigo-700 font-semibold shrink-0 flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[13px] not-italic">format_quote</span>
-                                    Ví dụ:
-                                  </span>
-                                  <span className="leading-relaxed">
-                                    {form.example ? (
-                                      `"${form.example}"`
-                                    ) : (
-                                      <span className="text-text-disabled not-italic font-normal">Chưa có câu ví dụ thực tế</span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  });
-                })}
-
-                {listWords.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-16 text-center text-text-muted">
-                      <div className="flex flex-col items-center justify-center gap-3 max-w-sm mx-auto">
-                        <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
-                          <span className="material-symbols-outlined text-[28px]">article</span>
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-text-high-contrast">
-                            Chưa có từ vựng nào trong danh sách này
-                          </p>
-                          <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                            Bấm nút "Thêm từ vào List này" phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={onOpenAddModal}
-                          className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">add</span>
-                          <span>Thêm từ vào List này</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          {/* POS Filter Pills (Sát mép phải) */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap sm:ml-auto">
+            {posOptions.map((opt) => {
+              const isActive = selectedPos === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSelectedPos && setSelectedPos(opt.id)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-white text-crimson-primary shadow-xs font-bold'
+                      : `${opt.colorClass} text-text-muted hover:text-text-high-contrast`
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </div>
-        )}
+
+        {/* VOCABULARY CARDS LIST */}
+        <div className="flex flex-col gap-4">
+          {listWords.map((item) => (
+            <VocabCard
+              key={item.id}
+              vocab={item}
+              onPronounce={onPronounce}
+              onEdit={onEditVocab}
+              onDelete={onDeleteVocab}
+              showReadingList={false}
+            />
+          ))}
+
+          {listWords.length === 0 && (
+            <div className="p-14 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
+                <span className="material-symbols-outlined text-[28px]">article</span>
+              </div>
+              <div>
+                <p className="font-bold text-sm text-text-high-contrast">
+                  Chưa có từ vựng nào trong danh sách này
+                </p>
+                <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                  Bấm nút &ldquo;Thêm từ vào List này&rdquo; phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenAddModal}
+                className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>Thêm từ vào List này</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

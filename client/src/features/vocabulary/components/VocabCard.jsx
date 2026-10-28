@@ -4,12 +4,23 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [phonetic, setPhonetic] = useState(vocab?.phonetic || (vocab?.word ? `/${vocab.word}/` : ''));
-  const [audioUrl, setAudioUrl] = useState(vocab?.audioUrl || '');
+  const posLower = (vocab?.pos || vocab?.forms?.[0]?.pos || '').toLowerCase();
+  const isPhrasePos = posLower === 'idiom' || posLower === 'idioms' || posLower === 'phrasal_verb' || posLower === 'phrasal verb';
 
-  // Auto-resolve real phonetic IPA and audio if missing or dummy
+  const [phonetic, setPhonetic] = useState(
+    isPhrasePos ? '' : (vocab?.phonetic || (vocab?.word ? `/${vocab.word}/` : ''))
+  );
+  const [audioUrl, setAudioUrl] = useState(isPhrasePos ? '' : (vocab?.audioUrl || ''));
+
+  // Auto-resolve real phonetic IPA and audio if missing or dummy (skip for idioms & phrasal verbs)
   useEffect(() => {
     if (!vocab?.word) return;
+
+    if (isPhrasePos) {
+      setPhonetic('');
+      setAudioUrl('');
+      return;
+    }
 
     const currentPhonetic = vocab.phonetic || '';
     const isDummy = !currentPhonetic || currentPhonetic === `/${vocab.word}/` || currentPhonetic === `/${vocab.word.toLowerCase()}/`;
@@ -44,22 +55,34 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
     if (vocab.audioUrl) {
       setAudioUrl(vocab.audioUrl);
     }
-  }, [vocab?.word, vocab?.phonetic, vocab?.audioUrl]);
+  }, [vocab?.word, vocab?.phonetic, vocab?.audioUrl, isPhrasePos]);
 
   if (!vocab) return null;
 
-  // Extract patterns and collocations
-  const patterns = (vocab.forms || []).filter(
-    (f) => Boolean(f.pattern && f.pattern.trim())
+  const isPhrasal = posLower === 'phrasal_verb' || posLower === 'phrasal verb';
+
+  // Extract patterns and collocations (Phrasal verb never has patterns or collocations)
+  const patterns = isPhrasePos ? [] : (vocab.forms || []).filter(
+    (f) => Boolean(f.pattern && f.pattern.trim() && f.type !== 'phrasal_verb' && f.pos !== 'phrasal_verb')
   );
 
-  const collocations = (vocab.forms || []).filter(
-    (f) => Boolean(f.collocation && f.collocation.trim())
+  const collocations = (isPhrasePos || isPhrasal) ? [] : (vocab.forms || []).filter(
+    (f) => Boolean(
+      f.collocation &&
+      f.collocation.trim() &&
+      f.type !== 'phrasal_verb' &&
+      f.pos !== 'phrasal_verb' &&
+      !f.type?.includes('phrasal')
+    )
   );
 
-  // Senses without pattern or collocation (base or idiom)
+  const phrasalVerbs = (vocab.forms || []).filter(
+    (f) => f.type === 'phrasal_verb' || f.pos === 'phrasal_verb' || Boolean(f.phrase) || (isPhrasal && (f.collocation || f.pattern))
+  );
+
+  // Senses without pattern, collocation or phrasal_verb
   const baseSenses = (vocab.forms || []).filter(
-    (f) => !f.pattern && !f.collocation
+    (f) => !f.pattern && !f.collocation && f.type !== 'phrasal_verb' && f.pos !== 'phrasal_verb' && !isPhrasePos
   );
 
   // General Vietnamese meaning
@@ -103,6 +126,13 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
             Adverb
           </span>
         );
+      case 'phrasal_verb':
+      case 'phrasal verb':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-teal-50 text-teal-800 font-bold text-xs border border-teal-300">
+            Phrasal Verb
+          </span>
+        );
       case 'idiom':
       case 'idioms':
         return (
@@ -134,9 +164,11 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
               <h3 className="font-headline text-2xl lg:text-[26px] font-extrabold text-slate-900 tracking-tight leading-none">
                 {vocab.word}
               </h3>
-              <div className="text-xs font-mono text-slate-400 font-medium">
-                {phonetic || vocab.phonetic || `/${vocab.word}/`}
-              </div>
+              {!isPhrasePos && (phonetic || vocab.phonetic) && (
+                <div className="text-xs font-mono text-slate-400 font-medium">
+                  {phonetic || vocab.phonetic}
+                </div>
+              )}
             </div>
             
             {onPronounce && (
@@ -188,14 +220,28 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
         {/* HÀNG 1: NGHĨA TIẾNG VIỆT CHUNG VỚI ICON [VI] & ACTIONS */}
         <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
           <div className="flex flex-col gap-1.5 flex-1">
-            <div className="flex items-start gap-2.5">
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300/80 shrink-0 mt-0.5 font-mono shadow-2xs">
-                VI
-              </span>
-              <span className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
-                {generalMeaning}
-              </span>
-            </div>
+              <div className="flex items-start gap-2.5 flex-1">
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300/80 shrink-0 mt-0.5 font-mono shadow-2xs">
+                  VI
+                </span>
+                {Array.isArray(vocab.meanings) && vocab.meanings.length > 1 ? (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {vocab.meanings.map((m, mIdx) => (
+                      <span key={mIdx} className="inline-flex items-center gap-1 font-bold text-base sm:text-lg text-slate-900">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-red-50 text-crimson-primary font-bold border border-red-200/60 font-mono">
+                          #{mIdx + 1}
+                        </span>
+                        <span>{m}</span>
+                        {mIdx < vocab.meanings.length - 1 && <span className="text-slate-300 font-normal ml-1">;</span>}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
+                    {generalMeaning}
+                  </span>
+                )}
+              </div>
 
             {/* Synonyms if available */}
             {synonyms && (
@@ -354,8 +400,56 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
           </div>
         )}
 
+        {/* HÀNG 3.5: NHÓM PHRASAL VERBS (Cụm động từ) */}
+        {phrasalVerbs.length > 0 && (
+          <div className="flex flex-col gap-2.5">
+            {phrasalVerbs.map((pv, pvIdx) => {
+              const phraseText = pv.phrase || pv.collocation || pv.pattern || vocab.word;
+              return (
+                <div
+                  key={`pv-${pvIdx}`}
+                  className="p-3.5 rounded-2xl bg-teal-50/40 border border-teal-100/90 flex flex-col gap-2 hover:border-teal-200 transition-colors"
+                >
+                  {/* Phrasal Verb thẳng hàng với Nghĩa */}
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-teal-50 text-teal-700 border border-teal-200/80 shrink-0">
+                      <span className="material-symbols-outlined text-[12px]">extension</span>
+                      Phrasal Verb
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold font-mono text-teal-900 bg-white px-2.5 py-0.5 rounded-lg border border-teal-200/70 shadow-2xs">
+                      {phraseText}
+                    </span>
+                    <span className="text-slate-300 font-bold">—</span>
+                    <span className="text-xs sm:text-sm font-semibold text-slate-800">
+                      {pv.meaning || generalMeaning}
+                    </span>
+                  </div>
+
+                  {/* Bên dưới: Ví dụ hoặc Ghi chú */}
+                  {isExpanded && (pv.example || pv.note) && (
+                    <div className="flex flex-col gap-1.5 pt-1.5 border-t border-teal-100/70 text-xs">
+                      {pv.example && (
+                        <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-teal-600">
+                          <span className="font-semibold text-slate-400 text-[11px] not-italic shrink-0">Ví dụ:</span>
+                          <span className="italic leading-relaxed">&ldquo;{pv.example}&rdquo;</span>
+                        </div>
+                      )}
+                      {pv.note && (
+                        <div className="flex items-start gap-2 text-slate-600 pl-2.5 border-l-2 border-teal-400">
+                          <span className="font-semibold text-teal-700 text-[11px] shrink-0">Ghi chú:</span>
+                          <span className="leading-relaxed">{pv.note.replace(/^Ghi chú:\s*/i, '')}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* HÀNG 4: NẾU LÀ BASE HOẶC IDIOM KHÔNG CÓ PATTERN/COLLOCATION */}
-        {patterns.length === 0 && collocations.length === 0 && baseSenses.length > 0 && (
+        {patterns.length === 0 && collocations.length === 0 && phrasalVerbs.length === 0 && baseSenses.length > 0 && (
           <div className="flex flex-col gap-2">
             {baseSenses.map((base, bIdx) => (
               (base.example || base.note) && (
@@ -381,6 +475,7 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
         {/* NÚT XEM THÊM / THU GỌN (Giống hình 2 mẫu của người dùng) */}
         {(patterns.some((p) => p.example || p.note) ||
           collocations.some((c) => c.example || c.note) ||
+          phrasalVerbs.some((pv) => pv.example || pv.note) ||
           baseSenses.some((b) => b.example || b.note)) && (
           <div className="pt-1">
             <button

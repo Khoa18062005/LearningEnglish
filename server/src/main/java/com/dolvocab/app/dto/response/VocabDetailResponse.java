@@ -96,6 +96,7 @@ public class VocabDetailResponse {
         private String countability;
         private String pattern;
         private String collocation;
+        private String phrase;
         private String synonym;
         private String meaning;
         private String example;

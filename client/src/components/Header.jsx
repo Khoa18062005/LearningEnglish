@@ -5,21 +5,26 @@ export default function Header({
   setSearchTerm,
   selectedPos,
   setSelectedPos,
-  onOpenAddModal
+  onOpenAddModal,
+  currentView,
 }) {
+  const isSearchHidden = currentView === 'reading-list' || currentView === 'category';
+
   const posOptions = [
-    { id: 'all', label: 'All', colorClass: 'text-text-body' },
-    { id: 'n', label: 'Noun (n)', colorClass: 'text-pos-noun-text hover:bg-pos-noun-bg' },
-    { id: 'v', label: 'Verb (v)', colorClass: 'text-pos-verb-text hover:bg-pos-verb-bg' },
-    { id: 'adj', label: 'Adj (adj)', colorClass: 'text-pos-adj-text hover:bg-pos-adj-bg' },
-    { id: 'adv', label: 'Adv (adv)', colorClass: 'text-pos-adv-text hover:bg-pos-adv-bg' },
-    { id: 'idiom', label: 'Idioms', colorClass: 'text-amber-800 hover:bg-amber-50' },
+    { id: 'all', label: 'Tất cả', colorClass: 'text-text-body' },
+    { id: 'n', label: 'Danh từ (N)', colorClass: 'text-pos-noun-text hover:bg-pos-noun-bg' },
+    { id: 'v', label: 'Động từ (V)', colorClass: 'text-pos-verb-text hover:bg-pos-verb-bg' },
+    { id: 'adj', label: 'Tính từ (Adj)', colorClass: 'text-pos-adj-text hover:bg-pos-adj-bg' },
+    { id: 'adv', label: 'Trạng từ (Adv)', colorClass: 'text-pos-adv-text hover:bg-pos-adv-bg' },
+    { id: 'phrasal_verb', label: 'Cụm ĐT (Phrasal Verb)', colorClass: 'text-teal-700 hover:bg-teal-50' },
+    { id: 'idiom', label: 'Cụm từ (Idioms)', colorClass: 'text-amber-800 hover:bg-amber-50' },
   ];
 
   return (
     <header className="fixed top-0 left-[260px] right-0 h-16 bg-card-white/90 backdrop-blur-xl border-b border-slate-line/80 z-40 flex items-center justify-between px-6 gap-4">
-      {/* Search Bar & POS Pills */}
-      <div className="flex items-center flex-1 max-w-3xl gap-4">
+      {/* Search Bar & POS Pills (Ẩn và để trống khi ở trang danh sách bài đọc vì đã chuyển vào trang) */}
+      {!isSearchHidden ? (
+        <div className="flex items-center flex-1 max-w-3xl gap-4">
         {/* Search Input */}
         <div className="relative flex-1">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-[20px]">
@@ -63,6 +68,9 @@ export default function Header({
           })}
         </div>
       </div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* Right Controls & User Profile */}
       <div className="flex items-center gap-2">

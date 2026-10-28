@@ -9,7 +9,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/word-families")
@@ -19,8 +22,30 @@ public class WordFamilyController {
     private final WordFamilyService wordFamilyService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<WordFamilyResponse>>> getAllWordFamilies() {
-        List<WordFamilyResponse> list = wordFamilyService.getAllWordFamilies();
+    public ResponseEntity<ApiResponse<List<WordFamilyResponse>>> getAllWordFamilies(
+            @RequestParam(required = false) String keyword
+    ) {
+        List<WordFamilyResponse> list = wordFamilyService.searchWordFamilies(keyword);
         return ResponseEntity.ok(ApiResponse.success(list));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<WordFamilyResponse>> getWordFamilyById(@PathVariable Long id) {
+        WordFamilyResponse res = wordFamilyService.getWordFamilyById(id);
+        return ResponseEntity.ok(ApiResponse.success(res));
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<WordFamilyResponse>> createWordFamily(@RequestBody Map<String, String> body) {
+        String rootWord = body.get("rootWord");
+        String description = body.get("description");
+        WordFamilyResponse res = wordFamilyService.createWordFamily(rootWord, description);
+        return ResponseEntity.ok(ApiResponse.success(res));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteWordFamily(@PathVariable Long id) {
+        wordFamilyService.deleteWordFamily(id);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

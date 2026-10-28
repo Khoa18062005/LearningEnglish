@@ -40,9 +40,10 @@ export default function MasterListPage({
       const matchFamily = item.wordFamily?.some((wf) => wf.toLowerCase().includes(q));
       const matchForms = item.forms.some(
         (f) =>
-          f.meaning.toLowerCase().includes(q) ||
+          f.meaning?.toLowerCase().includes(q) ||
           f.pattern?.toLowerCase().includes(q) ||
           f.collocation?.toLowerCase().includes(q) ||
+          f.phrase?.toLowerCase().includes(q) ||
           f.example?.toLowerCase().includes(q)
       );
       if (!matchWord && !matchMeaning && !matchFamily && !matchForms) return false;
@@ -96,6 +97,12 @@ export default function MasterListPage({
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-pos-adv-bg text-pos-adv-text font-bold text-xs">
             (adv)
+          </span>
+        );
+      case 'phrasal_verb':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 font-bold text-xs border border-teal-200">
+            (phr v)
           </span>
         );
       default:
@@ -346,12 +353,19 @@ export default function MasterListPage({
                     const hasSubRow =
                       viewDensity === 'detailed' && Boolean(form.note || form.example);
 
+                    const isPhrasal =
+                      form.type === 'phrasal_verb' ||
+                      form.pos === 'phrasal_verb' ||
+                      item.pos === 'phrasal_verb' ||
+                      Boolean(form.phrase);
                     const isColloc =
-                      form.type === 'collocation' ||
-                      (!form.pattern && Boolean(form.collocation));
+                      !isPhrasal &&
+                      (form.type === 'collocation' ||
+                      (!form.pattern && Boolean(form.collocation)));
                     const isPatt =
-                      form.type === 'pattern' ||
-                      (Boolean(form.pattern) && !form.collocation);
+                      !isPhrasal &&
+                      (form.type === 'pattern' ||
+                      (Boolean(form.pattern) && !form.collocation));
 
                     return (
                       <React.Fragment key={`${item.id}-${index}`}>
@@ -410,8 +424,20 @@ export default function MasterListPage({
                             {getPosBadge(form.pos, form.countability)}
                           </td>
 
-                          {/* Pattern / Collocation */}
+                          {/* Pattern / Collocation / Phrasal Verb */}
                           <td className="py-3 px-3 align-middle">
+                            {isPhrasal && (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-teal-50 text-teal-700 border border-teal-200/80">
+                                  <span className="material-symbols-outlined text-[12px]">extension</span>
+                                  Phrasal Verb
+                                </span>
+                                <span className="font-mono text-[11px] font-bold text-teal-900 bg-teal-50/70 px-2 py-0.5 rounded border border-teal-100">
+                                  {form.phrase || form.collocation || form.pattern || item.word}
+                                </span>
+                              </div>
+                            )}
+
                             {isColloc && (
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80">
@@ -437,7 +463,7 @@ export default function MasterListPage({
                             )}
 
                             {/* Legacy fallback if both exist */}
-                            {!isColloc && !isPatt && form.pattern && form.collocation && (
+                            {!isPhrasal && !isColloc && !isPatt && form.pattern && form.collocation && (
                               <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center gap-1.5">
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Pattern</span>
@@ -450,7 +476,7 @@ export default function MasterListPage({
                               </div>
                             )}
 
-                            {!isColloc && !isPatt && !form.pattern && !form.collocation && (
+                            {!isPhrasal && !isColloc && !isPatt && !form.pattern && !form.collocation && (
                               form.type === 'idiom' ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
                                   <span className="material-symbols-outlined text-[12px]">auto_stories</span>

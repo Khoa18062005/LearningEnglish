@@ -5,6 +5,7 @@ export default function AddReadingListModal({
   onClose,
   onSave,
   existingLists = [],
+  initialData = null,
 }) {
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
@@ -15,21 +16,30 @@ export default function AddReadingListModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Auto-generate suggested list code on open
+  // Auto-generate suggested list code on open or populate with initialData
   useEffect(() => {
     if (isOpen) {
-      const nextNum = existingLists.length + 1;
-      const formattedNum = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
-      setCode(`LIST ${formattedNum}`);
-      setTitle('');
-      setSourceReference('');
-      setPassage('');
-      setNote('');
-      setShowPassageField(false);
+      if (initialData) {
+        setCode(initialData.code || initialData.shortTitle || '');
+        setTitle(initialData.title || '');
+        setSourceReference(initialData.sourceReference || '');
+        setPassage(initialData.passage || '');
+        setNote(initialData.note || '');
+        setShowPassageField(Boolean(initialData.passage));
+      } else {
+        const nextNum = existingLists.length + 1;
+        const formattedNum = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
+        setCode(`LIST ${formattedNum}`);
+        setTitle('');
+        setSourceReference('');
+        setPassage('');
+        setNote('');
+        setShowPassageField(false);
+      }
       setErrorMessage('');
       setIsSubmitting(false);
     }
-  }, [isOpen, existingLists.length]);
+  }, [isOpen, existingLists.length, initialData]);
 
   // Keyboard shortcut listener (ESC to close, Cmd/Ctrl+Enter to save)
   useEffect(() => {
@@ -69,11 +79,11 @@ export default function AddReadingListModal({
         note: note.trim() || null,
       };
 
-      await onSave(payload);
+      await onSave(payload, initialData?.id);
       onClose();
     } catch (err) {
       console.error('Lỗi khi lưu danh sách bài đọc:', err);
-      setErrorMessage('Có lỗi xảy ra khi tạo danh sách bài đọc. Vui lòng thử lại.');
+      setErrorMessage(initialData ? 'Có lỗi xảy ra khi cập nhật danh sách bài đọc. Vui lòng thử lại.' : 'Có lỗi xảy ra khi tạo danh sách bài đọc. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -95,7 +105,7 @@ export default function AddReadingListModal({
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
-                  Tạo Danh Sách Bài Đọc Mới
+                  {initialData ? 'Chỉnh Sửa Danh Sách Bài Đọc' : 'Tạo Danh Sách Bài Đọc Mới'}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark text-[10px] font-extrabold uppercase tracking-wider border border-border-crimson-tint/60">
                   Reading Note
@@ -264,12 +274,12 @@ export default function AddReadingListModal({
               {isSubmitting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Đang tạo...</span>
+                  <span>{initialData ? 'Đang lưu...' : 'Đang tạo...'}</span>
                 </>
               ) : (
                 <>
-                  <span className="material-symbols-outlined text-[16px]">add</span>
-                  <span>Tạo Danh Sách Mới</span>
+                  <span className="material-symbols-outlined text-[16px]">{initialData ? 'save' : 'add'}</span>
+                  <span>{initialData ? 'Lưu Thay Đổi' : 'Tạo Danh Sách Mới'}</span>
                 </>
               )}
             </button>
