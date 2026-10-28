@@ -13,6 +13,7 @@ export default function Header({
     { id: 'v', label: 'Verb (v)', colorClass: 'text-pos-verb-text hover:bg-pos-verb-bg' },
     { id: 'adj', label: 'Adj (adj)', colorClass: 'text-pos-adj-text hover:bg-pos-adj-bg' },
     { id: 'adv', label: 'Adv (adv)', colorClass: 'text-pos-adv-text hover:bg-pos-adv-bg' },
+    { id: 'idiom', label: 'Idioms', colorClass: 'text-amber-800 hover:bg-amber-50' },
   ];
 
   return (

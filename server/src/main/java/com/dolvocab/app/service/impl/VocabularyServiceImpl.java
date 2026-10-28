@@ -84,6 +84,7 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocab.setPhonetic(request.getPhonetic());
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
+        vocab.setMeaning(request.getMeaning());
 
         // 1. Word Family
         handleWordFamily(vocab, request);
@@ -111,6 +112,7 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocab.setPhonetic(request.getPhonetic());
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
+        vocab.setMeaning(request.getMeaning());
 
         handleWordFamily(vocab, request);
         handleCategories(vocab, request);
@@ -178,6 +180,22 @@ public class VocabularyServiceImpl implements VocabularyService {
 
     private void handleFormsAndSenses(Vocabulary vocab, VocabCreateRequest request) {
         if (request.getForms() == null || request.getForms().isEmpty()) {
+            if (request.getPos() != null || request.getMeaning() != null) {
+                PartOfSpeech pos = parsePos(request.getPos());
+                if (pos == null) pos = PartOfSpeech.V;
+                Countability countability = parseCountability(request.getCountability());
+                VocabForm vocabForm = VocabForm.builder()
+                        .partOfSpeech(pos)
+                        .countability(countability)
+                        .displayOrder(1)
+                        .build();
+                vocab.addForm(vocabForm);
+                VocabSense sense = VocabSense.builder()
+                        .vietnameseMeaning(request.getMeaning() != null ? request.getMeaning() : "Chưa cập nhật nghĩa")
+                        .displayOrder(1)
+                        .build();
+                vocabForm.addSense(sense);
+            }
             return;
         }
 
@@ -355,6 +373,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                 .phonetic(vocab.getPhonetic())
                 .audioUrl(vocab.getAudioUrl())
                 .generalNote(vocab.getGeneralNote())
+                .meaning(vocab.getMeaning())
                 .wordFamilyId(wfId)
                 .rootWord(rootWord)
                 .wordFamily(wfList)
@@ -382,7 +401,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case "adj", "adjective" -> PartOfSpeech.ADJ;
             case "adv", "adverb" -> PartOfSpeech.ADV;
             case "phrasal_verb" -> PartOfSpeech.PHRASAL_VERB;
-            case "idiom" -> PartOfSpeech.IDIOM;
+            case "idiom", "idioms" -> PartOfSpeech.IDIOM;
             case "prep" -> PartOfSpeech.PREP;
             default -> {
                 try {
@@ -412,6 +431,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case V -> "v";
             case ADJ -> "adj";
             case ADV -> "adv";
+            case IDIOM -> "idiom";
             default -> pos.name().toLowerCase();
         };
     }
@@ -423,6 +443,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case V -> "Verb";
             case ADJ -> "Adjective";
             case ADV -> "Adverb";
+            case IDIOM -> "Idioms";
             default -> pos.getDescription();
         };
     }

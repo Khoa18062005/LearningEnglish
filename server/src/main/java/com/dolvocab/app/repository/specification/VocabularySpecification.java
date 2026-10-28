@@ -33,13 +33,14 @@ public class VocabularySpecification {
                 Join<Vocabulary, WordFamily> familyJoin = root.join("wordFamily", JoinType.LEFT);
 
                 Predicate wordMatch = cb.like(cb.lower(root.get("word")), searchPattern);
+                Predicate vocabMeaningMatch = cb.like(cb.lower(root.get("meaning")), searchPattern);
                 Predicate meaningMatch = cb.like(cb.lower(senseJoin.get("vietnameseMeaning")), searchPattern);
                 Predicate collocationMatch = cb.like(cb.lower(senseJoin.get("collocation")), searchPattern);
                 Predicate patternMatch = cb.like(cb.lower(senseJoin.get("pattern")), searchPattern);
                 Predicate synonymMatch = cb.like(cb.lower(senseJoin.get("synonyms")), searchPattern);
                 Predicate familyMatch = cb.like(cb.lower(familyJoin.get("rootWord")), searchPattern);
 
-                predicates.add(cb.or(wordMatch, meaningMatch, collocationMatch, patternMatch, synonymMatch, familyMatch));
+                predicates.add(cb.or(wordMatch, vocabMeaningMatch, meaningMatch, collocationMatch, patternMatch, synonymMatch, familyMatch));
             }
 
             // 2. Filter by Category IDs

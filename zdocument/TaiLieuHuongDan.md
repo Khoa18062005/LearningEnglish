@@ -135,6 +135,7 @@ CREATE TABLE word_families (
 CREATE TABLE vocabularies (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     word VARCHAR(150) NOT NULL UNIQUE COMMENT 'Từ vựng tiếng Anh, VD: accountant, lease, rent',
+    meaning TEXT COMMENT 'Nét nghĩa tiếng Việt cơ bản chung của từ vựng / cụm từ',
     phonetic VARCHAR(100) COMMENT 'Phiên âm IPA: /əˈkaʊntənt/',
     audio_url VARCHAR(500),
     word_family_id BIGINT NULL,

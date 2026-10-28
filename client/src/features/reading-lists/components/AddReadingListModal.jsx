@@ -218,7 +218,7 @@ export default function AddReadingListModal({
                 {showPassageField ? 'expand_less' : 'add_circle'}
               </span>
               <span>
-                {showPassageField ? 'Ẩn đoạn văn bài đọc' : '+ Thêm nội dung đoạn văn bài đọc (Reading Passage)'}
+                {showPassageField ? 'Ẩn đoạn văn bài đọc' : 'Thêm nội dung đoạn văn bài đọc (Reading Passage)'}
               </span>
             </button>
 
@@ -269,7 +269,7 @@ export default function AddReadingListModal({
               ) : (
                 <>
                   <span className="material-symbols-outlined text-[16px]">add</span>
-                  <span>+ Tạo Danh Sách Mới</span>
+                  <span>Tạo Danh Sách Mới</span>
                 </>
               )}
             </button>

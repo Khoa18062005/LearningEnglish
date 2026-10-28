@@ -6,6 +6,7 @@ import ReadingListView from './features/reading-lists/pages/ReadingListView';
 import WordFamiliesPage from './features/vocabulary/pages/WordFamiliesPage';
 import AddVocabModal from './features/vocabulary/components/AddVocabModal';
 import AddReadingListModal from './features/reading-lists/components/AddReadingListModal';
+import NotificationModal from './components/NotificationModal';
 
 import { vocabApi } from './api/vocabApi';
 import { categoryApi } from './api/categoryApi';
@@ -33,7 +34,57 @@ export default function App() {
 
   // Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingVocab, setEditingVocab] = useState(null);
+
+  const handleOpenAddModal = () => {
+    setEditingVocab(null);
+    setIsAddModalOpen(true);
+  };
+
+  const handleEditVocab = (vocab) => {
+    setEditingVocab(vocab);
+    setIsAddModalOpen(true);
+  };
   const [isAddReadingListModalOpen, setIsAddReadingListModalOpen] = useState(false);
+  // Global Notification / Confirm Modal state (Popup center dùng chung)
+  const [notification, setNotification] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'danger',
+    confirmText: 'Xác nhận xóa',
+    cancelText: 'Hủy bỏ',
+    isAlertOnly: false,
+    onConfirm: null,
+  });
+
+  const showNotification = ({
+    title,
+    message,
+    type = 'danger',
+    confirmText,
+    cancelText = 'Hủy bỏ',
+    isAlertOnly = false,
+    onConfirm,
+  }) => {
+    setNotification({
+      isOpen: true,
+      title,
+      message,
+      type,
+      confirmText,
+      cancelText,
+      isAlertOnly,
+      onConfirm: async () => {
+        if (onConfirm) await onConfirm();
+        setNotification((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
+  const closeNotification = () => {
+    setNotification((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Fetch initial data from Spring Boot Backend with fallback to local state
   const loadBackendData = useCallback(async () => {
@@ -46,7 +97,14 @@ export default function App() {
       ]);
 
       if (Array.isArray(vocabsData)) {
-        setVocabList(vocabsData);
+        const seen = new Set();
+        const unique = vocabsData.filter((v) => {
+          const key = v.id || v.word.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setVocabList(unique);
       }
       if (Array.isArray(listsData)) {
         setReadingLists(listsData);
@@ -67,8 +125,25 @@ export default function App() {
     loadBackendData();
   }, [loadBackendData]);
 
-  // Audio Pronunciation via Web Speech API
-  const handlePronounce = (word) => {
+  // Audio Pronunciation: Native Human Audio (.mp3) with Web Speech API fallback
+  const handlePronounce = (word, audioUrl) => {
+    if (audioUrl) {
+      try {
+        const audio = new Audio(audioUrl);
+        audio.play().catch((err) => {
+          console.warn('Audio MP3 không phát được, chuyển sang Web Speech API:', err);
+          fallbackSpeech(word);
+        });
+        return;
+      } catch (e) {
+        fallbackSpeech(word);
+        return;
+      }
+    }
+    fallbackSpeech(word);
+  };
+
+  const fallbackSpeech = (word) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(word);
@@ -80,52 +155,90 @@ export default function App() {
     }
   };
 
-  // Add new vocabulary (syncs to Spring Boot if available)
-  const handleSaveVocab = async (newVocab) => {
+  // Add or update vocabulary (syncs to Spring Boot if available)
+  const handleSaveVocab = async (vocabData, editId) => {
+    const targetId = editId || editingVocab?.id || (vocabList.find((v) => v.word.toLowerCase() === vocabData.word.toLowerCase())?.id);
+
     try {
-      if (isBackendConnected) {
-        const created = await vocabApi.create(newVocab);
-        setVocabList((prev) => [created, ...prev]);
-        // Reload categories & reading lists to refresh counts
+      if (targetId && isBackendConnected) {
+        const updated = await vocabApi.update(targetId, vocabData);
+        setVocabList((prev) =>
+          prev.map((v) => (v.id === targetId || v.word.toLowerCase() === vocabData.word.toLowerCase() ? updated : v))
+        );
         loadBackendData();
+        setIsAddModalOpen(false);
+        setEditingVocab(null);
+        return;
+      }
+
+      if (isBackendConnected) {
+        const created = await vocabApi.create(vocabData);
+        setVocabList((prev) => {
+          const exists = prev.some((v) => v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase());
+          if (exists) {
+            return prev.map((v) => (v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase() ? created : v));
+          }
+          return [created, ...prev];
+        });
+        loadBackendData();
+        setIsAddModalOpen(false);
+        setEditingVocab(null);
         return;
       }
     } catch (err) {
-      console.error('Lỗi khi lưu từ lên Backend:', err);
+      console.error('Lỗi khi lưu/cập nhật từ lên Backend:', err);
     }
 
-    // Local fallback
-    setVocabList([newVocab, ...vocabList]);
+    // Local fallback (when offline or backend not running)
+    setVocabList((prev) => {
+      const exists = prev.some((v) => (targetId && v.id === targetId) || v.id === vocabData.id || v.word.toLowerCase() === vocabData.word.toLowerCase());
+      if (exists) {
+        return prev.map((v) =>
+          ((targetId && v.id === targetId) || v.id === vocabData.id || v.word.toLowerCase() === vocabData.word.toLowerCase())
+            ? { ...v, ...vocabData, id: v.id }
+            : v
+        );
+      }
+      return [vocabData, ...prev];
+    });
 
-    if (newVocab.readingListId) {
+    if (vocabData.readingListId && !targetId) {
       setReadingLists((prev) =>
         prev.map((r) =>
-          r.id === newVocab.readingListId ? { ...r, count: (r.count || 0) + 1 } : r
+          r.id === vocabData.readingListId ? { ...r, count: (r.count || 0) + 1 } : r
         )
       );
     }
 
-    if (newVocab.categories && newVocab.categories.length > 0) {
+    if (vocabData.categories && vocabData.categories.length > 0 && !targetId) {
       setCategories((prev) =>
         prev.map((c) =>
-          newVocab.categories.includes(c.name) ? { ...c, count: (c.count || 0) + 1 } : c
+          vocabData.categories.includes(c.name) ? { ...c, count: (c.count || 0) + 1 } : c
         )
       );
     }
+
+    setIsAddModalOpen(false);
+    setEditingVocab(null);
   };
 
-  // Delete vocabulary
-  const handleDeleteVocab = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa từ vựng này khỏi hệ thống?')) {
-      try {
-        if (isBackendConnected) {
-          await vocabApi.delete(id);
+  const handleDeleteVocab = (id) => {
+    showNotification({
+      title: 'Xóa từ vựng',
+      message: 'Bạn có chắc chắn muốn xóa từ vựng này khỏi hệ thống? Hành động này không thể hoàn tác.',
+      type: 'danger',
+      confirmText: 'Xóa từ vựng',
+      onConfirm: async () => {
+        try {
+          if (isBackendConnected) {
+            await vocabApi.delete(id);
+          }
+        } catch (err) {
+          console.error('Lỗi khi xóa từ trên Backend:', err);
         }
-      } catch (err) {
-        console.error('Lỗi khi xóa từ trên Backend:', err);
-      }
-      setVocabList((prev) => prev.filter((v) => v.id !== id));
-    }
+        setVocabList((prev) => prev.filter((v) => v.id !== id));
+      },
+    });
   };
 
   // Add new Reading List (syncs to Spring Boot if available)
@@ -163,21 +276,61 @@ export default function App() {
   };
 
   // Delete Reading List
-  const handleDeleteReadingList = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa danh sách bài đọc này? Các từ vựng vẫn được lưu an toàn trong kho từ vựng chính.')) {
-      try {
-        if (isBackendConnected) {
-          await noteListApi.delete(id);
+  const handleDeleteReadingList = (id) => {
+    showNotification({
+      title: 'Xóa danh sách bài đọc',
+      message: 'Bạn có chắc chắn muốn xóa danh sách bài đọc này? Các từ vựng vẫn được lưu an toàn trong kho từ vựng chính.',
+      type: 'danger',
+      confirmText: 'Xóa danh sách',
+      onConfirm: async () => {
+        try {
+          if (isBackendConnected) {
+            await noteListApi.delete(id);
+          }
+        } catch (err) {
+          console.error('Lỗi khi xóa Reading List trên Backend:', err);
         }
-      } catch (err) {
-        console.error('Lỗi khi xóa Reading List trên Backend:', err);
+        setReadingLists((prev) => prev.filter((r) => r.id !== id));
+        if (selectedReadingListId === id) {
+          setSelectedReadingListId(null);
+          setCurrentView('master');
+        }
+      },
+    });
+  };
+
+  // Update Reading List (syncs to Spring Boot if available)
+  const handleUpdateReadingList = async (id, updatedPayload) => {
+    try {
+      if (isBackendConnected) {
+        const updated = await noteListApi.update(id, updatedPayload);
+        if (updated) {
+          setReadingLists((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, ...updated } : r))
+          );
+          return updated;
+        }
       }
-      setReadingLists((prev) => prev.filter((r) => r.id !== id));
-      if (selectedReadingListId === id) {
-        setSelectedReadingListId(null);
-        setCurrentView('master');
-      }
+    } catch (err) {
+      console.error('Lỗi khi cập nhật Reading List lên Backend:', err);
     }
+
+    // Local fallback
+    setReadingLists((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const code = updatedPayload.code !== undefined ? updatedPayload.code : r.code;
+        const title = updatedPayload.title !== undefined ? updatedPayload.title : r.title;
+        return {
+          ...r,
+          ...updatedPayload,
+          code,
+          title,
+          shortTitle: code || r.shortTitle,
+          fullTitle: code ? `${code}: ${title}` : title,
+        };
+      })
+    );
   };
 
   // Active reading list object
@@ -216,7 +369,7 @@ export default function App() {
         setSelectedCategory={setSelectedCategory}
         readingLists={readingLists}
         categories={categories}
-        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onOpenAddModal={handleOpenAddModal}
         onOpenAddReadingListModal={() => setIsAddReadingListModalOpen(true)}
       />
 
@@ -228,7 +381,7 @@ export default function App() {
           setSearchTerm={setSearchTerm}
           selectedPos={selectedPos}
           setSelectedPos={setSelectedPos}
-          onOpenAddModal={() => setIsAddModalOpen(true)}
+          onOpenAddModal={handleOpenAddModal}
         />
 
         {/* Dynamic Page Views */}
@@ -236,7 +389,8 @@ export default function App() {
           {currentView === 'master' && (
             <MasterListPage
               vocabList={vocabList}
-              onOpenAddModal={() => setIsAddModalOpen(true)}
+              onOpenAddModal={handleOpenAddModal}
+              onEditVocab={handleEditVocab}
               onDeleteVocab={handleDeleteVocab}
               onPronounce={handlePronounce}
               searchTerm={searchTerm}
@@ -250,10 +404,12 @@ export default function App() {
               <ReadingListView
                 readingList={activeReadingList}
                 vocabList={vocabList}
-                onOpenAddModal={() => setIsAddModalOpen(true)}
+                onOpenAddModal={handleOpenAddModal}
+                onEditVocab={handleEditVocab}
                 onPronounce={handlePronounce}
                 onDeleteVocab={handleDeleteVocab}
                 onDeleteReadingList={handleDeleteReadingList}
+                onUpdateReadingList={handleUpdateReadingList}
                 searchTerm={searchTerm}
                 selectedPos={selectedPos}
               />
@@ -297,7 +453,11 @@ export default function App() {
       {/* Modal Thêm Từ Vựng Mới (Google Stitch Form đa tầng) */}
       <AddVocabModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        initialVocab={editingVocab}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingVocab(null);
+        }}
         onSave={handleSaveVocab}
         readingLists={readingLists}
         categories={categories}
@@ -311,6 +471,19 @@ export default function App() {
         onClose={() => setIsAddReadingListModalOpen(false)}
         onSave={handleSaveReadingList}
         existingLists={readingLists}
+      />
+
+      {/* Modal Thông Báo / Xác Nhận Chung (Popup Center) */}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={closeNotification}
+        onConfirm={notification.onConfirm}
+        title={notification.title}
+        message={notification.message}
+        type={notification.type}
+        confirmText={notification.confirmText}
+        cancelText={notification.cancelText}
+        isAlertOnly={notification.isAlertOnly}
       />
     </div>
   );

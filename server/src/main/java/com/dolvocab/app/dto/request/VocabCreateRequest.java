@@ -23,6 +23,9 @@ public class VocabCreateRequest {
     private String audioUrl;
     private String generalNote;
 
+    @JsonAlias({"meaning", "generalMeaning", "wordMeaning"})
+    private String meaning;
+
     // Word Family
     private Long wordFamilyId;
     private String rootWord;

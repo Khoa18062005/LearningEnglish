@@ -19,7 +19,7 @@ export default function WordFamiliesPage({ vocabList, onPronounce, onOpenAddModa
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold shadow-xs hover:bg-crimson-dark"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
-            <span>+ Thêm Từ Mới</span>
+            <span>Thêm Từ Mới</span>
           </button>
         </div>
       </section>
@@ -40,7 +40,7 @@ export default function WordFamiliesPage({ vocabList, onPronounce, onOpenAddModa
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
-              <span>+ Thêm Từ Đầu Tiên</span>
+              <span>Thêm Từ Đầu Tiên</span>
             </button>
           </div>
         ) : (

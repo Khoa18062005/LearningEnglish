@@ -20,6 +20,7 @@ public class VocabDetailResponse {
     private String phonetic;
     private String audioUrl;
     private String generalNote;
+    private String meaning;
 
     // Word family information
     private Long wordFamilyId;

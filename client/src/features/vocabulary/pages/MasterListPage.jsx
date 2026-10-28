@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
+import VocabCard from '../components/VocabCard';
 
 export default function MasterListPage({
   vocabList,
   onOpenAddModal,
+  onEditVocab,
   onDeleteVocab,
   onPronounce,
   searchTerm,
   selectedPos,
   selectedCategory,
 }) {
-  const [viewDensity, setViewDensity] = useState('detailed'); // 'detailed' | 'compact'
+  const [viewDensity, setViewDensity] = useState('cards'); // 'detailed' | 'compact'
   const [activeTab, setActiveTab] = useState('all');
 
-  // Filter vocabulary
+  // Filter vocabulary (de-duplicated)
+  const seenMasterKeys = new Set();
   const filteredList = vocabList.filter((item) => {
+    const key = item.id ? `id-${item.id}` : `word-${item.word.toLowerCase()}`;
+    if (seenMasterKeys.has(key)) return false;
+    seenMasterKeys.add(key);
+
     // POS filter
     if (selectedPos && selectedPos !== 'all') {
       const hasPos = item.pos === selectedPos || item.forms.some((f) => f.pos === selectedPos);
@@ -29,6 +36,7 @@ export default function MasterListPage({
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       const matchWord = item.word.toLowerCase().includes(q);
+      const matchMeaning = item.meaning?.toLowerCase().includes(q);
       const matchFamily = item.wordFamily?.some((wf) => wf.toLowerCase().includes(q));
       const matchForms = item.forms.some(
         (f) =>
@@ -37,7 +45,7 @@ export default function MasterListPage({
           f.collocation?.toLowerCase().includes(q) ||
           f.example?.toLowerCase().includes(q)
       );
-      if (!matchWord && !matchFamily && !matchForms) return false;
+      if (!matchWord && !matchMeaning && !matchFamily && !matchForms) return false;
     }
 
     return true;
@@ -76,6 +84,12 @@ export default function MasterListPage({
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-pos-adj-bg text-pos-adj-text font-bold text-xs">
             (adj)
+          </span>
+        );
+      case 'idiom':
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-xs border border-amber-300">
+            (idiom)
           </span>
         );
       case 'adv':
@@ -246,6 +260,16 @@ export default function MasterListPage({
             <div className="inline-flex rounded-lg bg-canvas-slate p-0.5 border border-slate-line">
               <button
                 type="button"
+                onClick={() => setViewDensity('cards')}
+                className={`px-3 py-1 rounded text-xs font-semibold flex items-center gap-1 ${
+                  viewDensity === 'cards' ? 'bg-white shadow-xs text-crimson-primary' : 'text-text-muted'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">view_agenda</span>
+                <span>Dạng thẻ</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setViewDensity('detailed')}
                 className={`px-3 py-1 rounded text-xs font-semibold flex items-center gap-1 ${
                   viewDensity === 'detailed' ? 'bg-white shadow-xs text-crimson-primary' : 'text-text-muted'
@@ -268,7 +292,29 @@ export default function MasterListPage({
           </div>
         </div>
 
-        {/* MULTI-LAYERED SPREADSHEET TABLE */}
+        {viewDensity === 'cards' ? (
+          <div className="flex flex-col gap-4">
+            {filteredList.map((item) => (
+              <VocabCard
+                key={item.id}
+                vocab={item}
+                onPronounce={onPronounce}
+                onEdit={onEditVocab}
+                onDelete={onDeleteVocab}
+                showReadingList={true}
+              />
+            ))}
+            {filteredList.length === 0 && (
+              <div className="p-14 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
+                  <span className="material-symbols-outlined text-[28px]">menu_book</span>
+                </div>
+                <p className="font-bold text-sm text-text-high-contrast">Chưa có từ vựng nào phù hợp</p>
+              </div>
+            )}
+          </div>
+        ) : (
+        /* MULTI-LAYERED SPREADSHEET TABLE */
         <div className="bg-white rounded-xl border border-slate-line/80 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
@@ -405,7 +451,14 @@ export default function MasterListPage({
                             )}
 
                             {!isColloc && !isPatt && !form.pattern && !form.collocation && (
-                              <span className="text-text-disabled italic">—</span>
+                              form.type === 'idiom' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                  <span className="material-symbols-outlined text-[12px]">auto_stories</span>
+                                  Idiom / Cụm từ
+                                </span>
+                              ) : (
+                                <span className="text-text-disabled italic">—</span>
+                              )
                             )}
                           </td>
 
@@ -417,7 +470,7 @@ export default function MasterListPage({
                           {/* Meaning */}
                           <td className="py-3 px-4 align-middle">
                             <span className="font-semibold text-text-high-contrast text-xs leading-snug">
-                              {form.meaning}
+                              {form.meaning || item.meaning}
                             </span>
                           </td>
 
@@ -510,7 +563,7 @@ export default function MasterListPage({
                             className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs"
                           >
                             <span className="material-symbols-outlined text-[16px]">add</span>
-                            <span>+ Thêm Từ Đầu Tiên</span>
+                            <span>Thêm Từ Đầu Tiên</span>
                           </button>
                         )}
                       </div>
@@ -521,6 +574,7 @@ export default function MasterListPage({
             </table>
           </div>
         </div>
+        )}
       </section>
     </div>
   );

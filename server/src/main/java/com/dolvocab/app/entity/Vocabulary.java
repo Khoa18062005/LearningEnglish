@@ -42,6 +42,9 @@ public class Vocabulary {
     @Column(name = "general_note", columnDefinition = "TEXT")
     private String generalNote;
 
+    @Column(columnDefinition = "TEXT")
+    private String meaning;
+
     @ManyToMany
     @JoinTable(
         name = "vocab_categories",
