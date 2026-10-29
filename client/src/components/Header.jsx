@@ -8,7 +8,7 @@ export default function Header({
   onOpenAddModal,
   currentView,
 }) {
-  const isSearchHidden = currentView === 'reading-list' || currentView === 'category';
+  const isSearchHidden = currentView === 'reading-list' || currentView === 'category' || currentView === 'word-families';
 
   const posOptions = [
     { id: 'all', label: 'Tất cả', colorClass: 'text-text-body' },
@@ -102,13 +102,9 @@ export default function Header({
         <div className="h-5 w-px bg-slate-line mx-1"></div>
 
         {/* User Profile */}
-        <div className="flex items-center gap-2.5 pl-1 cursor-pointer">
+        <div className="flex items-center gap-2 pl-1 cursor-pointer" title="Tài khoản cá nhân">
           <div className="w-8 h-8 rounded-full bg-crimson-primary text-white flex items-center justify-center shadow-sm font-bold text-xs">
-            LH
-          </div>
-          <div className="hidden md:flex flex-col text-left">
-            <span className="text-xs font-bold text-text-high-contrast leading-tight">Lê Hoàng</span>
-            <span className="text-[10px] text-text-muted leading-tight">IELTS 8.5 Master</span>
+            K
           </div>
         </div>
       </div>

@@ -160,10 +160,22 @@ export default function ReadingListView({
     <div className="flex flex-col w-full pb-16">
       <div className="p-6 lg:p-8 max-w-[1600px] mx-auto w-full flex flex-col gap-6">
         {/* TOP BANNER / READING HEADER CARD (Gradient Đỏ Nhạt Chuẩn EdTech) */}
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#b91c1c] via-[#e31e24] to-[#ea384d] shadow-lg border border-red-500/20 p-6 lg:p-7 transition-all text-white">
-          {/* Hiệu ứng hào quang tròn mềm mại phía sau (Decorative Glowing Circles) */}
-          <div className="absolute -right-16 -bottom-16 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute left-1/4 -top-16 w-64 h-64 bg-white/10 rounded-full blur-xl pointer-events-none" />
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 p-6 lg:p-7 transition-all text-white">
+          {/* Decorative glowing halos in background */}
+          <div className="absolute -left-12 -top-12 w-80 h-80 bg-white/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -right-12 -bottom-12 w-72 h-72 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute left-1/4 -top-12 w-64 h-64 bg-white/10 rounded-full blur-xl pointer-events-none" />
+
+          {/* Decorative concentric ripples */}
+          <svg
+            className="absolute -left-12 -top-12 w-96 h-96 opacity-15 pointer-events-none text-white"
+            viewBox="0 0 200 200"
+          >
+            <circle cx="100" cy="100" r="25" fill="none" stroke="currentColor" strokeWidth="1" />
+            <circle cx="100" cy="100" r="50" fill="none" stroke="currentColor" strokeWidth="1" />
+            <circle cx="100" cy="100" r="75" fill="none" stroke="currentColor" strokeWidth="1" />
+            <circle cx="100" cy="100" r="100" fill="none" stroke="currentColor" strokeWidth="1" />
+          </svg>
 
           <div className="flex flex-col lg:flex-row lg:items-stretch lg:justify-between gap-6 relative z-10">
             {/* Cột trái: Tiêu đề + Mô tả + 4 Thẻ thống kê */}

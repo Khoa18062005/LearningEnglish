@@ -480,6 +480,53 @@ export default function App() {
     });
   };
 
+  // Update Word Family (representative root word & member ordering)
+  const handleUpdateWordFamily = async ({ id, rootWord, oldRootWord, memberOrder }) => {
+    try {
+      if (id && isBackendConnected) {
+        await wordFamilyApi.update(id, { rootWord, memberOrder });
+      }
+    } catch (err) {
+      console.warn('Lưu Word Family lên Backend thất bại, lưu cục bộ:', err);
+    }
+
+    // Update wordFamilies list
+    setWordFamilies((prev) => {
+      const idx = prev.findIndex(
+        (wf) => (id && wf.id === id) || (oldRootWord && wf.rootWord?.toLowerCase() === oldRootWord.toLowerCase())
+      );
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = {
+          ...next[idx],
+          rootWord: rootWord || next[idx].rootWord,
+          memberOrder: Array.isArray(memberOrder) ? memberOrder.join(',') : (memberOrder || next[idx].memberOrder),
+        };
+        return next;
+      }
+      return prev;
+    });
+
+    // Update vocabularies belonging to this word family so their rootWord matches
+    setVocabList((prev) =>
+      prev.map((v) => {
+        const matchesFamily =
+          (id && v.wordFamilyId === id) ||
+          (oldRootWord && v.rootWord?.toLowerCase() === oldRootWord.toLowerCase()) ||
+          (memberOrder && memberOrder.some((w) => w?.toLowerCase() === v.word?.toLowerCase()));
+
+        if (matchesFamily) {
+          return {
+            ...v,
+            rootWord: rootWord || v.rootWord,
+            wordFamilyId: id || v.wordFamilyId,
+          };
+        }
+        return v;
+      })
+    );
+  };
+
   // Active reading list object
   const activeReadingList = readingLists.find((r) => r.id === selectedReadingListId);
 
@@ -648,6 +695,7 @@ export default function App() {
               onPronounce={handlePronounce}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onEditVocab={handleEditVocab}
+              onUpdateWordFamily={handleUpdateWordFamily}
             />
           )}
         </main>

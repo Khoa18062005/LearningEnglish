@@ -25,6 +25,12 @@ export const wordFamilyApi = {
     return res.data;
   },
 
+  // Cập nhật word family (từ đại diện rootWord, thứ tự thành viên)
+  update: async (id, payload) => {
+    const res = await api.put(`/word-families/${id}`, payload);
+    return res.data;
+  },
+
   // Xóa word family
   delete: async (id) => {
     const res = await api.delete(`/word-families/${id}`);
