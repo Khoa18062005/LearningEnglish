@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function Sidebar({
   currentView,
   setCurrentView,
@@ -16,6 +14,7 @@ export default function Sidebar({
   onDeleteCategory,
   onEditReadingList,
   onDeleteReadingList,
+  onNavigateHome,
 }) {
   return (
     <aside className="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden border-r border-slate-line">
@@ -48,6 +47,18 @@ export default function Sidebar({
               <span className="text-[11px] font-bold tracking-wider text-text-muted uppercase">VIEWS</span>
             </div>
             <nav className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onNavigateHome) onNavigateHome();
+                  else setCurrentView('home');
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-muted hover:bg-slate-100 hover:text-crimson-primary transition-colors text-left text-sm font-medium"
+              >
+                <span className="material-symbols-outlined text-[18px]">home</span>
+                <span>Trang chủ DOL</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {

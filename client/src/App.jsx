@@ -9,11 +9,15 @@ import AddVocabModal from './features/vocabulary/components/AddVocabModal';
 import AddReadingListModal from './features/reading-lists/components/AddReadingListModal';
 import CategoryModal from './components/CategoryModal';
 import NotificationModal from './components/NotificationModal';
+import HomePage from './features/home/pages/HomePage';
+import LoginPage from './features/auth/pages/LoginPage';
+import RegisterPage from './features/auth/pages/RegisterPage';
 
 import { vocabApi } from './api/vocabApi';
 import { categoryApi } from './api/categoryApi';
 import { noteListApi } from './api/noteListApi';
 import { wordFamilyApi } from './api/wordFamilyApi';
+import { authApi } from './api/authApi';
 
 import {
   initialVocabList,
@@ -22,6 +26,15 @@ import {
 } from './data/mockData';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [vocabList, setVocabList] = useState(initialVocabList);
   const [readingLists, setReadingLists] = useState(initialReadingLists);
   const [categories, setCategories] = useState(initialCategories);
@@ -29,8 +42,17 @@ export default function App() {
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Navigation & Filter state
-  const [currentView, setCurrentView] = useState('master'); // 'master' | 'reading-list' | 'word-families'
+  // Navigation & Filter state (Hỗ trợ URL trực tiếp /login, /register, /vocab, /)
+  const [currentView, setCurrentView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path === '/login') return 'login';
+      if (path === '/register') return 'register';
+      if (path === '/vocab' || path === '/lms') return 'master';
+      if (path === '/' || path === '') return 'home';
+    }
+    return 'home';
+  });
   const [selectedReadingListId, setSelectedReadingListId] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedPos, setSelectedPos] = useState('all');
@@ -155,6 +177,82 @@ export default function App() {
   useEffect(() => {
     loadBackendData();
   }, [loadBackendData]);
+
+  // Kiểm tra phiên đăng nhập hiện tại từ JWT token
+  useEffect(() => {
+    const checkAuthSession = async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          const user = await authApi.getMe();
+          if (user) {
+            setCurrentUser(user);
+            localStorage.setItem('current_user', JSON.stringify(user));
+          }
+        } catch (err) {
+          console.warn('Phiên đăng nhập hết hạn hoặc token không hợp lệ:', err.message);
+          authApi.logout();
+          setCurrentUser(null);
+        }
+      }
+    };
+
+    checkAuthSession();
+  }, []);
+
+  // Điều hướng trang và đồng bộ URL trên trình duyệt
+  const navigateTo = (view) => {
+    setCurrentView(view);
+    let targetPath = '/';
+    if (view === 'login') targetPath = '/login';
+    else if (view === 'register') targetPath = '/register';
+    else if (view === 'vocab' || view === 'master') targetPath = '/vocab';
+    else if (view === 'home') targetPath = '/';
+
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState({ view }, '', targetPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/login') setCurrentView('login');
+      else if (path === '/register') setCurrentView('register');
+      else if (path === '/vocab' || path === '/lms') setCurrentView('master');
+      else setCurrentView('home');
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleOpenAuthModal = (mode = 'login') => {
+    navigateTo(mode);
+  };
+
+  const handleAuthSuccess = (user, message) => {
+    setCurrentUser(user);
+    showNotification({
+      title: 'Xác Thực Thành Công',
+      message: message || `Xin chào, ${user.fullName}!`,
+      type: 'info',
+      confirmText: 'Đóng',
+      isAlertOnly: true,
+    });
+  };
+
+  const handleLogout = () => {
+    authApi.logout();
+    setCurrentUser(null);
+    showNotification({
+      title: 'Đã Đăng Xuất',
+      message: 'Bạn đã đăng xuất tài khoản thành công.',
+      type: 'info',
+      confirmText: 'Đóng',
+      isAlertOnly: true,
+    });
+  };
 
   // Audio Pronunciation: Native Human Audio (.mp3) with Web Speech API fallback
   const handlePronounce = (word, audioUrl) => {
@@ -533,6 +631,84 @@ export default function App() {
   // Active category object
   const activeCategory = categories.find((c) => c.name === selectedCategory);
 
+  // Trang chủ: DOL English
+  if (currentView === 'home') {
+    return (
+      <div className="min-h-screen bg-white">
+        <HomePage
+          currentUser={currentUser}
+          onNavigateLogin={() => navigateTo('login')}
+          onNavigateRegister={() => navigateTo('register')}
+          onNavigateVocab={() => navigateTo('vocab')}
+          onLogout={handleLogout}
+        />
+        <NotificationModal
+          isOpen={notification.isOpen}
+          onClose={closeNotification}
+          onConfirm={notification.onConfirm}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          confirmText={notification.confirmText}
+          cancelText={notification.cancelText}
+          isAlertOnly={notification.isAlertOnly}
+        />
+      </div>
+    );
+  }
+
+  // Trang riêng: Đăng nhập
+  if (currentView === 'login') {
+    return (
+      <div className="min-h-screen bg-white">
+        <LoginPage
+          onNavigateRegister={() => navigateTo('register')}
+          onLoginSuccess={(user, message) => {
+            handleAuthSuccess(user, message);
+            navigateTo('master');
+          }}
+        />
+        <NotificationModal
+          isOpen={notification.isOpen}
+          onClose={closeNotification}
+          onConfirm={notification.onConfirm}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          confirmText={notification.confirmText}
+          cancelText={notification.cancelText}
+          isAlertOnly={notification.isAlertOnly}
+        />
+      </div>
+    );
+  }
+
+  // Trang riêng: Đăng ký
+  if (currentView === 'register') {
+    return (
+      <div className="min-h-screen bg-white">
+        <RegisterPage
+          onNavigateLogin={() => navigateTo('login')}
+          onRegisterSuccess={(user, message) => {
+            handleAuthSuccess(user, message);
+            navigateTo('master');
+          }}
+        />
+        <NotificationModal
+          isOpen={notification.isOpen}
+          onClose={closeNotification}
+          onConfirm={notification.onConfirm}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          confirmText={notification.confirmText}
+          cancelText={notification.cancelText}
+          isAlertOnly={notification.isAlertOnly}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-canvas-slate text-text-body font-body antialiased">
       {/* Backend Connection Status Badge */}
@@ -573,6 +749,7 @@ export default function App() {
         onDeleteCategory={handleDeleteCategory}
         onEditReadingList={handleEditReadingList}
         onDeleteReadingList={handleDeleteReadingList}
+        onNavigateHome={() => navigateTo('home')}
       />
 
       {/* Main Content Area */}
@@ -585,6 +762,9 @@ export default function App() {
           setSelectedPos={setSelectedPos}
           onOpenAddModal={handleOpenAddModal}
           currentView={currentView}
+          currentUser={currentUser}
+          onOpenAuthModal={handleOpenAuthModal}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Page Views */}

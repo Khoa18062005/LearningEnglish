@@ -16,3 +16,32 @@ body {
   min-height: 100vh;
   width: 100%;
 }
+
+/* Orbit Alphabet Rotation Animation */
+@keyframes alphabetOrbitSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes alphabetOrbitCounter {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+.animate-alphabet-spin {
+  animation: alphabetOrbitSpin 90s linear infinite;
+  will-change: transform;
+}
+
+.animate-alphabet-counter {
+  animation: alphabetOrbitCounter 90s linear infinite;
+  will-change: transform;
+}
