@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authApi } from '../api/authApi';
+import DatePicker from './DatePicker';
 
 export default function AuthModal({
   isOpen,
@@ -63,8 +64,20 @@ export default function AuthModal({
     }
 
     if (mode === 'register') {
-      if (password.length < 6) {
-        setErrorMessage('Mật khẩu phải có độ dài từ 6 ký tự trở lên.');
+      if (password.length < 8) {
+        setErrorMessage('Mật khẩu phải có tối thiểu 8 ký tự.');
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setErrorMessage('Mật khẩu phải chứa ít nhất 1 chữ cái viết hoa (A-Z).');
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setErrorMessage('Mật khẩu phải chứa ít nhất 1 ký tự số (0-9).');
+        return;
+      }
+      if (!/[^A-Za-z0-9]/.test(password)) {
+        setErrorMessage('Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (!@#$...).');
         return;
       }
       if (!fullName.trim()) {
@@ -250,7 +263,7 @@ export default function AuthModal({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === 'register' ? 'Tối thiểu 6 ký tự' : 'Nhập mật khẩu'}
+                placeholder={mode === 'register' ? 'Tối thiểu 8 ký tự' : 'Nhập mật khẩu'}
                 className="w-full h-10 pl-9 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:ring-2 focus:ring-crimson-primary/20 focus:border-crimson-primary transition-all"
                 required
               />
@@ -261,7 +274,7 @@ export default function AuthModal({
                 tabIndex={-1}
               >
                 <span className="material-symbols-outlined text-[18px]">
-                  {showPassword ? 'visibility_off' : 'visibility'}
+                  {showPassword ? 'visibility' : 'visibility_off'}
                 </span>
               </button>
             </div>
@@ -274,16 +287,13 @@ export default function AuthModal({
                 <label className="block text-xs font-bold text-text-body mb-1.5">
                   Ngày sinh <span className="text-crimson-primary">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    max={new Date().toISOString().split('T')[0]}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-text-high-contrast focus:outline-none focus:ring-2 focus:ring-crimson-primary/20 focus:border-crimson-primary transition-all"
-                    required
-                  />
-                </div>
+                <DatePicker
+                  value={dateOfBirth}
+                  onChange={(newDate) => setDateOfBirth(newDate)}
+                  placeholder="dd/mm/yyyy"
+                  className="!h-10"
+                  required
+                />
               </div>
 
               <div>

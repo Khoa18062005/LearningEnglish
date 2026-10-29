@@ -66,11 +66,11 @@ export default function LoginPage({
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-between selection:bg-surface-crimson-soft selection:text-crimson-dark">
-      <div className="w-full flex-1 flex flex-col lg:flex-row p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+    <div className="min-h-screen w-full bg-white flex flex-col justify-center py-6 sm:py-8 lg:py-10 selection:bg-surface-crimson-soft selection:text-crimson-dark">
+      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
         {/* Left Form Column */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 sm:px-10 lg:px-16 py-6 lg:py-10">
-          <div className="max-w-[420px] w-full mx-auto my-auto">
+        <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
+          <div className="max-w-[420px] w-full lg:-translate-x-7 xl:-translate-x-9">
             {/* Centered Brand & Header Section */}
             <div className="text-center mb-7">
               {/* Logo Cuốn Sách vô giữa */}
@@ -163,7 +163,7 @@ export default function LoginPage({
                     tabIndex={-1}
                   >
                     <span className="material-symbols-outlined text-[18px]">
-                      {showPassword ? 'visibility_off' : 'visibility'}
+                      {showPassword ? 'visibility' : 'visibility_off'}
                     </span>
                   </button>
                 </div>
@@ -258,17 +258,19 @@ export default function LoginPage({
         </div>
 
         {/* Right Hero Card Column */}
-        <div className="hidden lg:block lg:w-1/2 p-2">
-          <AuthBanner
-            title="LinearVocab LMS"
-            description={
-              <>
-                Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
-                <br className="hidden sm:inline" />
-                {' '}rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
-              </>
-            }
-          />
+        <div className="hidden lg:flex lg:w-1/2 items-center justify-center py-4 w-full h-full min-h-[650px]">
+          <div className="w-full max-w-[620px] h-full flex">
+            <AuthBanner
+              title="LinearVocab LMS"
+              description={
+                <>
+                  Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
+                  <br />
+                  rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
+                </>
+              }
+            />
+          </div>
         </div>
       </div>
     </div>

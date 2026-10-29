@@ -33,6 +33,13 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email '" + normalizedEmail + "' đã được sử dụng. Vui lòng chọn email khác.");
         }
 
+        if (request.getPassword() == null || request.getPassword().length() < 8
+                || !request.getPassword().matches(".*[A-Z].*")
+                || !request.getPassword().matches(".*[0-9].*")
+                || !request.getPassword().matches(".*[^a-zA-Z0-9].*")) {
+            throw new IllegalArgumentException("Mật khẩu phải có tối thiểu 8 ký tự, bao gồm chữ cái viết hoa, chữ số và ký tự đặc biệt.");
+        }
+
         User user = User.builder()
                 .email(normalizedEmail)
                 .password(passwordEncoder.encode(request.getPassword()))

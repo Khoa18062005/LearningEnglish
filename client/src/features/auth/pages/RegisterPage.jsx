@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { authApi } from '../../../api/authApi';
 import AuthBanner from '../components/AuthBanner';
+import DatePicker from '../../../components/DatePicker';
 
 export default function RegisterPage({
   onNavigateLogin,
@@ -18,6 +19,49 @@ export default function RegisterPage({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [confirmStatus, setConfirmStatus] = useState(null); // null | 'MATCH' | 'MISMATCH'
+
+  // Hiệu ứng kiểm tra khớp mật khẩu khi người dùng dừng nhập
+  useEffect(() => {
+    if (!confirmPassword) {
+      setConfirmStatus(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (password && confirmPassword === password) {
+        setConfirmStatus('MATCH');
+      } else {
+        setConfirmStatus('MISMATCH');
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [confirmPassword, password]);
+
+  // Tiêu chí kiểm tra mật khẩu
+  const passwordCriteria = [
+    {
+      id: 'length',
+      label: 'Tối thiểu 8 ký tự',
+      met: password.length >= 8,
+    },
+    {
+      id: 'uppercase',
+      label: 'Chữ cái viết hoa',
+      met: /[A-Z]/.test(password),
+    },
+    {
+      id: 'number',
+      label: 'Ký tự số',
+      met: /[0-9]/.test(password),
+    },
+    {
+      id: 'special',
+      label: 'Ký tự đặc biệt',
+      met: /[^A-Za-z0-9]/.test(password),
+    },
+  ];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,8 +90,23 @@ export default function RegisterPage({
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage('Mật khẩu phải có độ dài từ 6 ký tự trở lên');
+    if (password.length < 8) {
+      setErrorMessage('Mật khẩu phải có tối thiểu 8 ký tự');
+      return;
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      setErrorMessage('Mật khẩu phải chứa ít nhất 1 chữ cái viết hoa (A-Z)');
+      return;
+    }
+
+    if (!/[0-9]/.test(password)) {
+      setErrorMessage('Mật khẩu phải chứa ít nhất 1 ký tự số (0-9)');
+      return;
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setErrorMessage('Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (ví dụ: !@#$%^&*)');
       return;
     }
 
@@ -102,11 +161,11 @@ export default function RegisterPage({
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-between selection:bg-surface-crimson-soft selection:text-crimson-dark">
-      <div className="w-full flex-1 flex flex-col lg:flex-row p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
+    <div className="min-h-screen w-full bg-white flex flex-col justify-center py-6 sm:py-8 lg:py-10 selection:bg-surface-crimson-soft selection:text-crimson-dark">
+      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
         {/* Left Form Column */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center px-4 sm:px-10 lg:px-16 py-6 lg:py-10">
-          <div className="max-w-[460px] w-full mx-auto my-auto">
+        <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
+          <div className="max-w-[460px] w-full lg:-translate-x-7 xl:-translate-x-9">
             {/* Centered Header Section */}
             <div className="text-center mb-6">
               {/* Tiêu đề Đăng ký tài khoản */}
@@ -184,19 +243,15 @@ export default function RegisterPage({
                   <label className="block text-xs font-bold text-text-body mb-1.5">
                     Ngày sinh <span className="text-crimson-primary">*</span>
                   </label>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={dateOfBirth}
-                      onChange={(e) => {
-                        setDateOfBirth(e.target.value);
-                        if (errorMessage) setErrorMessage('');
-                      }}
-                      max={new Date().toISOString().split('T')[0]}
-                      className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-text-high-contrast focus:outline-none focus:ring-2 focus:ring-crimson-primary/20 focus:border-crimson-primary transition-all"
-                      required
-                    />
-                  </div>
+                  <DatePicker
+                    value={dateOfBirth}
+                    onChange={(newDate) => {
+                      setDateOfBirth(newDate);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    placeholder="dd/mm/yyyy"
+                    required
+                  />
                 </div>
 
                 {/* Gender */}
@@ -243,7 +298,7 @@ export default function RegisterPage({
                       setPassword(e.target.value);
                       if (errorMessage) setErrorMessage('');
                     }}
-                    placeholder="Tối thiểu 6 ký tự"
+                    placeholder="Tối thiểu 8 ký tự"
                     className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:ring-2 focus:ring-crimson-primary/20 focus:border-crimson-primary transition-all"
                     required
                   />
@@ -254,19 +309,68 @@ export default function RegisterPage({
                     tabIndex={-1}
                   >
                     <span className="material-symbols-outlined text-[18px]">
-                      {showPassword ? 'visibility_off' : 'visibility'}
+                      {showPassword ? 'visibility' : 'visibility_off'}
                     </span>
                   </button>
+                </div>
+
+                {/* 4 vòng tròn tiêu chí mật khẩu trên cùng 1 hàng ngang */}
+                <div className="flex items-center justify-between gap-1.5 mt-2 px-0.5">
+                  {passwordCriteria.map((c) => (
+                    <div
+                      key={c.id}
+                      className={`flex items-center gap-1 text-[11px] transition-colors duration-200 ${
+                        c.met ? 'text-emerald-700 font-medium' : 'text-text-muted'
+                      }`}
+                    >
+                      <span
+                        className={`material-symbols-outlined text-[15px] shrink-0 transition-all duration-200 ${
+                          c.met
+                            ? 'text-emerald-500 scale-105'
+                            : 'text-slate-300'
+                        }`}
+                      >
+                        {c.met ? 'check_circle' : 'radio_button_unchecked'}
+                      </span>
+                      <span className="leading-tight select-none whitespace-nowrap">
+                        {c.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               {/* Confirm Password */}
               <div>
-                <label className="block text-xs font-bold text-text-body mb-1.5">
-                  Xác nhận mật khẩu <span className="text-crimson-primary">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-text-body">
+                    Xác nhận mật khẩu <span className="text-crimson-primary">*</span>
+                  </label>
+
+                  {/* Trạng thái Khớp / Không khớp bên phải phía trên khung */}
+                  {confirmStatus && (
+                    <span
+                      className={`text-[11px] font-bold transition-all duration-200 animate-in fade-in ${
+                        confirmStatus === 'MATCH'
+                          ? 'text-emerald-600'
+                          : 'text-rose-500'
+                      }`}
+                    >
+                      {confirmStatus === 'MATCH' ? 'Khớp' : 'Không khớp'}
+                    </span>
+                  )}
+                </div>
+
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-[18px]">
+                  <span
+                    className={`material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] transition-colors ${
+                      confirmStatus === 'MATCH'
+                        ? 'text-emerald-500'
+                        : confirmStatus === 'MISMATCH'
+                        ? 'text-rose-500'
+                        : 'text-text-muted'
+                    }`}
+                  >
                     lock_reset
                   </span>
                   <input
@@ -277,7 +381,13 @@ export default function RegisterPage({
                       if (errorMessage) setErrorMessage('');
                     }}
                     placeholder="Nhập lại mật khẩu"
-                    className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none focus:ring-2 focus:ring-crimson-primary/20 focus:border-crimson-primary transition-all"
+                    className={`w-full h-11 pl-10 pr-10 rounded-xl text-sm text-text-high-contrast placeholder:text-text-disabled focus:outline-none transition-all ${
+                      confirmStatus === 'MATCH'
+                        ? 'border border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/15 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        : confirmStatus === 'MISMATCH'
+                        ? 'border border-rose-500 ring-1 ring-rose-500 bg-rose-50/15 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500'
+                        : 'border border-slate-200 bg-white focus:ring-2 focus:ring-crimson-primary/20 focus:border-crimson-primary'
+                    }`}
                     required
                   />
                   <button
@@ -287,7 +397,7 @@ export default function RegisterPage({
                     tabIndex={-1}
                   >
                     <span className="material-symbols-outlined text-[18px]">
-                      {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                      {showConfirmPassword ? 'visibility' : 'visibility_off'}
                     </span>
                   </button>
                 </div>
@@ -378,18 +488,20 @@ export default function RegisterPage({
         </div>
 
         {/* Right Hero Card Column */}
-        <div className="hidden lg:block lg:w-1/2 p-2">
-          <AuthBanner
-            showLogo={true}
-            title="LinearVocab LMS"
-            description={
-              <>
-                Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
-                <br className="hidden sm:inline" />
-                {' '}rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
-              </>
-            }
-          />
+        <div className="hidden lg:flex lg:w-1/2 items-center justify-center py-4 w-full h-full min-h-[680px]">
+          <div className="w-full max-w-[620px] h-full flex">
+            <AuthBanner
+              showLogo={true}
+              title="LinearVocab LMS"
+              description={
+                <>
+                  Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
+                  <br />
+                  rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
+                </>
+              }
+            />
+          </div>
         </div>
       </div>
     </div>
