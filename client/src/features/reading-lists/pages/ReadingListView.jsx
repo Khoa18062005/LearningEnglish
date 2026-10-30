@@ -16,13 +16,48 @@ export default function ReadingListView({
   setSelectedPos,
 }) {
   const posOptions = [
-    { id: 'all', label: 'Tất cả', colorClass: 'text-text-body' },
-    { id: 'n', label: 'Danh từ (N)', colorClass: 'text-pos-noun-text hover:bg-pos-noun-bg' },
-    { id: 'v', label: 'Động từ (V)', colorClass: 'text-pos-verb-text hover:bg-pos-verb-bg' },
-    { id: 'adj', label: 'Tính từ (Adj)', colorClass: 'text-pos-adj-text hover:bg-pos-adj-bg' },
-    { id: 'adv', label: 'Trạng từ (Adv)', colorClass: 'text-pos-adv-text hover:bg-pos-adv-bg' },
-    { id: 'phrasal_verb', label: 'Cụm ĐT (Phrasal Verb)', colorClass: 'text-teal-700 hover:bg-teal-50' },
-    { id: 'idiom', label: 'Cụm từ (Idioms)', colorClass: 'text-amber-800 hover:bg-amber-50' },
+    {
+      id: 'all',
+      label: 'Tất cả',
+      activeClass: 'bg-white text-crimson-primary shadow-xs border-red-200/80',
+      inactiveClass: 'text-slate-600 hover:text-crimson-primary hover:bg-slate-200/60',
+    },
+    {
+      id: 'n',
+      label: 'Danh từ (N)',
+      activeClass: 'bg-white text-pos-noun-text shadow-xs border-blue-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-noun-text hover:bg-pos-noun-bg/60',
+    },
+    {
+      id: 'v',
+      label: 'Động từ (V)',
+      activeClass: 'bg-white text-pos-verb-text shadow-xs border-red-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-verb-text hover:bg-pos-verb-bg/60',
+    },
+    {
+      id: 'adj',
+      label: 'Tính từ (Adj)',
+      activeClass: 'bg-white text-pos-adj-text shadow-xs border-emerald-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-adj-text hover:bg-pos-adj-bg/60',
+    },
+    {
+      id: 'adv',
+      label: 'Trạng từ (Adv)',
+      activeClass: 'bg-white text-pos-adv-text shadow-xs border-purple-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-adv-text hover:bg-pos-adv-bg/60',
+    },
+    {
+      id: 'phrasal_verb',
+      label: 'Cụm ĐT (Phrasal Verb)',
+      activeClass: 'bg-white text-teal-700 shadow-xs border-teal-200/90',
+      inactiveClass: 'text-slate-600 hover:text-teal-700 hover:bg-teal-50',
+    },
+    {
+      id: 'idiom',
+      label: 'Cụm từ (Idioms)',
+      activeClass: 'bg-white text-amber-800 shadow-xs border-amber-200/90',
+      inactiveClass: 'text-slate-600 hover:text-amber-800 hover:bg-amber-50',
+    },
   ];
 
   const [showPassage, setShowPassage] = React.useState(Boolean(readingList?.passage));
@@ -161,7 +196,7 @@ export default function ReadingListView({
 
   return (
     <div className="flex flex-col w-full pb-16">
-      <div className="p-6 lg:p-8 max-w-[1600px] mx-auto w-full flex flex-col gap-6">
+      <div className="px-6 lg:px-8 pt-5 pb-1 max-w-[1600px] mx-auto w-full flex flex-col gap-5">
         {/* TOP BANNER / READING HEADER CARD (Gradient Đỏ Nhạt Chuẩn EdTech) */}
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 p-6 lg:p-7 transition-all text-white">
           {/* Decorative glowing halos in background */}
@@ -494,7 +529,7 @@ export default function ReadingListView({
           </div>
 
           {/* POS Filter Pills (Sát mép phải) */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap sm:ml-auto">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap sm:ml-auto shrink-0">
             {posOptions.map((opt) => {
               const isActive = selectedPos === opt.id;
               return (
@@ -502,11 +537,7 @@ export default function ReadingListView({
                   key={opt.id}
                   type="button"
                   onClick={() => setSelectedPos && setSelectedPos(opt.id)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-white text-crimson-primary shadow-xs font-bold'
-                      : `${opt.colorClass} text-text-muted hover:text-text-high-contrast`
-                  }`}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
                 >
                   {opt.label}
                 </button>

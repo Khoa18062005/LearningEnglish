@@ -902,7 +902,9 @@ export default function App() {
               onDeleteVocab={handleDeleteVocab}
               onPronounce={handlePronounce}
               searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
               selectedPos={selectedPos}
+              setSelectedPos={setSelectedPos}
               selectedCategory={selectedCategory}
               lastMutation={lastMutation}
             />

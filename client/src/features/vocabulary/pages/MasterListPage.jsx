@@ -51,13 +51,48 @@ export default function MasterListPage({
   const sentinelRef = useRef(null);
 
   const posOptions = [
-    { id: 'all', label: 'Tất cả', colorClass: 'text-text-body' },
-    { id: 'n', label: 'Danh từ (N)', colorClass: 'text-pos-noun-text' },
-    { id: 'v', label: 'Động từ (V)', colorClass: 'text-pos-verb-text' },
-    { id: 'adj', label: 'Tính từ (Adj)', colorClass: 'text-pos-adj-text' },
-    { id: 'adv', label: 'Trạng từ (Adv)', colorClass: 'text-pos-adv-text' },
-    { id: 'phrasal_verb', label: 'Cụm ĐT (Phrasal Verb)', colorClass: 'text-teal-700' },
-    { id: 'idiom', label: 'Cụm từ (Idioms)', colorClass: 'text-amber-800' },
+    {
+      id: 'all',
+      label: 'Tất cả',
+      activeClass: 'bg-white text-crimson-primary shadow-xs border-red-200/80',
+      inactiveClass: 'text-slate-600 hover:text-crimson-primary hover:bg-slate-200/60',
+    },
+    {
+      id: 'n',
+      label: 'Danh từ (N)',
+      activeClass: 'bg-white text-pos-noun-text shadow-xs border-blue-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-noun-text hover:bg-pos-noun-bg/60',
+    },
+    {
+      id: 'v',
+      label: 'Động từ (V)',
+      activeClass: 'bg-white text-pos-verb-text shadow-xs border-red-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-verb-text hover:bg-pos-verb-bg/60',
+    },
+    {
+      id: 'adj',
+      label: 'Tính từ (Adj)',
+      activeClass: 'bg-white text-pos-adj-text shadow-xs border-emerald-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-adj-text hover:bg-pos-adj-bg/60',
+    },
+    {
+      id: 'adv',
+      label: 'Trạng từ (Adv)',
+      activeClass: 'bg-white text-pos-adv-text shadow-xs border-purple-200/90',
+      inactiveClass: 'text-slate-600 hover:text-pos-adv-text hover:bg-pos-adv-bg/60',
+    },
+    {
+      id: 'phrasal_verb',
+      label: 'Cụm ĐT (Phrasal Verb)',
+      activeClass: 'bg-white text-teal-700 shadow-xs border-teal-200/90',
+      inactiveClass: 'text-slate-600 hover:text-teal-700 hover:bg-teal-50',
+    },
+    {
+      id: 'idiom',
+      label: 'Cụm từ (Idioms)',
+      activeClass: 'bg-white text-amber-800 shadow-xs border-amber-200/90',
+      inactiveClass: 'text-slate-600 hover:text-amber-800 hover:bg-amber-50',
+    },
   ];
 
   // Fallback to local vocabList slice if offline
@@ -314,7 +349,7 @@ export default function MasterListPage({
           </div>
 
           {/* POS Filter Pills - Đồng bộ chiều cao h-11 (44px) */}
-          <div className="flex items-center gap-1 p-1 h-11 bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-x-auto">
+          <div className="flex items-center gap-1 p-1 h-11 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs overflow-x-auto shrink-0">
             {posOptions.map((opt) => {
               const isActive = selectedPos === opt.id;
               return (
@@ -322,11 +357,7 @@ export default function MasterListPage({
                   key={opt.id}
                   type="button"
                   onClick={() => setSelectedPos && setSelectedPos(opt.id)}
-                  className={`h-full px-3.5 flex items-center justify-center rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-surface-crimson-subtle text-crimson-primary font-bold border border-border-crimson-tint/80 shadow-xs'
-                      : `${opt.colorClass} text-text-muted hover:text-text-high-contrast hover:bg-slate-50`
-                  }`}
+                  className={`h-full px-3.5 flex items-center justify-center rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
                 >
                   {opt.label}
                 </button>

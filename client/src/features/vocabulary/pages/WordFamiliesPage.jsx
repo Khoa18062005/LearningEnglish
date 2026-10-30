@@ -207,7 +207,7 @@ export default function WordFamiliesPage({
       {/* ======================================================== */}
       {/* TOP RED HERO CARD (Learning by word family + Cute Astronaut) */}
       {/* ======================================================== */}
-      <section className="p-6 lg:p-8 pb-3">
+      <section className="px-6 lg:px-8 pt-5 pb-1">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 px-6 py-4 sm:px-8 sm:py-5 text-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Decorative glowing halos in background */}
           <div className="absolute -left-12 -top-12 w-80 h-80 bg-white/15 rounded-full blur-2xl pointer-events-none" />
