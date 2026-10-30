@@ -10,7 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "note_lists")
+@Table(
+    name = "note_lists",
+    indexes = {
+        @Index(name = "idx_note_list_user", columnList = "user_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,6 +26,10 @@ public class NoteList {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(nullable = false, length = 200)
     private String title;

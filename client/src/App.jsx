@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import MasterListPage from './features/vocabulary/pages/MasterListPage';
@@ -137,6 +137,11 @@ export default function App() {
 
   // Fetch initial data from Spring Boot Backend with fallback to local state
   const loadBackendData = useCallback(async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setIsBackendConnected(false);
+      return;
+    }
     try {
       setLoading(true);
       const [vocabsData, listsData, catsData, familiesData] = await Promise.all([

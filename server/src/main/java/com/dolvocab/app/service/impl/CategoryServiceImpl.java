@@ -3,8 +3,10 @@ package com.dolvocab.app.service.impl;
 import com.dolvocab.app.dto.request.CategoryCreateRequest;
 import com.dolvocab.app.dto.response.CategoryResponse;
 import com.dolvocab.app.entity.Category;
+import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
 import com.dolvocab.app.repository.CategoryRepository;
+import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,11 +21,13 @@ import java.util.Optional;
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategories() {
-        List<Object[]> rows = categoryRepository.findCategoriesWithVocabCount();
+        User currentUser = securityUtils.getCurrentUser();
+        List<Object[]> rows = categoryRepository.findCategoriesWithVocabCountByUserId(currentUser.getId());
         List<CategoryResponse> responses = new ArrayList<>();
 
         for (Object[] row : rows) {
@@ -47,8 +51,11 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryResponse createCategory(CategoryCreateRequest request) {
-        if (categoryRepository.existsByNameIgnoreCase(request.getName().trim())) {
-            Category existing = categoryRepository.findByNameIgnoreCase(request.getName().trim()).orElseThrow();
+        User currentUser = securityUtils.getCurrentUser();
+        String trimmedName = request.getName().trim();
+
+        if (categoryRepository.existsByNameIgnoreCaseAndUserId(trimmedName, currentUser.getId())) {
+            Category existing = categoryRepository.findByNameIgnoreCaseAndUserId(trimmedName, currentUser.getId()).orElseThrow();
             return CategoryResponse.builder()
                     .id(existing.getId())
                     .name(existing.getName())
@@ -59,7 +66,8 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         Category category = Category.builder()
-                .name(request.getName().trim())
+                .user(currentUser)
+                .name(trimmedName)
                 .colorCode(request.getColorCode() != null ? request.getColorCode() : "#E31E24")
                 .description(request.getDescription())
                 .build();
@@ -77,7 +85,8 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryById(Long id) {
-        Category category = categoryRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        Category category = categoryRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
 
         return CategoryResponse.builder()
@@ -92,13 +101,14 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryResponse updateCategory(Long id, CategoryCreateRequest request) {
-        Category category = categoryRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        Category category = categoryRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
 
         String newName = request.getName().trim();
-        Optional<Category> existing = categoryRepository.findByNameIgnoreCase(newName);
+        Optional<Category> existing = categoryRepository.findByNameIgnoreCaseAndUserId(newName, currentUser.getId());
         if (existing.isPresent() && !existing.get().getId().equals(id)) {
-            throw new RuntimeException("Tên danh mục '" + newName + "' đã tồn tại!");
+            throw new RuntimeException("Tên danh mục '" + newName + "' đã tồn tại trong tài khoản của bạn!");
         }
 
         category.setName(newName);
@@ -120,7 +130,8 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public void deleteCategory(Long id) {
-        Category category = categoryRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        Category category = categoryRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
 
         // Disconnect many-to-many references from vocabularies
@@ -135,11 +146,13 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
-    public Category getOrCreateCategory(String name) {
-        return categoryRepository.findByNameIgnoreCase(name.trim())
+    public Category getOrCreateCategory(String name, User user) {
+        String trimmedName = name.trim();
+        return categoryRepository.findByNameIgnoreCaseAndUserId(trimmedName, user.getId())
                 .orElseGet(() -> categoryRepository.save(
                         Category.builder()
-                                .name(name.trim())
+                                .user(user)
+                                .name(trimmedName)
                                 .colorCode("#E31E24")
                                 .build()
                 ));

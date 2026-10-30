@@ -13,6 +13,19 @@ import java.util.List;
 public class VocabularySpecification {
 
     public static Specification<Vocabulary> filterVocabularies(
+            Long userId,
+            String keyword,
+            List<Long> categoryIds,
+            String categoryName,
+            Long noteListId,
+            PartOfSpeech pos,
+            Long wordFamilyId) {
+        return filterVocabularies(userId, null, keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId);
+    }
+
+    public static Specification<Vocabulary> filterVocabularies(
+            Long userId,
+            Long cursor,
             String keyword,
             List<Long> categoryIds,
             String categoryName,
@@ -23,6 +36,16 @@ public class VocabularySpecification {
         return (root, query, cb) -> {
             query.distinct(true);
             List<Predicate> predicates = new ArrayList<>();
+
+            // 0. Filter by Current User ID (Scoping to authenticated user)
+            if (userId != null) {
+                predicates.add(cb.equal(root.get("user").get("id"), userId));
+            }
+
+            // Keyset cursor pagination (Fetch records with id < cursor)
+            if (cursor != null && cursor > 0) {
+                predicates.add(cb.lessThan(root.get("id"), cursor));
+            }
 
             // 1. Keyword search (word, pattern, collocation, vietnamese meaning, synonym)
             if (keyword != null && !keyword.trim().isEmpty()) {

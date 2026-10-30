@@ -10,7 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "categories")
+@Table(
+    name = "categories",
+    indexes = {
+        @Index(name = "idx_category_user", columnList = "user_id")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_user_category", columnNames = {"user_id", "name"})
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,7 +30,11 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false, length = 150)
     private String name;
 
     @Column(name = "color_code", length = 20)

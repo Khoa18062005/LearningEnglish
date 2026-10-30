@@ -1,10 +1,12 @@
 package com.dolvocab.app.service.impl;
 
 import com.dolvocab.app.dto.response.WordFamilyResponse;
+import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
 import com.dolvocab.app.entity.WordFamily;
 import com.dolvocab.app.entity.enums.PartOfSpeech;
 import com.dolvocab.app.repository.WordFamilyRepository;
+import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.WordFamilyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,18 +21,21 @@ import java.util.List;
 public class WordFamilyServiceImpl implements WordFamilyService {
 
     private final WordFamilyRepository wordFamilyRepository;
+    private final SecurityUtils securityUtils;
 
     @Override
     @Transactional(readOnly = true)
     public List<WordFamilyResponse> getAllWordFamilies() {
-        List<WordFamily> families = wordFamilyRepository.findAll();
+        User currentUser = securityUtils.getCurrentUser();
+        List<WordFamily> families = wordFamilyRepository.findAllByUserIdOrderByRootWordAsc(currentUser.getId());
         return families.stream().map(this::mapToResponse).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<WordFamilyResponse> searchWordFamilies(String keyword) {
-        List<WordFamily> families = wordFamilyRepository.findAll();
+        User currentUser = securityUtils.getCurrentUser();
+        List<WordFamily> families = wordFamilyRepository.findAllByUserIdOrderByRootWordAsc(currentUser.getId());
         if (keyword == null || keyword.trim().isEmpty()) {
             return families.stream().map(this::mapToResponse).toList();
         }
@@ -46,21 +51,23 @@ public class WordFamilyServiceImpl implements WordFamilyService {
     @Override
     @Transactional(readOnly = true)
     public WordFamilyResponse getWordFamilyById(Long id) {
-        WordFamily wf = wordFamilyRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        WordFamily wf = wordFamilyRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
         return mapToResponse(wf);
     }
 
     @Override
     @Transactional
-    public WordFamily getOrCreateWordFamily(String rootWord, String description) {
+    public WordFamily getOrCreateWordFamily(String rootWord, String description, User user) {
         if (rootWord == null || rootWord.trim().isEmpty()) {
             return null;
         }
 
-        return wordFamilyRepository.findByRootWordIgnoreCase(rootWord.trim())
+        return wordFamilyRepository.findByRootWordIgnoreCaseAndUserId(rootWord.trim(), user.getId())
                 .orElseGet(() -> wordFamilyRepository.save(
                         WordFamily.builder()
+                                .user(user)
                                 .rootWord(rootWord.trim())
                                 .description(description)
                                 .build()
@@ -70,14 +77,16 @@ public class WordFamilyServiceImpl implements WordFamilyService {
     @Override
     @Transactional
     public WordFamilyResponse createWordFamily(String rootWord, String description) {
-        WordFamily wf = getOrCreateWordFamily(rootWord, description);
+        User currentUser = securityUtils.getCurrentUser();
+        WordFamily wf = getOrCreateWordFamily(rootWord, description, currentUser);
         return mapToResponse(wf);
     }
 
     @Override
     @Transactional
     public WordFamilyResponse updateWordFamily(Long id, String rootWord, String description, List<String> memberOrder) {
-        WordFamily wf = wordFamilyRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        WordFamily wf = wordFamilyRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
 
         if (rootWord != null && !rootWord.trim().isEmpty()) {
@@ -97,7 +106,8 @@ public class WordFamilyServiceImpl implements WordFamilyService {
     @Override
     @Transactional
     public void deleteWordFamily(Long id) {
-        WordFamily wf = wordFamilyRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        WordFamily wf = wordFamilyRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
 
         if (wf.getVocabularies() != null) {

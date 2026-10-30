@@ -3,6 +3,7 @@ package com.dolvocab.app.service;
 import com.dolvocab.app.dto.request.CategoryCreateRequest;
 import com.dolvocab.app.dto.response.CategoryResponse;
 import com.dolvocab.app.entity.Category;
+import com.dolvocab.app.entity.User;
 
 import java.util.List;
 
@@ -12,5 +13,5 @@ public interface CategoryService {
     CategoryResponse createCategory(CategoryCreateRequest request);
     CategoryResponse updateCategory(Long id, CategoryCreateRequest request);
     void deleteCategory(Long id);
-    Category getOrCreateCategory(String name);
+    Category getOrCreateCategory(String name, User user);
 }

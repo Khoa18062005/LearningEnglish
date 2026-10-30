@@ -3,8 +3,10 @@ package com.dolvocab.app.service.impl;
 import com.dolvocab.app.dto.request.NoteListCreateRequest;
 import com.dolvocab.app.dto.response.NoteListResponse;
 import com.dolvocab.app.entity.NoteList;
+import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
 import com.dolvocab.app.repository.NoteListRepository;
+import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.NoteListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import java.util.List;
 public class NoteListServiceImpl implements NoteListService {
 
     private final NoteListRepository noteListRepository;
+    private final SecurityUtils securityUtils;
 
     private NoteListResponse toResponse(NoteList list, long count) {
         String code = list.getCode();
@@ -45,7 +48,8 @@ public class NoteListServiceImpl implements NoteListService {
     @Override
     @Transactional(readOnly = true)
     public List<NoteListResponse> getAllNoteLists() {
-        List<Object[]> rows = noteListRepository.findNoteListsWithVocabCount();
+        User currentUser = securityUtils.getCurrentUser();
+        List<Object[]> rows = noteListRepository.findNoteListsWithVocabCountByUserId(currentUser.getId());
         List<NoteListResponse> responses = new ArrayList<>();
 
         for (Object[] row : rows) {
@@ -82,7 +86,8 @@ public class NoteListServiceImpl implements NoteListService {
     @Override
     @Transactional(readOnly = true)
     public NoteListResponse getNoteListById(Long id) {
-        NoteList list = noteListRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        NoteList list = noteListRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Reading List với ID: " + id));
 
         return toResponse(list, list.getVocabularies().size());
@@ -91,15 +96,17 @@ public class NoteListServiceImpl implements NoteListService {
     @Override
     @Transactional
     public NoteListResponse createNoteList(NoteListCreateRequest request) {
+        User currentUser = securityUtils.getCurrentUser();
         String code = request.getCode();
         if (code == null || code.trim().isEmpty()) {
-            long nextNumber = noteListRepository.count() + 1;
+            long nextNumber = noteListRepository.countByUserId(currentUser.getId()) + 1;
             code = String.format("LIST %02d", nextNumber);
         } else {
             code = code.trim();
         }
 
         NoteList list = NoteList.builder()
+                .user(currentUser)
                 .title(request.getTitle().trim())
                 .code(code)
                 .sourceReference(request.getSourceReference() != null ? request.getSourceReference().trim() : null)
@@ -114,7 +121,8 @@ public class NoteListServiceImpl implements NoteListService {
     @Override
     @Transactional
     public NoteListResponse updateNoteList(Long id, NoteListCreateRequest request) {
-        NoteList list = noteListRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        NoteList list = noteListRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Reading List với ID: " + id));
 
         list.setTitle(request.getTitle().trim());
@@ -132,7 +140,8 @@ public class NoteListServiceImpl implements NoteListService {
     @Override
     @Transactional
     public void deleteNoteList(Long id) {
-        NoteList list = noteListRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        NoteList list = noteListRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Reading List với ID: " + id));
 
         // Disconnect many-to-many references from vocabularies
@@ -147,26 +156,27 @@ public class NoteListServiceImpl implements NoteListService {
 
     @Override
     @Transactional
-    public NoteList getOrCreateNoteList(String identifier, String title) {
+    public NoteList getOrCreateNoteList(String identifier, String title, User user) {
         if (identifier != null && !identifier.trim().isEmpty()) {
             try {
                 Long id = Long.parseLong(identifier.trim());
-                return noteListRepository.findById(id).orElse(null);
+                return noteListRepository.findByIdAndUserId(id, user.getId()).orElse(null);
             } catch (NumberFormatException ignored) {
-                var byCode = noteListRepository.findByCodeIgnoreCase(identifier.trim());
+                var byCode = noteListRepository.findByCodeIgnoreCaseAndUserId(identifier.trim(), user.getId());
                 if (byCode.isPresent()) return byCode.get();
 
-                var byTitle = noteListRepository.findByTitleIgnoreCase(identifier.trim());
+                var byTitle = noteListRepository.findByTitleIgnoreCaseAndUserId(identifier.trim(), user.getId());
                 if (byTitle.isPresent()) return byTitle.get();
             }
         }
 
         if (title != null && !title.trim().isEmpty()) {
-            return noteListRepository.findByTitleIgnoreCase(title.trim())
+            return noteListRepository.findByTitleIgnoreCaseAndUserId(title.trim(), user.getId())
                     .orElseGet(() -> noteListRepository.save(
                             NoteList.builder()
+                                    .user(user)
                                     .title(title.trim())
-                                    .code(String.format("LIST %02d", noteListRepository.count() + 1))
+                                    .code(String.format("LIST %02d", noteListRepository.countByUserId(user.getId()) + 1))
                                     .build()
                     ));
         }

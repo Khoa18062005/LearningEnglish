@@ -10,7 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "word_families")
+@Table(
+    name = "word_families",
+    indexes = {
+        @Index(name = "idx_word_family_user", columnList = "user_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,6 +26,10 @@ public class WordFamily {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "root_word", nullable = false, length = 100)
     private String rootWord;

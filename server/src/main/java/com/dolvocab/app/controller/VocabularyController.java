@@ -1,7 +1,8 @@
-package com.dolvocab.app.controller;
+﻿package com.dolvocab.app.controller;
 
 import com.dolvocab.app.dto.request.VocabCreateRequest;
 import com.dolvocab.app.dto.response.ApiResponse;
+import com.dolvocab.app.dto.response.CursorResponse;
 import com.dolvocab.app.dto.response.VocabDetailResponse;
 import com.dolvocab.app.service.VocabularyService;
 import jakarta.validation.Valid;
@@ -18,6 +19,23 @@ import java.util.List;
 public class VocabularyController {
 
     private final VocabularyService vocabularyService;
+
+    @GetMapping("/cursor")
+    public ResponseEntity<ApiResponse<CursorResponse<VocabDetailResponse>>> getVocabulariesCursor(
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false, defaultValue = "10") Integer limit,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) List<Long> categoryIds,
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) Long noteListId,
+            @RequestParam(required = false) String pos,
+            @RequestParam(required = false) Long wordFamilyId) {
+
+        CursorResponse<VocabDetailResponse> result = vocabularyService.getVocabulariesCursor(
+                cursor, limit, keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
+        );
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<VocabDetailResponse>>> getVocabularies(

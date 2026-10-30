@@ -2,6 +2,7 @@ package com.dolvocab.app.service.impl;
 
 import com.dolvocab.app.dto.request.VocabCreateRequest;
 import com.dolvocab.app.dto.response.CategoryResponse;
+import com.dolvocab.app.dto.response.CursorResponse;
 import com.dolvocab.app.dto.response.NoteListResponse;
 import com.dolvocab.app.dto.response.VocabDetailResponse;
 import com.dolvocab.app.entity.*;
@@ -12,11 +13,15 @@ import com.dolvocab.app.repository.NoteListRepository;
 import com.dolvocab.app.repository.VocabularyRepository;
 import com.dolvocab.app.repository.WordFamilyRepository;
 import com.dolvocab.app.repository.specification.VocabularySpecification;
+import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.CategoryService;
 import com.dolvocab.app.service.NoteListService;
 import com.dolvocab.app.service.VocabularyService;
 import com.dolvocab.app.service.WordFamilyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -37,6 +42,8 @@ public class VocabularyServiceImpl implements VocabularyService {
     private final NoteListService noteListService;
     private final WordFamilyService wordFamilyService;
 
+    private final SecurityUtils securityUtils;
+
     @Override
     @Transactional(readOnly = true)
     public List<VocabDetailResponse> getVocabularies(
@@ -47,9 +54,10 @@ public class VocabularyServiceImpl implements VocabularyService {
             String posStr,
             Long wordFamilyId) {
 
+        User currentUser = securityUtils.getCurrentUser();
         PartOfSpeech pos = parsePos(posStr);
         Specification<Vocabulary> spec = VocabularySpecification.filterVocabularies(
-                keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
+                currentUser.getId(), keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
         );
 
         List<Vocabulary> list = vocabularyRepository.findAll(spec, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -58,8 +66,60 @@ public class VocabularyServiceImpl implements VocabularyService {
 
     @Override
     @Transactional(readOnly = true)
+    public CursorResponse<VocabDetailResponse> getVocabulariesCursor(
+            Long cursor,
+            Integer limit,
+            String keyword,
+            List<Long> categoryIds,
+            String categoryName,
+            Long noteListId,
+            String posStr,
+            Long wordFamilyId) {
+
+        User currentUser = securityUtils.getCurrentUser();
+        int pageSize = (limit != null && limit > 0) ? Math.min(limit, 50) : 10;
+        PartOfSpeech pos = parsePos(posStr);
+
+        // 1. Specification with cursor (fetch records with id < cursor for infinite scroll)
+        Specification<Vocabulary> spec = VocabularySpecification.filterVocabularies(
+                currentUser.getId(), cursor, keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
+        );
+
+        // 2. Fetch pageSize + 1 to determine if there is a next page
+        Pageable pageable = PageRequest.of(0, pageSize + 1, Sort.by(Sort.Direction.DESC, "id"));
+        Page<Vocabulary> page = vocabularyRepository.findAll(spec, pageable);
+        List<Vocabulary> list = page.getContent();
+
+        boolean hasMore = list.size() > pageSize;
+        List<Vocabulary> actualItems = hasMore ? list.subList(0, pageSize) : list;
+        Long nextCursor = null;
+        if (hasMore && !actualItems.isEmpty()) {
+            nextCursor = actualItems.get(actualItems.size() - 1).getId();
+        }
+
+        // 3. Count total items matching filters (without cursor)
+        Specification<Vocabulary> totalSpec = VocabularySpecification.filterVocabularies(
+                currentUser.getId(), null, keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
+        );
+        long totalCount = vocabularyRepository.count(totalSpec);
+
+        List<VocabDetailResponse> itemResponses = actualItems.stream()
+                .map(this::mapToDetailResponse)
+                .toList();
+
+        return CursorResponse.<VocabDetailResponse>builder()
+                .items(itemResponses)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
+                .totalCount(totalCount)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public VocabDetailResponse getVocabById(Long id) {
-        Vocabulary vocab = vocabularyRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        Vocabulary vocab = vocabularyRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy từ vựng với ID: " + id));
         return mapToDetailResponse(vocab);
     }
@@ -67,16 +127,17 @@ public class VocabularyServiceImpl implements VocabularyService {
     @Override
     @Transactional
     public VocabDetailResponse createVocabulary(VocabCreateRequest request) {
+        User currentUser = securityUtils.getCurrentUser();
         String cleanWord = request.getWord().trim();
 
         Vocabulary vocab;
-        Optional<Vocabulary> existing = vocabularyRepository.findByWordIgnoreCase(cleanWord);
+        Optional<Vocabulary> existing = vocabularyRepository.findByWordIgnoreCaseAndUserId(cleanWord, currentUser.getId());
         if (existing.isPresent()) {
             vocab = existing.get();
-            // Clear old forms to replace with updated structure
             vocab.getForms().clear();
         } else {
             vocab = Vocabulary.builder()
+                    .user(currentUser)
                     .word(cleanWord)
                     .build();
         }
@@ -87,13 +148,13 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocab.setMeaning(request.getMeaning());
 
         // 1. Word Family
-        handleWordFamily(vocab, request);
+        handleWordFamily(vocab, request, currentUser);
 
         // 2. Categories
-        handleCategories(vocab, request);
+        handleCategories(vocab, request, currentUser);
 
         // 3. Reading Note Lists
-        handleNoteLists(vocab, request);
+        handleNoteLists(vocab, request, currentUser);
 
         // 4. Forms & Senses
         handleFormsAndSenses(vocab, request);
@@ -105,18 +166,25 @@ public class VocabularyServiceImpl implements VocabularyService {
     @Override
     @Transactional
     public VocabDetailResponse updateVocabulary(Long id, VocabCreateRequest request) {
-        Vocabulary vocab = vocabularyRepository.findById(id)
+        User currentUser = securityUtils.getCurrentUser();
+        Vocabulary vocab = vocabularyRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy từ vựng với ID: " + id));
 
-        vocab.setWord(request.getWord().trim());
+        String newWord = request.getWord().trim();
+        Optional<Vocabulary> existing = vocabularyRepository.findByWordIgnoreCaseAndUserId(newWord, currentUser.getId());
+        if (existing.isPresent() && !existing.get().getId().equals(id)) {
+            throw new RuntimeException("Từ vựng '" + newWord + "' đã tồn tại trong danh sách của bạn!");
+        }
+
+        vocab.setWord(newWord);
         vocab.setPhonetic(request.getPhonetic());
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
         vocab.setMeaning(request.getMeaning());
 
-        handleWordFamily(vocab, request);
-        handleCategories(vocab, request);
-        handleNoteLists(vocab, request);
+        handleWordFamily(vocab, request, currentUser);
+        handleCategories(vocab, request, currentUser);
+        handleNoteLists(vocab, request, currentUser);
 
         vocab.getForms().clear();
         handleFormsAndSenses(vocab, request);
@@ -128,25 +196,25 @@ public class VocabularyServiceImpl implements VocabularyService {
     @Override
     @Transactional
     public void deleteVocabulary(Long id) {
-        if (!vocabularyRepository.existsById(id)) {
-            throw new RuntimeException("Không tìm thấy từ vựng với ID: " + id);
-        }
-        vocabularyRepository.deleteById(id);
+        User currentUser = securityUtils.getCurrentUser();
+        Vocabulary vocab = vocabularyRepository.findByIdAndUserId(id, currentUser.getId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy từ vựng với ID: " + id));
+        vocabularyRepository.delete(vocab);
     }
 
     // --- Private Helper Handlers ---
 
-    private void handleWordFamily(Vocabulary vocab, VocabCreateRequest request) {
+    private void handleWordFamily(Vocabulary vocab, VocabCreateRequest request, User user) {
         if (request.getWordFamilyId() != null) {
-            wordFamilyRepository.findById(request.getWordFamilyId())
+            wordFamilyRepository.findByIdAndUserId(request.getWordFamilyId(), user.getId())
                     .ifPresentOrElse(vocab::setWordFamily, () -> vocab.setWordFamily(null));
         } else if (request.getRootWord() != null && !request.getRootWord().trim().isEmpty()) {
-            WordFamily wf = wordFamilyService.getOrCreateWordFamily(request.getRootWord().trim(), null);
+            WordFamily wf = wordFamilyService.getOrCreateWordFamily(request.getRootWord().trim(), null, user);
             vocab.setWordFamily(wf);
         } else if (request.getWordFamily() != null && !request.getWordFamily().isEmpty()) {
             String first = request.getWordFamily().get(0).trim();
             if (!first.isEmpty()) {
-                WordFamily wf = wordFamilyService.getOrCreateWordFamily(first, null);
+                WordFamily wf = wordFamilyService.getOrCreateWordFamily(first, null, user);
                 vocab.setWordFamily(wf);
             } else {
                 vocab.setWordFamily(null);
@@ -156,28 +224,30 @@ public class VocabularyServiceImpl implements VocabularyService {
         }
     }
 
-    private void handleCategories(Vocabulary vocab, VocabCreateRequest request) {
+    private void handleCategories(Vocabulary vocab, VocabCreateRequest request, User user) {
         vocab.getCategories().clear();
 
         if (request.getCategoryIds() != null && !request.getCategoryIds().isEmpty()) {
-            List<Category> found = categoryRepository.findAllById(request.getCategoryIds());
-            vocab.getCategories().addAll(found);
+            for (Long catId : request.getCategoryIds()) {
+                categoryRepository.findByIdAndUserId(catId, user.getId())
+                        .ifPresent(vocab.getCategories()::add);
+            }
         }
 
         if (request.getCategories() != null && !request.getCategories().isEmpty()) {
             for (String catName : request.getCategories()) {
                 if (catName != null && !catName.trim().isEmpty()) {
-                    Category cat = categoryService.getOrCreateCategory(catName.trim());
+                    Category cat = categoryService.getOrCreateCategory(catName.trim(), user);
                     vocab.getCategories().add(cat);
                 }
             }
         }
     }
 
-    private void handleNoteLists(Vocabulary vocab, VocabCreateRequest request) {
+    private void handleNoteLists(Vocabulary vocab, VocabCreateRequest request, User user) {
         if (request.getNoteListId() != null) {
             String identifier = request.getNoteListId().toString();
-            NoteList list = noteListService.getOrCreateNoteList(identifier, request.getReadingListName());
+            NoteList list = noteListService.getOrCreateNoteList(identifier, request.getReadingListName(), user);
             if (list != null) {
                 vocab.getNoteLists().add(list);
             }
@@ -205,7 +275,6 @@ public class VocabularyServiceImpl implements VocabularyService {
             return;
         }
 
-        // Group by partOfSpeech so that multiple patterns/collocations under the same POS attach to the same VocabForm
         Map<PartOfSpeech, VocabForm> formMap = new LinkedHashMap<>();
 
         int formOrder = 1;
@@ -219,17 +288,18 @@ public class VocabularyServiceImpl implements VocabularyService {
             String countabilityString = item.getCountability() != null ? item.getCountability() : request.getCountability();
             Countability countability = parseCountability(countabilityString);
 
-            VocabForm vocabForm = formMap.get(pos);
-            if (vocabForm == null) {
-                vocabForm = VocabForm.builder()
+            VocabForm currentForm = formMap.get(pos);
+            if (currentForm == null) {
+                currentForm = VocabForm.builder()
                         .partOfSpeech(pos)
                         .countability(countability)
                         .displayOrder(formOrder++)
                         .build();
-                vocab.addForm(vocabForm);
-                formMap.put(pos, vocabForm);
-            } else if (countability != Countability.NOT_APPLICABLE && vocabForm.getCountability() == Countability.NOT_APPLICABLE) {
-                vocabForm.setCountability(countability);
+                vocab.addForm(currentForm);
+                formMap.put(pos, currentForm);
+                senseOrder = 1;
+            } else if (countability != Countability.NOT_APPLICABLE && currentForm.getCountability() == Countability.NOT_APPLICABLE) {
+                currentForm.setCountability(countability);
             }
 
             // Check if senses are provided nested
@@ -251,7 +321,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                             }
                         }
                     }
-                    vocabForm.addSense(sense);
+                    currentForm.addSense(sense);
                 }
             } else {
                 // Flat form item (pattern or collocation)
@@ -275,40 +345,13 @@ public class VocabularyServiceImpl implements VocabularyService {
                 if (item.getExample() != null && !item.getExample().trim().isEmpty()) {
                     sense.addExample(VocabExample.builder().exampleSentence(item.getExample().trim()).build());
                 }
-                vocabForm.addSense(sense);
+
+                currentForm.addSense(sense);
             }
         }
     }
 
     private VocabDetailResponse mapToDetailResponse(Vocabulary vocab) {
-        List<String> categoryNames = vocab.getCategories().stream().map(Category::getName).toList();
-        List<CategoryResponse> catResponses = vocab.getCategories().stream().map(c ->
-                CategoryResponse.builder().id(c.getId()).name(c.getName()).colorCode(c.getColorCode()).build()
-        ).toList();
-
-        List<NoteListResponse> noteListResponses = vocab.getNoteLists().stream().map(n ->
-                NoteListResponse.builder().id(n.getId()).title(n.getTitle()).code(n.getCode()).build()
-        ).toList();
-
-        Long readingListId = !noteListResponses.isEmpty() ? noteListResponses.get(0).getId() : null;
-        String readingListName = !noteListResponses.isEmpty() ? noteListResponses.get(0).getTitle() : null;
-
-        // Word family
-        List<String> wfList = new ArrayList<>();
-        Long wfId = null;
-        String rootWord = null;
-        if (vocab.getWordFamily() != null) {
-            wfId = vocab.getWordFamily().getId();
-            rootWord = vocab.getWordFamily().getRootWord();
-            if (vocab.getWordFamily().getVocabularies() != null) {
-                wfList = new ArrayList<>(vocab.getWordFamily().getVocabularies().stream().map(Vocabulary::getWord).toList());
-            }
-            if (!wfList.contains(vocab.getWord())) {
-                wfList.add(vocab.getWord());
-            }
-        }
-
-        // Primary POS & countability from first form
         String primaryPos = "v";
         String primaryPosLabel = "Verb";
         String primaryCountability = null;
@@ -320,9 +363,56 @@ public class VocabularyServiceImpl implements VocabularyService {
             primaryCountability = formatCountability(firstForm.getCountability());
         }
 
-        // Build flat forms and domain forms
-        List<VocabDetailResponse.FlatFormResponse> flatForms = new ArrayList<>();
+        List<String> categoryNames = new ArrayList<>();
+        List<CategoryResponse> catResponses = new ArrayList<>();
+        if (vocab.getCategories() != null) {
+            for (Category c : vocab.getCategories()) {
+                categoryNames.add(c.getName());
+                catResponses.add(CategoryResponse.builder()
+                        .id(c.getId())
+                        .name(c.getName())
+                        .colorCode(c.getColorCode())
+                        .description(c.getDescription())
+                        .build());
+            }
+        }
+
+        Long readingListId = null;
+        String readingListName = null;
+        List<NoteListResponse> noteListResponses = new ArrayList<>();
+        if (vocab.getNoteLists() != null && !vocab.getNoteLists().isEmpty()) {
+            NoteList first = vocab.getNoteLists().iterator().next();
+            readingListId = first.getId();
+            readingListName = first.getTitle();
+
+            for (NoteList nl : vocab.getNoteLists()) {
+                noteListResponses.add(NoteListResponse.builder()
+                        .id(nl.getId())
+                        .title(nl.getTitle())
+                        .code(nl.getCode())
+                        .shortTitle(nl.getCode() != null ? nl.getCode() : nl.getTitle())
+                        .fullTitle(nl.getTitle())
+                        .sourceReference(nl.getSourceReference())
+                        .build());
+            }
+        }
+
+        Long wfId = null;
+        String rootWord = null;
+        List<String> wfList = new ArrayList<>();
+        if (vocab.getWordFamily() != null) {
+            WordFamily wf = vocab.getWordFamily();
+            wfId = wf.getId();
+            rootWord = wf.getRootWord();
+            if (wf.getVocabularies() != null) {
+                for (Vocabulary v : wf.getVocabularies()) {
+                    wfList.add(v.getWord());
+                }
+            }
+        }
+
         List<VocabDetailResponse.VocabFormResponse> domainForms = new ArrayList<>();
+        List<VocabDetailResponse.FlatFormResponse> flatForms = new ArrayList<>();
 
         for (VocabForm form : vocab.getForms()) {
             String formPos = formatPosBadge(form.getPartOfSpeech());

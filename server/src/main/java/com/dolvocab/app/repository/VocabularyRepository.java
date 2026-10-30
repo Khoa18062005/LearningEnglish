@@ -5,12 +5,21 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface VocabularyRepository extends JpaRepository<Vocabulary, Long>, JpaSpecificationExecutor<Vocabulary> {
 
-    Optional<Vocabulary> findByWordIgnoreCase(String word);
+    List<Vocabulary> findAllByUserId(Long userId);
 
-    boolean existsByWordIgnoreCase(String word);
+    Optional<Vocabulary> findByIdAndUserId(Long id, Long userId);
+
+    Optional<Vocabulary> findByWordIgnoreCaseAndUserId(String word, Long userId);
+
+    boolean existsByWordIgnoreCaseAndUserId(String word, Long userId);
+
+    boolean existsByIdAndUserId(Long id, Long userId);
+
+    void deleteByIdAndUserId(Long id, Long userId);
 }

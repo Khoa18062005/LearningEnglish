@@ -1,6 +1,7 @@
 package com.dolvocab.app.service;
 
 import com.dolvocab.app.dto.request.VocabCreateRequest;
+import com.dolvocab.app.dto.response.CursorResponse;
 import com.dolvocab.app.dto.response.VocabDetailResponse;
 
 import java.util.List;
@@ -12,7 +13,18 @@ public interface VocabularyService {
             List<Long> categoryIds,
             String categoryName,
             Long noteListId,
-            String posStr,
+            String pos,
+            Long wordFamilyId
+    );
+
+    CursorResponse<VocabDetailResponse> getVocabulariesCursor(
+            Long cursor,
+            Integer limit,
+            String keyword,
+            List<Long> categoryIds,
+            String categoryName,
+            Long noteListId,
+            String pos,
             Long wordFamilyId
     );
 

@@ -12,9 +12,16 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "vocabularies", indexes = {
-    @Index(name = "idx_vocab_word", columnList = "word")
-})
+@Table(
+    name = "vocabularies",
+    indexes = {
+        @Index(name = "idx_vocab_word", columnList = "word"),
+        @Index(name = "idx_vocab_user", columnList = "user_id")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_user_vocab", columnNames = {"user_id", "word"})
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,7 +33,11 @@ public class Vocabulary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false, length = 150)
     private String word;
 
     @Column(length = 100)
