@@ -106,37 +106,40 @@ export default function ReadingListView({
 
   if (!readingList) return null;
 
-  // Filter words that belong to this reading list (de-duplicated)
-  const seenReadingWordKeys = new Set();
-  const listWords = vocabList.filter((item) => {
-    const key = item.id ? `id-${item.id}` : `word-${item.word.toLowerCase()}`;
-    if (seenReadingWordKeys.has(key)) return false;
-    seenReadingWordKeys.add(key);
+  // 1. Toàn bộ từ vựng thuộc về danh sách bài đọc này (chưa áp bộ lọc POS / tìm kiếm)
+  const seenAllKeys = new Set();
+  const allReadingListWords = vocabList.filter((item) => {
+    const key = item.id ? `id-${item.id}` : `word-${item.word?.toLowerCase()}`;
+    if (seenAllKeys.has(key)) return false;
+    seenAllKeys.add(key);
 
-    const isThisList =
+    return (
       item.readingListId === readingList.id ||
       item.readingListName === readingList.shortTitle ||
       item.readingListName === readingList.code ||
       item.readingListName === readingList.title ||
       item.readingListName === readingList.fullTitle ||
-      (item.noteLists && item.noteLists.some((nl) => nl.id === readingList.id));
-    if (!isThisList) return false;
+      (item.noteLists && item.noteLists.some((nl) => nl.id === readingList.id))
+    );
+  });
 
+  // 2. Danh sách từ vựng sau khi áp dụng bộ lọc loại từ (POS) và tìm kiếm
+  const listWords = allReadingListWords.filter((item) => {
     // Filter by POS if selected
     if (selectedPos && selectedPos !== 'all') {
-      const hasPos = item.pos === selectedPos || item.forms.some((f) => f.pos === selectedPos);
+      const hasPos = item.pos === selectedPos || item.forms?.some((f) => f.pos === selectedPos);
       if (!hasPos) return false;
     }
 
     // Filter by search query if present
     if (searchTerm && searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      const matchWord = item.word.toLowerCase().includes(q);
+      const matchWord = item.word?.toLowerCase().includes(q);
       const matchMeaning = item.meaning?.toLowerCase().includes(q);
       const matchFamily = item.wordFamily?.some((wf) => wf.toLowerCase().includes(q));
-      const matchForms = item.forms.some(
+      const matchForms = item.forms?.some(
         (f) =>
-          f.meaning.toLowerCase().includes(q) ||
+          f.meaning?.toLowerCase().includes(q) ||
           f.pattern?.toLowerCase().includes(q) ||
           f.collocation?.toLowerCase().includes(q) ||
           f.example?.toLowerCase().includes(q)
@@ -310,9 +313,11 @@ export default function ReadingListView({
                     </span>
                   </div>
                 ) : (
-                  <p className="text-xs text-white/90 leading-relaxed font-normal">
-                    {readingList.note || 'Bộ từ vựng học thuật trích xuất từ bài đọc, phân tích ngữ cảnh, mẫu câu và collocations tương ứng.'}
-                  </p>
+                  readingList.note && readingList.note.trim() ? (
+                    <p className="text-xs text-white/90 leading-relaxed font-normal">
+                      {readingList.note}
+                    </p>
+                  ) : null
                 )}
               </div>
 
@@ -326,7 +331,7 @@ export default function ReadingListView({
                   <div className="flex flex-col min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 truncate">Total Words</span>
                     <span className="font-headline text-lg font-black text-white leading-none mt-0.5">
-                      {listWords.length}
+                      {allReadingListWords.length || readingList.count || 0}
                     </span>
                   </div>
                 </div>
@@ -526,24 +531,44 @@ export default function ReadingListView({
           {listWords.length === 0 && (
             <div className="p-14 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
-                <span className="material-symbols-outlined text-[28px]">article</span>
+                <span className="material-symbols-outlined text-[28px]">
+                  {allReadingListWords.length > 0 ? 'filter_alt_off' : 'article'}
+                </span>
               </div>
               <div>
                 <p className="font-bold text-sm text-text-high-contrast">
-                  Chưa có từ vựng nào trong danh sách này
+                  {allReadingListWords.length > 0
+                    ? 'Không có từ vựng nào phù hợp với bộ lọc'
+                    : 'Chưa có từ vựng nào trong danh sách này'}
                 </p>
                 <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                  Bấm nút &ldquo;Thêm từ vào List này&rdquo; phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.
+                  {allReadingListWords.length > 0
+                    ? 'Bạn đang chọn bộ lọc loại từ hoặc tìm kiếm khiến từ vựng không khớp. Bấm nút bên dưới để xem lại tất cả.'
+                    : 'Bấm nút "Thêm từ vào List này" phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={onOpenAddModal}
-                className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Thêm từ vào List này</span>
-              </button>
+              {allReadingListWords.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (setSelectedPos) setSelectedPos('all');
+                    if (setSearchTerm) setSearchTerm('');
+                  }}
+                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-text-body text-xs font-bold transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">clear_all</span>
+                  <span>Xem tất cả ({allReadingListWords.length} từ)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenAddModal}
+                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>Thêm từ vào List này</span>
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import MasterListPage from './features/vocabulary/pages/MasterListPage';
@@ -41,6 +41,7 @@ export default function App() {
   const [wordFamilies, setWordFamilies] = useState([]);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lastMutation, setLastMutation] = useState(null);
 
   // Navigation & Filter state (Hỗ trợ URL trực tiếp /login, /register, /vocab, /)
   const [currentView, setCurrentView] = useState(() => {
@@ -296,6 +297,7 @@ export default function App() {
     try {
       if (targetId && isBackendConnected) {
         const updated = await vocabApi.update(targetId, vocabData);
+        setLastMutation({ type: 'update', data: updated, timestamp: Date.now() });
         setVocabList((prev) =>
           prev.map((v) => (v.id === targetId || v.word.toLowerCase() === vocabData.word.toLowerCase() ? updated : v))
         );
@@ -307,6 +309,20 @@ export default function App() {
 
       if (isBackendConnected) {
         const created = await vocabApi.create(vocabData);
+        setLastMutation({ type: 'create', data: created, timestamp: Date.now() });
+        if (selectedPos !== 'all' && created.pos && created.pos !== selectedPos) {
+          setSelectedPos('all');
+        }
+        const assignedListId = created.readingListId || vocabData.readingListId;
+        if (assignedListId) {
+          setReadingLists((prev) =>
+            prev.map((r) =>
+              (r.id === assignedListId || r.code === assignedListId || r.shortTitle === assignedListId)
+                ? { ...r, count: (r.count || 0) + 1 }
+                : r
+            )
+          );
+        }
         setVocabList((prev) => {
           const exists = prev.some((v) => v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase());
           if (exists) {
@@ -371,6 +387,7 @@ export default function App() {
           console.error('Lỗi khi xóa từ trên Backend:', err);
         }
         setVocabList((prev) => prev.filter((v) => v.id !== id));
+        setLastMutation({ type: 'delete', data: id, timestamp: Date.now() });
       },
     });
   };
@@ -784,6 +801,7 @@ export default function App() {
               searchTerm={searchTerm}
               selectedPos={selectedPos}
               selectedCategory={selectedCategory}
+              lastMutation={lastMutation}
             />
           )}
 
@@ -900,6 +918,7 @@ export default function App() {
         vocabList={vocabList}
         wordFamilies={wordFamilies}
         defaultCategory={currentView === 'category' ? selectedCategory : null}
+        defaultReadingList={currentView === 'reading-list' ? selectedReadingListId : null}
         onOpenAddReadingListModal={handleOpenAddReadingListModal}
         onOpenAddCategoryModal={handleOpenAddCategoryModal}
       />

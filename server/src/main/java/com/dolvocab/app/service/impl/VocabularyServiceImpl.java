@@ -245,11 +245,14 @@ public class VocabularyServiceImpl implements VocabularyService {
     }
 
     private void handleNoteLists(Vocabulary vocab, VocabCreateRequest request, User user) {
+        vocab.getNoteLists().clear();
         if (request.getNoteListId() != null) {
-            String identifier = request.getNoteListId().toString();
-            NoteList list = noteListService.getOrCreateNoteList(identifier, request.getReadingListName(), user);
-            if (list != null) {
-                vocab.getNoteLists().add(list);
+            String identifier = request.getNoteListId().toString().trim();
+            if (!identifier.isEmpty() && !identifier.equalsIgnoreCase("null")) {
+                NoteList list = noteListService.getOrCreateNoteList(identifier, request.getReadingListName(), user);
+                if (list != null) {
+                    vocab.getNoteLists().add(list);
+                }
             }
         }
     }

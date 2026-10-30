@@ -14,6 +14,7 @@ export default function MasterListPage({
   selectedPos = 'all',
   setSelectedPos,
   selectedCategory = null,
+  lastMutation = null,
 }) {
   const [items, setItems] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -21,6 +22,30 @@ export default function MasterListPage({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Đồng bộ tức thì (0ms) khi có thêm / sửa / xóa từ vựng từ bất kỳ modal/component nào
+  useEffect(() => {
+    if (!lastMutation || !lastMutation.data) return;
+    const { type, data } = lastMutation;
+
+    if (type === 'create') {
+      setItems((prev) => {
+        const exists = prev.some((i) => i.id === data.id || (i.word && data.word && i.word.toLowerCase() === data.word.toLowerCase()));
+        if (exists) {
+          return prev.map((i) => (i.id === data.id || (i.word && data.word && i.word.toLowerCase() === data.word.toLowerCase()) ? data : i));
+        }
+        return [data, ...prev];
+      });
+      setTotalCount((prev) => prev + 1);
+    } else if (type === 'update') {
+      setItems((prev) =>
+        prev.map((i) => (i.id === data.id || (i.word && data.word && i.word.toLowerCase() === data.word.toLowerCase()) ? data : i))
+      );
+    } else if (type === 'delete') {
+      setItems((prev) => prev.filter((i) => i.id !== data));
+      setTotalCount((prev) => Math.max(0, prev - 1));
+    }
+  }, [lastMutation]);
 
   const observerRef = useRef(null);
   const sentinelRef = useRef(null);

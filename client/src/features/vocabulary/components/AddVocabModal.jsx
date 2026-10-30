@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import NotificationModal from '../../../components/NotificationModal';
 
 const POS_OPTIONS = [
   {
@@ -73,10 +74,17 @@ export default function AddVocabModal({
   vocabList = [],
   wordFamilies = [],
   defaultCategory = null,
+  defaultReadingList = null,
   onOpenAddReadingListModal,
   onOpenAddCategoryModal,
 }) {
   // SECTION 1: Core Word & Metadata
+  const [modalAlert, setModalAlert] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'warning',
+  });
   const [word, setWord] = useState('');
   const [meanings, setMeanings] = useState(['']);
   // Primary meaning (first item) for backward compatibility
@@ -416,11 +424,13 @@ export default function AddVocabModal({
           note: '',
         },
       ]);
-      if (readingLists.length > 0) {
+      if (defaultReadingList) {
+        setSelectedReadingList(defaultReadingList);
+      } else if (readingLists.length > 0) {
         setSelectedReadingList(readingLists[0].id);
       }
     }
-  }, [isOpen, initialVocab, readingLists, defaultCategory]);
+  }, [isOpen, initialVocab, readingLists, defaultCategory, defaultReadingList]);
 
   // Auto-fetch phonetic IPA and audio MP3 with 400ms debounce when user stops typing (skip for idiom and phrasal_verb)
   useEffect(() => {
@@ -507,7 +517,7 @@ export default function AddVocabModal({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isCategoryDropdownOpen, isReadingListDropdownOpen]);
+  }, [isCategoryDropdownOpen, isReadingListDropdownOpen, isFamilyDropdownOpen]);
 
   // Handle hotkeys: Escape to close, Cmd/Ctrl + Enter to submit
   useEffect(() => {
@@ -515,10 +525,14 @@ export default function AddVocabModal({
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (isCategoryDropdownOpen) {
+        if (modalAlert.isOpen) {
+          setModalAlert((prev) => ({ ...prev, isOpen: false }));
+        } else if (isCategoryDropdownOpen) {
           setIsCategoryDropdownOpen(false);
         } else if (isReadingListDropdownOpen) {
           setIsReadingListDropdownOpen(false);
+        } else if (isFamilyDropdownOpen) {
+          setIsFamilyDropdownOpen(false);
         } else {
           onClose();
         }
@@ -531,8 +545,10 @@ export default function AddVocabModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     isOpen,
+    modalAlert.isOpen,
     isCategoryDropdownOpen,
     isReadingListDropdownOpen,
+    isFamilyDropdownOpen,
     word,
     meaning,
     pos,
@@ -707,12 +723,22 @@ export default function AddVocabModal({
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
     if (!word.trim()) {
-      alert('Vui lòng nhập Từ vựng tiếng Anh / Cụm từ!');
+      setModalAlert({
+        isOpen: true,
+        title: 'Chưa nhập từ vựng',
+        message: 'Vui lòng nhập Từ vựng tiếng Anh / Cụm từ trước khi lưu!',
+        type: 'warning',
+      });
       return;
     }
     const validMeanings = meanings.map((m) => m.trim()).filter(Boolean);
     if (validMeanings.length === 0) {
-      alert('Vui lòng nhập Nghĩa của từ (nét nghĩa chung) ở Mục 1!');
+      setModalAlert({
+        isOpen: true,
+        title: 'Chưa nhập nghĩa từ vựng',
+        message: 'Vui lòng nhập Nghĩa của từ (nét nghĩa chung) ở Mục 1!',
+        type: 'warning',
+      });
       return;
     }
     const compiledMeaning = validMeanings.join('; ');
@@ -873,12 +899,12 @@ export default function AddVocabModal({
       wordFamilyId: selectedWordFamilyId || null,
       rootWord: selectedRootWord ? selectedRootWord.trim() : null,
       wordFamily: selectedRootWord ? [selectedRootWord.trim()] : [],
-      readingListId: selectedReadingList,
+      readingListId: selectedReadingList || null,
       readingListName: matchedList
         ? matchedList.code || matchedList.shortTitle || matchedList.title
-        : 'Chung',
+        : null,
       categories:
-        selectedCategories.length > 0 ? selectedCategories : ['IELTS Acad'],
+        selectedCategories || [],
       forms: compiledForms,
     };
 
@@ -926,6 +952,7 @@ export default function AddVocabModal({
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-[1060px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(15,23,42,0.3)] flex flex-col my-auto max-h-[92vh] overflow-hidden border border-slate-200/90 ring-1 ring-black/5 animate-in zoom-in-95 duration-150">
         
@@ -2404,5 +2431,18 @@ export default function AddVocabModal({
 
       </div>
     </div>
+
+      {/* Modal Thông Báo / Cảnh Báo Form (Popup Center) */}
+      <NotificationModal
+        isOpen={modalAlert.isOpen}
+        onClose={() => setModalAlert((prev) => ({ ...prev, isOpen: false }))}
+        title={modalAlert.title}
+        message={modalAlert.message}
+        type={modalAlert.type}
+        isAlertOnly={true}
+        confirmText="Đã hiểu"
+        zIndex="z-[70]"
+      />
+    </>
   );
 }

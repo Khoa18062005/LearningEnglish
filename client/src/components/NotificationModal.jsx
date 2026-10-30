@@ -27,6 +27,7 @@ export default function NotificationModal({
   cancelText = 'Hủy bỏ',
   isAlertOnly = false,
   isLoading = false,
+  zIndex = 'z-[70]',
 }) {
   // Lắng nghe phím tắt ESC và Enter
   useEffect(() => {
@@ -34,8 +35,10 @@ export default function NotificationModal({
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        e.stopPropagation();
         onClose();
       } else if (e.key === 'Enter' && !isLoading) {
+        e.stopPropagation();
         if (isAlertOnly) {
           onClose();
         } else if (onConfirm) {
@@ -94,7 +97,7 @@ export default function NotificationModal({
   };
 
   const finalTitle = title || config.defaultTitle;
-  const finalConfirmText = confirmText || config.defaultConfirmText;
+  const finalConfirmText = confirmText || (isAlertOnly ? 'Đã hiểu' : config.defaultConfirmText);
 
   const handleConfirm = () => {
     if (isLoading) return;
@@ -107,7 +110,7 @@ export default function NotificationModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className={`fixed inset-0 ${zIndex || 'z-[70]'} flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200`}
       onClick={onClose}
     >
       <div
