@@ -43,13 +43,38 @@ export default function ProfilePage({
     0
   );
 
+  if (!currentUser) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-surface-crimson-soft text-crimson-primary flex items-center justify-center mb-4 shadow-sm">
+          <span className="material-symbols-outlined text-[32px]">lock</span>
+        </div>
+        <h2 className="font-headline text-xl font-bold text-slate-800 mb-2">
+          Yêu cầu đăng nhập tài khoản
+        </h2>
+        <p className="text-slate-500 text-xs sm:text-sm max-w-md mb-6 leading-relaxed">
+          Bạn cần đăng nhập để truy cập Hồ sơ cá nhân và Sơ đồ năng lực Linearthinking.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (onNavigateVocab) onNavigateVocab();
+          }}
+          className="px-6 py-2.5 rounded-xl bg-crimson-primary text-white font-bold text-xs hover:bg-crimson-dark transition-all shadow-xs cursor-pointer"
+        >
+          Trở về kho từ vựng
+        </button>
+      </div>
+    );
+  }
+
   // User Data & Formatters for Banner
   const userData = {
-    fullName: currentUser?.fullName || 'Nguyễn Quốc Khoa',
-    email: currentUser?.email || 'nguyenquockhoa18062005@gmail.com',
-    dateOfBirth: currentUser?.dateOfBirth || '2005-06-18',
+    fullName: currentUser?.fullName || '',
+    email: currentUser?.email || '',
+    dateOfBirth: currentUser?.dateOfBirth || '',
     gender: currentUser?.gender || 'MALE',
-    createdAt: currentUser?.createdAt || '2026-10-30',
+    createdAt: currentUser?.createdAt || '',
   };
 
   // Tính số ngày tham gia kể từ ngày tạo tài khoản

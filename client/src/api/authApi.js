@@ -17,7 +17,15 @@ export const authApi = {
   },
 
   logout: () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('current_user');
+    try {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('current_user');
+      sessionStorage.removeItem('last_vocab_view');
+      sessionStorage.removeItem('last_vocab_list_id');
+      sessionStorage.removeItem('last_vocab_category');
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn('Lỗi khi dọn dẹp storage khi logout:', e);
+    }
   },
 };

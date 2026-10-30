@@ -14,16 +14,43 @@ export default function DatePicker({
   minDate = '1940-01-01',
   required = false,
   className = '',
+  placement = 'auto', // 'auto' | 'bottom' | 'top'
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMonthOpen, setIsMonthOpen] = useState(false);
   const [isYearOpen, setIsYearOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(placement === 'top');
 
   const containerRef = useRef(null);
   const monthMenuRef = useRef(null);
   const yearMenuRef = useRef(null);
   const monthListRef = useRef(null);
   const yearListRef = useRef(null);
+
+  // Tự động phát hiện hướng mở (upward / downward) khi mở dropdown
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      if (placement === 'top') {
+        setOpenUpward(true);
+        return;
+      }
+      if (placement === 'bottom') {
+        setOpenUpward(false);
+        return;
+      }
+      // 'auto': tính toán khoảng trống phía dưới màn hình
+      const rect = containerRef.current.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      const spaceBelow = windowHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      // Nếu phía dưới còn ít hơn 350px và phía trên rộng hơn thì mở lên trên
+      if (spaceBelow < 350 && spaceAbove > spaceBelow) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+  }, [isOpen, placement]);
 
   // Phân tích giá trị ban đầu nếu có, hoặc mặc định 18 tuổi (~2008) cho ngày sinh
   const initialDate = useMemo(() => {
@@ -307,9 +334,13 @@ export default function DatePicker({
         </div>
       </div>
 
-      {/* Popover Calendar Dropdown */}
+      {/* Popover Calendar Dropdown (Tự động mở lên trên hoặc xuống dưới tùy theo khoảng trống) */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-2 z-50 w-[310px] sm:w-[325px] bg-white rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.18)] border border-slate-200/90 p-3.5 animate-in fade-in zoom-in-95 duration-150 select-none">
+        <div
+          className={`absolute left-0 ${
+            openUpward ? 'bottom-full mb-2' : 'top-full mt-2'
+          } z-[100] w-[310px] sm:w-[325px] bg-white rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.22)] border border-slate-200/90 p-3.5 animate-in fade-in zoom-in-95 duration-150 select-none`}
+        >
           {/* Header: Custom Month & Year Selectors + Arrow Nav */}
           <div className="flex items-center justify-between gap-1 pb-3 border-b border-slate-100 relative">
             {/* Prev Month */}

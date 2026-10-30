@@ -9,6 +9,7 @@ import AddVocabModal from './features/vocabulary/components/AddVocabModal';
 import AddReadingListModal from './features/reading-lists/components/AddReadingListModal';
 import CategoryModal from './components/CategoryModal';
 import NotificationModal from './components/NotificationModal';
+import Toast from './components/Toast';
 import HomePage from './features/home/pages/HomePage';
 import LoginPage from './features/auth/pages/LoginPage';
 import RegisterPage from './features/auth/pages/RegisterPage';
@@ -185,6 +186,22 @@ export default function App() {
     setNotification((prev) => ({ ...prev, isOpen: false }));
   };
 
+  // Toast Notification state (Góc trên cùng bên phải)
+  const [toast, setToast] = useState(null);
+
+  const showToast = ({ title, message, type = 'success', duration = 3000 }) => {
+    setToast({ title, message, type, duration });
+  };
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, toast.duration || 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   // Fetch initial data from Spring Boot Backend with fallback to local state
   const loadBackendData = useCallback(async () => {
     const token = localStorage.getItem('access_token');
@@ -258,7 +275,7 @@ export default function App() {
   // Điều hướng trang
   const navigateTo = (view) => {
     setCurrentView(view);
-    if (view === 'master' || view === 'vocab') {
+    if (view === 'master' || view === 'vocab' || view === 'profile') {
       setSelectedReadingListId(null);
       setSelectedCategory(null);
     }
@@ -354,24 +371,35 @@ export default function App() {
 
   const handleAuthSuccess = (user, message) => {
     setCurrentUser(user);
-    showNotification({
-      title: 'Xác Thực Thành Công',
-      message: message || `Xin chào, ${user.fullName}!`,
-      type: 'info',
-      confirmText: 'Đóng',
-      isAlertOnly: true,
+    navigateTo('profile');
+    showToast({
+      title: 'Đăng nhập thành công',
+      message: message || `Chào mừng ${user?.fullName || 'bạn'} quay lại hệ thống!`,
+      type: 'success',
+      duration: 3000,
     });
   };
 
   const handleLogout = () => {
+    // 1. Kill phiên làm việc người dùng (Token, Cache, Session)
     authApi.logout();
     setCurrentUser(null);
-    showNotification({
-      title: 'Đã Đăng Xuất',
-      message: 'Bạn đã đăng xuất tài khoản thành công.',
-      type: 'info',
-      confirmText: 'Đóng',
-      isAlertOnly: true,
+    setSelectedReadingListId(null);
+    setSelectedCategory(null);
+    setSearchTerm('');
+    setSelectedPos('all');
+
+    // 2. Trở về trang Home ngay lập tức và đồng bộ URL về '/'
+    setCurrentView('home');
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ currentView: 'home' }, '', '/');
+    }
+
+    // 3. Thông báo Toast góc trên cùng bên phải màu xanh lá
+    showToast({
+      title: 'Đăng xuất thành công',
+      message: 'Bạn đã đăng xuất tài khoản an toàn.',
+      type: 'success',
     });
   };
 
@@ -799,6 +827,7 @@ export default function App() {
           cancelText={notification.cancelText}
           isAlertOnly={notification.isAlertOnly}
         />
+        <Toast toast={toast} onClose={() => setToast(null)} />
       </div>
     );
   }
@@ -811,7 +840,6 @@ export default function App() {
           onNavigateRegister={() => navigateTo('register')}
           onLoginSuccess={(user, message) => {
             handleAuthSuccess(user, message);
-            navigateTo('master');
           }}
         />
         <NotificationModal
@@ -825,6 +853,7 @@ export default function App() {
           cancelText={notification.cancelText}
           isAlertOnly={notification.isAlertOnly}
         />
+        <Toast toast={toast} onClose={() => setToast(null)} />
       </div>
     );
   }
@@ -837,7 +866,6 @@ export default function App() {
           onNavigateLogin={() => navigateTo('login')}
           onRegisterSuccess={(user, message) => {
             handleAuthSuccess(user, message);
-            navigateTo('master');
           }}
         />
         <NotificationModal
@@ -851,6 +879,7 @@ export default function App() {
           cancelText={notification.cancelText}
           isAlertOnly={notification.isAlertOnly}
         />
+        <Toast toast={toast} onClose={() => setToast(null)} />
       </div>
     );
   }
@@ -1118,6 +1147,9 @@ export default function App() {
         cancelText={notification.cancelText}
         isAlertOnly={notification.isAlertOnly}
       />
+
+      {/* Toast Notification (Góc trên cùng bên phải) */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

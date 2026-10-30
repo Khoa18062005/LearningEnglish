@@ -1,4 +1,4 @@
-﻿package com.dolvocab.app.controller;
+package com.dolvocab.app.controller;
 
 import com.dolvocab.app.dto.request.VocabCreateRequest;
 import com.dolvocab.app.dto.response.ApiResponse;
