@@ -1,3 +1,5 @@
+import React, { useEffect, useRef } from 'react';
+
 export default function Sidebar({
   currentView,
   setCurrentView,
@@ -16,6 +18,21 @@ export default function Sidebar({
   onDeleteReadingList,
   onNavigateHome,
 }) {
+  const activeReadingListRef = useRef(null);
+  const activeCategoryRef = useRef(null);
+
+  useEffect(() => {
+    if (activeReadingListRef.current && currentView === 'reading-list') {
+      activeReadingListRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [selectedReadingListId, currentView]);
+
+  useEffect(() => {
+    if (activeCategoryRef.current && currentView === 'category') {
+      activeCategoryRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [selectedCategory, currentView]);
+
   return (
     <aside className="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden border-r border-slate-line">
       <div className="flex flex-col flex-1 overflow-y-auto">
@@ -50,35 +67,18 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={() => {
-                  if (onNavigateHome) onNavigateHome();
-                  else setCurrentView('home');
-                }}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-text-muted hover:bg-slate-100 hover:text-crimson-primary transition-colors text-left text-sm font-medium"
-              >
-                <span className="material-symbols-outlined text-[18px]">home</span>
-                <span>Trang chủ DOL</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
                   setCurrentView('master');
                   setSelectedReadingListId(null);
                   setSelectedCategory(null);
                 }}
-                className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm font-medium ${
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-left text-sm font-medium ${
                   currentView === 'master' && !selectedReadingListId && !selectedCategory
                     ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
                     : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-[18px]">library_books</span>
-                  <span>All Vocabulary</span>
-                </div>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark">
-                  Master
-                </span>
+                <span className="material-symbols-outlined text-[18px]">library_books</span>
+                <span>All Vocabulary</span>
               </button>
 
               <button
@@ -115,7 +115,7 @@ export default function Sidebar({
                 <span className="material-symbols-outlined text-[16px]">add</span>
               </button>
             </div>
-            <nav className="flex flex-col gap-1">
+            <nav className="flex flex-col gap-1 max-h-[208px] overflow-y-auto pr-1 custom-scrollbar">
               {readingLists.length === 0 ? (
                 <button
                   type="button"
@@ -127,11 +127,12 @@ export default function Sidebar({
                 </button>
               ) : (
                 readingLists.map((list) => {
-                  const isActive = currentView === 'reading-list' && selectedReadingListId === list.id;
+                  const isActive = currentView === 'reading-list' && (selectedReadingListId === list.id || String(selectedReadingListId) === String(list.id));
                   const displayCode = list.code || list.shortTitle || 'LIST';
                   const displayTitle = list.title || '';
                   return (
                     <div
+                      ref={isActive ? activeReadingListRef : null}
                       key={list.id}
                       className={`group relative flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-left text-sm ${
                         isActive
@@ -223,7 +224,7 @@ export default function Sidebar({
                 <span className="material-symbols-outlined text-[16px]">add</span>
               </button>
             </div>
-            <nav className="flex flex-col gap-1">
+            <nav className="flex flex-col gap-1 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
               {categories.length === 0 ? (
                 <button
                   type="button"
@@ -239,6 +240,7 @@ export default function Sidebar({
                   return (
                     <div
                       key={cat.id}
+                      ref={isSelected ? activeCategoryRef : null}
                       className={`group relative flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors text-left text-sm ${
                         isSelected
                           ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
