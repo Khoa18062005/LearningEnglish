@@ -67,6 +67,23 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={() => {
+                  setCurrentView('profile');
+                  setSelectedReadingListId(null);
+                  setSelectedCategory(null);
+                }}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-left text-sm font-medium ${
+                  currentView === 'profile'
+                    ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
+                    : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[18px]">account_circle</span>
+                <span>Profile</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   setCurrentView('master');
                   setSelectedReadingListId(null);
                   setSelectedCategory(null);

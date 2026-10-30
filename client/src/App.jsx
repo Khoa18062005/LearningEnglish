@@ -12,6 +12,7 @@ import NotificationModal from './components/NotificationModal';
 import HomePage from './features/home/pages/HomePage';
 import LoginPage from './features/auth/pages/LoginPage';
 import RegisterPage from './features/auth/pages/RegisterPage';
+import ProfilePage from './features/profile/pages/ProfilePage';
 
 import { vocabApi } from './api/vocabApi';
 import { categoryApi } from './api/categoryApi';
@@ -51,6 +52,7 @@ export default function App() {
 
     if (path === '/login') return { view: 'login', listId: null, category: null };
     if (path === '/register') return { view: 'register', listId: null, category: null };
+    if (path === '/profile') return { view: 'profile', listId: null, category: null };
     if (path === '/' || path === '') return { view: 'home', listId: null, category: null };
 
     if (path === '/vocab' || path === '/lms') {
@@ -64,6 +66,9 @@ export default function App() {
       }
       if (catParam) {
         return { view: 'category', listId: null, category: decodeURIComponent(catParam) };
+      }
+      if (tab === 'profile') {
+        return { view: 'profile', listId: null, category: null };
       }
       if (tab === 'word-families' || tab === 'families') {
         return { view: 'word-families', listId: null, category: null };
@@ -81,6 +86,9 @@ export default function App() {
         }
         if (savedView === 'category' && savedCat) {
           return { view: 'category', listId: null, category: savedCat };
+        }
+        if (savedView === 'profile') {
+          return { view: 'profile', listId: null, category: null };
         }
         if (savedView === 'word-families') {
           return { view: 'word-families', listId: null, category: null };
@@ -274,6 +282,14 @@ export default function App() {
       targetPath = '/login';
     } else if (currentView === 'register') {
       targetPath = '/register';
+    } else if (currentView === 'profile') {
+      targetPath = '/vocab';
+      params.set('tab', 'profile');
+      try {
+        sessionStorage.setItem('last_vocab_view', 'profile');
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
     } else if (currentView === 'word-families') {
       targetPath = '/vocab';
       params.set('tab', 'word-families');
@@ -766,6 +782,11 @@ export default function App() {
           onNavigateRegister={() => navigateTo('register')}
           onNavigateVocab={() => navigateTo('vocab')}
           onLogout={handleLogout}
+          onNavigateProfile={() => {
+            setCurrentView('profile');
+            setSelectedReadingListId(null);
+            setSelectedCategory(null);
+          }}
         />
         <NotificationModal
           isOpen={notification.isOpen}
@@ -890,10 +911,31 @@ export default function App() {
           currentUser={currentUser}
           onOpenAuthModal={handleOpenAuthModal}
           onLogout={handleLogout}
+          onNavigateProfile={() => {
+            setCurrentView('profile');
+            setSelectedReadingListId(null);
+            setSelectedCategory(null);
+          }}
         />
 
         {/* Dynamic Page Views */}
         <main className="pt-16 min-h-screen">
+          {currentView === 'profile' && (
+            <ProfilePage
+              currentUser={currentUser}
+              onUpdateUser={setCurrentUser}
+              vocabList={vocabList || []}
+              readingLists={readingLists || []}
+              categories={categories || []}
+              onNavigateVocab={() => {
+                setCurrentView('master');
+                setSelectedReadingListId(null);
+                setSelectedCategory(null);
+              }}
+              onOpenAddModal={handleOpenAddModal}
+            />
+          )}
+
           {currentView === 'master' && (
             <MasterListPage
               vocabList={vocabList}

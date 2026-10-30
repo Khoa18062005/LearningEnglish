@@ -52,7 +52,9 @@ export default function Header({
         </span>
         <span className="material-symbols-outlined text-[14px] text-text-disabled">chevron_right</span>
         <span className="text-crimson-primary font-semibold">
-          {currentView === 'word-families'
+          {currentView === 'profile'
+            ? 'Hồ sơ người dùng & Sơ đồ năng lực'
+            : currentView === 'word-families'
             ? 'Word Families (Gia đình từ)'
             : currentView === 'reading-list'
             ? 'Reading List'
@@ -138,6 +140,20 @@ export default function Header({
                       </span>
                     )}
                   </div>
+                </div>
+
+                <div className="px-2 py-1 border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      if (onNavigateProfile) { onNavigateProfile(); } else { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-crimson-primary">account_circle</span>
+                    <span>Hồ sơ & Sơ đồ năng lực</span>
+                  </button>
                 </div>
 
                 {/* Logout Action */}
