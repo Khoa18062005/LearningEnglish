@@ -28,6 +28,9 @@ public class WordFamily {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "member_order", columnDefinition = "TEXT")
+    private String memberOrder;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 /**
  * Custom DatePicker Component
  * Phù hợp với DOL Crimson Design System
- * Hỗ trợ chọn Ngày sinh nhanh chóng qua Dropdown Năm (1940 - Hiện tại) và Tháng (1 - 12)
+ * Hỗ trợ chọn Ngày sinh nhanh chóng qua Custom Dropdown Năm (1940 - Hiện tại) và Tháng (1 - 12)
  * Giá trị value & onChange định dạng: 'YYYY-MM-DD'
  */
 export default function DatePicker({
@@ -16,9 +16,16 @@ export default function DatePicker({
   className = '',
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef(null);
+  const [isMonthOpen, setIsMonthOpen] = useState(false);
+  const [isYearOpen, setIsYearOpen] = useState(false);
 
-  // Phân tích giá trị ban đầu nếu có, hoặc mặc định năm 2000 cho ngày sinh
+  const containerRef = useRef(null);
+  const monthMenuRef = useRef(null);
+  const yearMenuRef = useRef(null);
+  const monthListRef = useRef(null);
+  const yearListRef = useRef(null);
+
+  // Phân tích giá trị ban đầu nếu có, hoặc mặc định 18 tuổi (~2008) cho ngày sinh
   const initialDate = useMemo(() => {
     if (value) {
       const parts = value.split('-');
@@ -32,7 +39,7 @@ export default function DatePicker({
     }
     const today = new Date();
     return {
-      year: today.getFullYear() - 18, // Mặc định mở ở 18 tuổi (~2008)
+      year: today.getFullYear() - 18, // Mặc định mở ở 18 tuổi
       month: today.getMonth(),
       day: today.getDate(),
     };
@@ -52,11 +59,13 @@ export default function DatePicker({
     }
   }, [value]);
 
-  // Đóng popover khi click ra ngoài
+  // Đóng toàn bộ popover khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false);
+        setIsMonthOpen(false);
+        setIsYearOpen(false);
       }
     };
     if (isOpen) {
@@ -66,6 +75,44 @@ export default function DatePicker({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen]);
+
+  // Đóng riêng dropdown Tháng / Năm khi click bên ngoài menu tương ứng
+  useEffect(() => {
+    const handleMenuClickOutside = (event) => {
+      if (monthMenuRef.current && !monthMenuRef.current.contains(event.target)) {
+        setIsMonthOpen(false);
+      }
+      if (yearMenuRef.current && !yearMenuRef.current.contains(event.target)) {
+        setIsYearOpen(false);
+      }
+    };
+    if (isMonthOpen || isYearOpen) {
+      document.addEventListener('mousedown', handleMenuClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleMenuClickOutside);
+    };
+  }, [isMonthOpen, isYearOpen]);
+
+  // Tự động cuộn đến năm được chọn khi mở dropdown Năm
+  useEffect(() => {
+    if (isYearOpen && yearListRef.current) {
+      const activeEl = yearListRef.current.querySelector(`[data-year="${viewYear}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'center' });
+      }
+    }
+  }, [isYearOpen, viewYear]);
+
+  // Tự động cuộn đến tháng được chọn khi mở dropdown Tháng
+  useEffect(() => {
+    if (isMonthOpen && monthListRef.current) {
+      const activeEl = monthListRef.current.querySelector(`[data-month="${viewMonth}"]`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'center' });
+      }
+    }
+  }, [isMonthOpen, viewMonth]);
 
   // Danh sách năm (từ năm hiện tại lùi về 1940)
   const currentMaxYear = parseInt(maxDate.split('-')[0], 10) || new Date().getFullYear();
@@ -138,6 +185,8 @@ export default function DatePicker({
 
   const handlePrevMonth = (e) => {
     e.stopPropagation();
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
     if (viewMonth === 0) {
       setViewMonth(11);
       setViewYear(viewYear - 1);
@@ -148,6 +197,8 @@ export default function DatePicker({
 
   const handleNextMonth = (e) => {
     e.stopPropagation();
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
     if (viewMonth === 11) {
       setViewMonth(0);
       setViewYear(viewYear + 1);
@@ -183,6 +234,8 @@ export default function DatePicker({
     const formattedIso = `${y}-${m}-${d}`;
     onChange(formattedIso);
     setIsOpen(false);
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
   };
 
   // Định dạng hiển thị DD/MM/YYYY
@@ -199,7 +252,11 @@ export default function DatePicker({
     <div className="relative w-full" ref={containerRef}>
       {/* Input Box Trigger */}
       <div
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setIsMonthOpen(false);
+          setIsYearOpen(false);
+        }}
         className={`w-full h-11 pl-10 pr-9 rounded-xl border border-slate-200 bg-white flex items-center cursor-pointer transition-all ${
           isOpen
             ? 'ring-2 ring-crimson-primary/20 border-crimson-primary shadow-xs'
@@ -230,6 +287,8 @@ export default function DatePicker({
               onClick={(e) => {
                 e.stopPropagation();
                 onChange('');
+                setIsMonthOpen(false);
+                setIsYearOpen(false);
               }}
               className="text-text-disabled hover:text-text-high-contrast transition-colors p-0.5"
               title="Xóa ngày"
@@ -251,8 +310,8 @@ export default function DatePicker({
       {/* Popover Calendar Dropdown */}
       {isOpen && (
         <div className="absolute left-0 top-full mt-2 z-50 w-[310px] sm:w-[325px] bg-white rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.18)] border border-slate-200/90 p-3.5 animate-in fade-in zoom-in-95 duration-150 select-none">
-          {/* Header: Month & Year Selectors + Arrow Nav */}
-          <div className="flex items-center justify-between gap-1.5 pb-3 border-b border-slate-100">
+          {/* Header: Custom Month & Year Selectors + Arrow Nav */}
+          <div className="flex items-center justify-between gap-1 pb-3 border-b border-slate-100 relative">
             {/* Prev Month */}
             <button
               type="button"
@@ -263,33 +322,127 @@ export default function DatePicker({
               <span className="material-symbols-outlined text-[20px]">chevron_left</span>
             </button>
 
-            {/* Month & Year Selects */}
-            <div className="flex items-center gap-1.5 flex-1 justify-center">
-              {/* Month Select */}
-              <select
-                value={viewMonth}
-                onChange={(e) => setViewMonth(parseInt(e.target.value, 10))}
-                className="h-8 px-2 py-0 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-text-body focus:outline-none focus:border-crimson-primary cursor-pointer hover:bg-white transition-colors"
-              >
-                {months.map((m, idx) => (
-                  <option key={idx} value={idx}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+            {/* Custom Month & Year Selectors */}
+            <div className="flex items-center gap-1.5 flex-1 justify-center relative">
+              {/* Custom Month Dropdown */}
+              <div className="relative" ref={monthMenuRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMonthOpen((prev) => !prev);
+                    setIsYearOpen(false);
+                  }}
+                  className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all select-none ${
+                    isMonthOpen
+                      ? 'border-crimson-primary bg-surface-crimson-subtle text-crimson-primary ring-2 ring-crimson-primary/20 shadow-xs'
+                      : 'border-slate-200 bg-slate-50 text-text-body hover:bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <span>{months[viewMonth]}</span>
+                  <span
+                    className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${
+                      isMonthOpen ? 'rotate-180 text-crimson-primary' : 'text-text-muted'
+                    }`}
+                  >
+                    expand_more
+                  </span>
+                </button>
 
-              {/* Year Select (Chọn nhanh từ 1940 - Hiện tại) */}
-              <select
-                value={viewYear}
-                onChange={(e) => setViewYear(parseInt(e.target.value, 10))}
-                className="h-8 px-2 py-0 rounded-lg border border-slate-200 bg-slate-50 text-xs font-bold text-text-body focus:outline-none focus:border-crimson-primary cursor-pointer hover:bg-white transition-colors"
-              >
-                {years.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+                {/* Dropdown Menu for Months */}
+                {isMonthOpen && (
+                  <div
+                    ref={monthListRef}
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-40 w-36 max-h-56 overflow-y-auto bg-white rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.16)] border border-slate-200 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    {months.map((m, idx) => {
+                      const isSelected = viewMonth === idx;
+                      return (
+                        <button
+                          key={idx}
+                          data-month={idx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewMonth(idx);
+                            setIsMonthOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                            isSelected
+                              ? 'bg-crimson-primary text-white shadow-xs'
+                              : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
+                          }`}
+                        >
+                          <span>{m}</span>
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-[14px]">check</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Year Dropdown */}
+              <div className="relative" ref={yearMenuRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsYearOpen((prev) => !prev);
+                    setIsMonthOpen(false);
+                  }}
+                  className={`h-8 px-2.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all select-none ${
+                    isYearOpen
+                      ? 'border-crimson-primary bg-surface-crimson-subtle text-crimson-primary ring-2 ring-crimson-primary/20 shadow-xs'
+                      : 'border-slate-200 bg-slate-50 text-text-body hover:bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <span>{viewYear}</span>
+                  <span
+                    className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${
+                      isYearOpen ? 'rotate-180 text-crimson-primary' : 'text-text-muted'
+                    }`}
+                  >
+                    expand_more
+                  </span>
+                </button>
+
+                {/* Dropdown Menu for Years */}
+                {isYearOpen && (
+                  <div
+                    ref={yearListRef}
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-40 w-28 max-h-56 overflow-y-auto bg-white rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.16)] border border-slate-200 p-1 space-y-0.5 animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    {years.map((y) => {
+                      const isSelected = viewYear === y;
+                      return (
+                        <button
+                          key={y}
+                          data-year={y}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewYear(y);
+                            setIsYearOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
+                            isSelected
+                              ? 'bg-crimson-primary text-white shadow-xs'
+                              : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
+                          }`}
+                        >
+                          <span>{y}</span>
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-[14px]">check</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Next Month */}
@@ -357,6 +510,8 @@ export default function DatePicker({
                 const d = String(today.getDate()).padStart(2, '0');
                 onChange(`${y}-${m}-${d}`);
                 setIsOpen(false);
+                setIsMonthOpen(false);
+                setIsYearOpen(false);
               }}
               className="text-crimson-primary hover:text-crimson-dark font-bold py-1 px-1.5 rounded transition-colors"
             >
@@ -364,7 +519,11 @@ export default function DatePicker({
             </button>
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(false);
+                setIsMonthOpen(false);
+                setIsYearOpen(false);
+              }}
               className="text-text-muted hover:text-text-high-contrast font-medium py-1 px-1.5 rounded transition-colors"
             >
               Đóng

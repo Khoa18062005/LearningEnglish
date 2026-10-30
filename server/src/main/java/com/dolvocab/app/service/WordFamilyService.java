@@ -11,5 +11,6 @@ public interface WordFamilyService {
     WordFamilyResponse getWordFamilyById(Long id);
     WordFamily getOrCreateWordFamily(String rootWord, String description);
     WordFamilyResponse createWordFamily(String rootWord, String description);
+    WordFamilyResponse updateWordFamily(Long id, String rootWord, String description, List<String> memberOrder);
     void deleteWordFamily(Long id);
 }

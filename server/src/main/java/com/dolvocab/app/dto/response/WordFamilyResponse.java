@@ -15,6 +15,7 @@ public class WordFamilyResponse {
     private Long id;
     private String rootWord;
     private String description;
+    private String memberOrder;
     @Builder.Default
     private List<String> words = new java.util.ArrayList<>();
     @Builder.Default

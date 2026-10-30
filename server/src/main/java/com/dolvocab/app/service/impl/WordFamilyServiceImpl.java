@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -75,6 +76,26 @@ public class WordFamilyServiceImpl implements WordFamilyService {
 
     @Override
     @Transactional
+    public WordFamilyResponse updateWordFamily(Long id, String rootWord, String description, List<String> memberOrder) {
+        WordFamily wf = wordFamilyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
+
+        if (rootWord != null && !rootWord.trim().isEmpty()) {
+            wf.setRootWord(rootWord.trim());
+        }
+        if (description != null) {
+            wf.setDescription(description);
+        }
+        if (memberOrder != null) {
+            wf.setMemberOrder(String.join(",", memberOrder));
+        }
+
+        WordFamily saved = wordFamilyRepository.save(wf);
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional
     public void deleteWordFamily(Long id) {
         WordFamily wf = wordFamilyRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
@@ -113,10 +134,32 @@ public class WordFamilyServiceImpl implements WordFamilyService {
             }
         }
 
+        // Apply custom ordering if memberOrder exists
+        if (wf.getMemberOrder() != null && !wf.getMemberOrder().trim().isEmpty()) {
+            List<String> orderList = Arrays.asList(wf.getMemberOrder().split(","));
+            memberVocabs.sort((a, b) -> {
+                int indexA = orderList.indexOf(a.getWord());
+                int indexB = orderList.indexOf(b.getWord());
+                if (indexA == -1 && indexB == -1) return 0;
+                if (indexA == -1) return 1;
+                if (indexB == -1) return -1;
+                return Integer.compare(indexA, indexB);
+            });
+            words.sort((a, b) -> {
+                int indexA = orderList.indexOf(a);
+                int indexB = orderList.indexOf(b);
+                if (indexA == -1 && indexB == -1) return 0;
+                if (indexA == -1) return 1;
+                if (indexB == -1) return -1;
+                return Integer.compare(indexA, indexB);
+            });
+        }
+
         return WordFamilyResponse.builder()
                 .id(wf.getId())
                 .rootWord(wf.getRootWord())
                 .description(wf.getDescription())
+                .memberOrder(wf.getMemberOrder())
                 .words(words)
                 .memberVocabs(memberVocabs)
                 .build();

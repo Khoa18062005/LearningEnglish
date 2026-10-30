@@ -5,10 +5,6 @@ import com.dolvocab.app.dto.response.WordFamilyResponse;
 import com.dolvocab.app.service.WordFamilyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,6 +36,19 @@ public class WordFamilyController {
         String rootWord = body.get("rootWord");
         String description = body.get("description");
         WordFamilyResponse res = wordFamilyService.createWordFamily(rootWord, description);
+        return ResponseEntity.ok(ApiResponse.success(res));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<WordFamilyResponse>> updateWordFamily(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> body
+    ) {
+        String rootWord = (String) body.get("rootWord");
+        String description = (String) body.get("description");
+        @SuppressWarnings("unchecked")
+        List<String> memberOrder = (List<String>) body.get("memberOrder");
+        WordFamilyResponse res = wordFamilyService.updateWordFamily(id, rootWord, description, memberOrder);
         return ResponseEntity.ok(ApiResponse.success(res));
     }
 
