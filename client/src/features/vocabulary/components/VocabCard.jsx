@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showReadingList = true }) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -86,7 +86,21 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
   );
 
   // General Vietnamese meaning
-  const generalMeaning = vocab.meaning || vocab.forms?.[0]?.meaning || 'Chưa cập nhật nghĩa';
+  // General Vietnamese meanings list (supports vocab.meanings array or semicolon-separated string)
+  const displayMeanings = useMemo(() => {
+    if (Array.isArray(vocab?.meanings) && vocab.meanings.length > 0) {
+      const filtered = vocab.meanings.map((m) => (typeof m === 'string' ? m.trim() : m)).filter(Boolean);
+      if (filtered.length > 0) return filtered;
+    }
+    const rawMeaning = vocab?.meaning || vocab?.forms?.[0]?.meaning || '';
+    if (rawMeaning && rawMeaning.includes(';')) {
+      const parts = rawMeaning.split(';').map((s) => s.trim()).filter(Boolean);
+      if (parts.length > 0) return parts;
+    }
+    return rawMeaning ? [rawMeaning] : ['Chưa cập nhật nghĩa'];
+  }, [vocab?.meanings, vocab?.meaning, vocab?.forms]);
+
+  const generalMeaning = displayMeanings[0] || 'Chưa cập nhật nghĩa';
 
   // Synonyms if present
   const synonyms = vocab.forms?.find((f) => f.synonym)?.synonym || '';
@@ -219,29 +233,17 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
         
         {/* HÀNG 1: NGHĨA TIẾNG VIỆT CHUNG VỚI ICON [VI] & ACTIONS */}
         <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
-          <div className="flex flex-col gap-1.5 flex-1">
-              <div className="flex items-start gap-2.5 flex-1">
+          <div className="flex flex-col gap-2.5 flex-1">
+            {displayMeanings.map((m, mIdx) => (
+              <div key={mIdx} className="flex items-start gap-2.5">
                 <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300/80 shrink-0 mt-0.5 font-mono shadow-2xs">
                   VI
                 </span>
-                {Array.isArray(vocab.meanings) && vocab.meanings.length > 1 ? (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    {vocab.meanings.map((m, mIdx) => (
-                      <span key={mIdx} className="inline-flex items-center gap-1 font-bold text-base sm:text-lg text-slate-900">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-red-50 text-crimson-primary font-bold border border-red-200/60 font-mono">
-                          #{mIdx + 1}
-                        </span>
-                        <span>{m}</span>
-                        {mIdx < vocab.meanings.length - 1 && <span className="text-slate-300 font-normal ml-1">;</span>}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
-                    {generalMeaning}
-                  </span>
-                )}
+                <span className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
+                  {m}
+                </span>
               </div>
+            ))}
 
             {/* Synonyms if available */}
             {synonyms && (

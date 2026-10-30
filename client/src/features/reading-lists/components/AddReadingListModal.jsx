@@ -251,8 +251,12 @@ export default function AddReadingListModal({
 
         {/* Modal Footer */}
         <div className="px-6 sm:px-8 py-3.5 border-t border-slate-100 bg-white flex items-center justify-between shrink-0">
-          <div className="text-[11px] text-text-muted hidden sm:block">
-            Mẹo: Nhấn <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-[10px] font-bold border border-slate-200">Ctrl+Enter</kbd> để tạo nhanh
+          <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-text-muted select-none">
+            <span>Mẹo: Nhấn</span>
+            <kbd className="inline-flex items-center px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200 text-[10px] font-mono font-bold shadow-2xs">
+              Ctrl + Enter
+            </kbd>
+            <span>để tạo nhanh</span>
           </div>
 
           <div className="flex items-center gap-2.5 ml-auto">

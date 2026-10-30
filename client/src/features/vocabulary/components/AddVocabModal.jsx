@@ -2380,34 +2380,23 @@ export default function AddVocabModal({
           
           {/* Duplicate check live status */}
           <div className="flex items-center gap-2 text-xs">
-            {duplicateMatch ? (
+            {duplicateMatch && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-semibold animate-in fade-in">
                 <span className="material-symbols-outlined text-[16px] text-amber-600">warning</span>
                 <span>Từ &quot;{duplicateMatch.word}&quot; đã tồn tại (Lưu sẽ cập nhật thêm nghĩa)</span>
-              </div>
-            ) : word.trim() && meaning.trim() ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold animate-in fade-in">
-                <span className="material-symbols-outlined text-[16px] text-emerald-600">check_circle</span>
-                <span>{initialVocab ? 'Hợp lệ — Sẵn sàng cập nhật thay đổi' : 'Hợp lệ — Sẵn sàng lưu vào hệ thống'}</span>
-              </div>
-            ) : word.trim() ? (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold animate-in fade-in">
-                <span className="material-symbols-outlined text-[16px] text-blue-600">edit_note</span>
-                <span>Vui lòng nhập thêm Nghĩa của từ ở Mục 1</span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-1.5 text-slate-400">
-                <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                <span>Tự động kiểm tra trùng lặp từ vựng khi nhập</span>
               </div>
             )}
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
-            <span className="hidden md:inline-flex text-[11px] text-slate-400 font-medium">
-              Nhấn <kbd className="px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 text-slate-500 font-semibold">⌘ + Enter</kbd> để lưu
-            </span>
+            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-slate-400 font-medium select-none">
+              <span>Nhấn</span>
+              <kbd className="inline-flex items-center px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200 font-mono text-[10px] font-semibold shadow-2xs">
+                Ctrl + Enter
+              </kbd>
+              <span>để lưu</span>
+            </div>
 
             <button
               type="button"

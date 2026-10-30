@@ -43,19 +43,60 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [lastMutation, setLastMutation] = useState(null);
 
-  // Navigation & Filter state (Hỗ trợ URL trực tiếp /login, /register, /vocab, /)
-  const [currentView, setCurrentView] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path === '/login') return 'login';
-      if (path === '/register') return 'register';
-      if (path === '/vocab' || path === '/lms') return 'master';
-      if (path === '/' || path === '') return 'home';
+  // Phân tích trạng thái điều hướng từ URL hoặc sessionStorage để giữ tab khi F5
+  const parseNavState = () => {
+    if (typeof window === 'undefined') return { view: 'home', listId: null, category: null };
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+
+    if (path === '/login') return { view: 'login', listId: null, category: null };
+    if (path === '/register') return { view: 'register', listId: null, category: null };
+    if (path === '/' || path === '') return { view: 'home', listId: null, category: null };
+
+    if (path === '/vocab' || path === '/lms') {
+      const tab = params.get('tab') || params.get('view');
+      const listParam = params.get('list') || params.get('listId');
+      const catParam = params.get('category') || params.get('cat');
+
+      if (listParam) {
+        const parsedListId = !isNaN(Number(listParam)) ? Number(listParam) : listParam;
+        return { view: 'reading-list', listId: parsedListId, category: null };
+      }
+      if (catParam) {
+        return { view: 'category', listId: null, category: decodeURIComponent(catParam) };
+      }
+      if (tab === 'word-families' || tab === 'families') {
+        return { view: 'word-families', listId: null, category: null };
+      }
+
+      // Fallback từ sessionStorage nếu người dùng F5 trên URL /vocab
+      try {
+        const savedView = sessionStorage.getItem('last_vocab_view');
+        const savedListId = sessionStorage.getItem('last_vocab_list_id');
+        const savedCat = sessionStorage.getItem('last_vocab_category');
+
+        if (savedView === 'reading-list' && savedListId) {
+          const parsedSavedId = !isNaN(Number(savedListId)) ? Number(savedListId) : savedListId;
+          return { view: 'reading-list', listId: parsedSavedId, category: null };
+        }
+        if (savedView === 'category' && savedCat) {
+          return { view: 'category', listId: null, category: savedCat };
+        }
+        if (savedView === 'word-families') {
+          return { view: 'word-families', listId: null, category: null };
+        }
+      } catch (e) {}
+
+      return { view: 'master', listId: null, category: null };
     }
-    return 'home';
-  });
-  const [selectedReadingListId, setSelectedReadingListId] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState(null);
+
+    return { view: 'home', listId: null, category: null };
+  };
+
+  const initialNav = parseNavState();
+  const [currentView, setCurrentView] = useState(initialNav.view);
+  const [selectedReadingListId, setSelectedReadingListId] = useState(initialNav.listId);
+  const [selectedCategory, setSelectedCategory] = useState(initialNav.category);
   const [selectedPos, setSelectedPos] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -206,27 +247,85 @@ export default function App() {
     checkAuthSession();
   }, []);
 
-  // Điều hướng trang và đồng bộ URL trên trình duyệt
+  // Điều hướng trang
   const navigateTo = (view) => {
     setCurrentView(view);
-    let targetPath = '/';
-    if (view === 'login') targetPath = '/login';
-    else if (view === 'register') targetPath = '/register';
-    else if (view === 'vocab' || view === 'master') targetPath = '/vocab';
-    else if (view === 'home') targetPath = '/';
-
-    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
-      window.history.pushState({ view }, '', targetPath);
+    if (view === 'master' || view === 'vocab') {
+      setSelectedReadingListId(null);
+      setSelectedCategory(null);
     }
   };
 
+  // Tự động đồng bộ URL trình duyệt và lưu vào sessionStorage khi chuyển đổi Tab/View
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let targetPath = '/';
+    const params = new URLSearchParams();
+
+    if (currentView === 'home') {
+      targetPath = '/';
+      try {
+        sessionStorage.removeItem('last_vocab_view');
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
+    } else if (currentView === 'login') {
+      targetPath = '/login';
+    } else if (currentView === 'register') {
+      targetPath = '/register';
+    } else if (currentView === 'word-families') {
+      targetPath = '/vocab';
+      params.set('tab', 'word-families');
+      try {
+        sessionStorage.setItem('last_vocab_view', 'word-families');
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
+    } else if (currentView === 'reading-list' && selectedReadingListId) {
+      targetPath = '/vocab';
+      params.set('list', selectedReadingListId);
+      try {
+        sessionStorage.setItem('last_vocab_view', 'reading-list');
+        sessionStorage.setItem('last_vocab_list_id', selectedReadingListId);
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
+    } else if (currentView === 'category' && selectedCategory) {
+      targetPath = '/vocab';
+      params.set('category', selectedCategory);
+      try {
+        sessionStorage.setItem('last_vocab_view', 'category');
+        sessionStorage.setItem('last_vocab_category', selectedCategory);
+        sessionStorage.removeItem('last_vocab_list_id');
+      } catch (e) {}
+    } else if (currentView === 'master') {
+      targetPath = '/vocab';
+      try {
+        sessionStorage.setItem('last_vocab_view', 'master');
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
+    }
+
+    const queryString = params.toString();
+    const fullTarget = targetPath + (queryString ? '?' + queryString : '');
+    const currentFull = window.location.pathname + window.location.search;
+
+    if (currentFull !== fullTarget) {
+      window.history.pushState(
+        { currentView, selectedReadingListId, selectedCategory },
+        '',
+        fullTarget
+      );
+    }
+  }, [currentView, selectedReadingListId, selectedCategory]);
+
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
-      if (path === '/login') setCurrentView('login');
-      else if (path === '/register') setCurrentView('register');
-      else if (path === '/vocab' || path === '/lms') setCurrentView('master');
-      else setCurrentView('home');
+      const nav = parseNavState();
+      setCurrentView(nav.view);
+      setSelectedReadingListId(nav.listId);
+      setSelectedCategory(nav.category);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -647,11 +746,15 @@ export default function App() {
     );
   };
 
-  // Active reading list object
-  const activeReadingList = readingLists.find((r) => r.id === selectedReadingListId);
+  // Active reading list object (hỗ trợ so khớp id dạng số hoặc chuỗi, hoặc code)
+  const activeReadingList = readingLists.find(
+    (r) => String(r.id) === String(selectedReadingListId) || r.code === selectedReadingListId
+  );
 
   // Active category object
-  const activeCategory = categories.find((c) => c.name === selectedCategory);
+  const activeCategory = categories.find(
+    (c) => String(c.id) === String(selectedCategory) || c.name === selectedCategory
+  );
 
   // Trang chủ: DOL English
   if (currentView === 'home') {
@@ -821,6 +924,12 @@ export default function App() {
                 selectedPos={selectedPos}
                 setSelectedPos={setSelectedPos}
               />
+            ) : loading ? (
+              <div className="p-16 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
+                <span className="material-symbols-outlined text-4xl text-crimson-primary animate-spin">progress_activity</span>
+                <p className="font-bold text-base text-text-high-contrast">Đang tải danh sách bài đọc...</p>
+                <p className="text-xs text-text-muted">Hệ thống đang đồng bộ dữ liệu từ máy chủ...</p>
+              </div>
             ) : (
               <div className="p-12 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
                 <span className="material-symbols-outlined text-4xl text-text-disabled">menu_book</span>
@@ -864,6 +973,12 @@ export default function App() {
                 selectedPos={selectedPos}
                 setSelectedPos={setSelectedPos}
               />
+            ) : loading ? (
+              <div className="p-16 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
+                <span className="material-symbols-outlined text-4xl text-crimson-primary animate-spin">progress_activity</span>
+                <p className="font-bold text-base text-text-high-contrast">Đang tải danh mục...</p>
+                <p className="text-xs text-text-muted">Hệ thống đang đồng bộ dữ liệu từ máy chủ...</p>
+              </div>
             ) : (
               <div className="p-12 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
                 <span className="material-symbols-outlined text-4xl text-text-disabled">label</span>
