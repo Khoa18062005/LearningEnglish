@@ -3,8 +3,10 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 /**
  * Custom DatePicker Component
  * Phù hợp với DOL Crimson Design System
- * Hỗ trợ chọn Ngày sinh nhanh chóng qua Custom Dropdown Năm (1940 - Hiện tại) và Tháng (1 - 12)
- * Giá trị value & onChange định dạng: 'YYYY-MM-DD'
+ * Hỗ trợ:
+ * 1. Nhập trực tiếp ngày/tháng/năm từ bàn phím (định dạng dd/mm/yyyy, tự động chèn dấu /, hỗ trợ paste/xóa/phím tắt)
+ * 2. Chọn qua Custom Dropdown Năm (1940 - Hiện tại) và Tháng (1 - 12) + Lịch ngày
+ * Giá trị value & onChange định dạng chuẩn ISO: 'YYYY-MM-DD'
  */
 export default function DatePicker({
   value = '',
@@ -13,6 +15,7 @@ export default function DatePicker({
   maxDate = new Date().toISOString().split('T')[0],
   minDate = '1940-01-01',
   required = false,
+  disabled = false,
   className = '',
   placement = 'auto', // 'auto' | 'bottom' | 'top'
 }) {
@@ -21,11 +24,68 @@ export default function DatePicker({
   const [isYearOpen, setIsYearOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(placement === 'top');
 
+  // Giá trị text đang nhập trong input (dd/mm/yyyy)
+  const [inputValue, setInputValue] = useState(() => {
+    if (value) {
+      const parts = value.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    return '';
+  });
+
   const containerRef = useRef(null);
+  const inputRef = useRef(null);
+  const isTypingRef = useRef(false);
+  const isBackspaceRef = useRef(false);
   const monthMenuRef = useRef(null);
   const yearMenuRef = useRef(null);
   const monthListRef = useRef(null);
   const yearListRef = useRef(null);
+
+  // Helper phân tích chuỗi DD/MM/YYYY thành { day, month, year }
+  const parseDateString = (str) => {
+    if (!str) return null;
+    const parts = str.trim().split(/[/.-]/);
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return { day, month, year };
+      }
+    }
+    return null;
+  };
+
+  // Helper kiểm tra tính hợp lệ của ngày tháng năm (bao gồm năm nhuận và min/max date)
+  const isValidDate = (day, month, year, minLimit = minDate, maxLimit = maxDate) => {
+    if (!day || !month || !year) return false;
+    const currentMaxYear = parseInt(maxLimit.split('-')[0], 10) || new Date().getFullYear();
+    const currentMinYear = parseInt(minLimit.split('-')[0], 10) || 1940;
+
+    if (year < currentMinYear || year > currentMaxYear) return false;
+    if (month < 1 || month > 12) return false;
+
+    // Số ngày tối đa trong tháng đó của năm (new Date(year, month, 0).getDate() xử lý đúng cả năm nhuận)
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (day < 1 || day > daysInMonth) return false;
+
+    const targetDate = new Date(year, month - 1, day);
+    if (maxLimit) {
+      const [maxY, maxM, maxD] = maxLimit.split('-').map(Number);
+      const max = new Date(maxY, maxM - 1, maxD, 23, 59, 59, 999);
+      if (targetDate > max) return false;
+    }
+    if (minLimit) {
+      const [minY, minM, minD] = minLimit.split('-').map(Number);
+      const min = new Date(minY, minM - 1, minD, 0, 0, 0, 0);
+      if (targetDate < min) return false;
+    }
+
+    return true;
+  };
 
   // Tự động phát hiện hướng mở (upward / downward) khi mở dropdown
   useEffect(() => {
@@ -75,18 +135,23 @@ export default function DatePicker({
   const [viewYear, setViewYear] = useState(initialDate.year);
   const [viewMonth, setViewMonth] = useState(initialDate.month);
 
-  // Khi value thay đổi từ ngoài, cập nhật view
+  // Khi value thay đổi từ ngoài và người dùng không đang gõ, cập nhật view và text hiển thị
   useEffect(() => {
+    if (isTypingRef.current) return;
+
     if (value) {
       const parts = value.split('-');
       if (parts.length === 3) {
+        setInputValue(`${parts[2]}/${parts[1]}/${parts[0]}`);
         setViewYear(parseInt(parts[0], 10));
         setViewMonth(parseInt(parts[1], 10) - 1);
       }
+    } else {
+      setInputValue('');
     }
   }, [value]);
 
-  // Đóng toàn bộ popover khi click ra ngoài
+  // Đóng toàn bộ popover khi click ra ngoài container
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
@@ -235,20 +300,10 @@ export default function DatePicker({
   };
 
   const isDateDisabled = (year, month, day) => {
-    const targetDate = new Date(year, month, day);
-    if (maxDate) {
-      const max = new Date(maxDate);
-      max.setHours(23, 59, 59, 999);
-      if (targetDate > max) return true;
-    }
-    if (minDate) {
-      const min = new Date(minDate);
-      min.setHours(0, 0, 0, 0);
-      if (targetDate < min) return true;
-    }
-    return false;
+    return !isValidDate(day, month + 1, year, minDate, maxDate);
   };
 
+  // Chọn ngày từ lịch click
   const handleSelectDay = (year, month, day) => {
     if (isDateDisabled(year, month, day)) return;
 
@@ -259,78 +314,336 @@ export default function DatePicker({
     const d = String(dateObj.getDate()).padStart(2, '0');
 
     const formattedIso = `${y}-${m}-${d}`;
+    isTypingRef.current = false;
+    setInputValue(`${d}/${m}/${y}`);
     onChange(formattedIso);
     setIsOpen(false);
     setIsMonthOpen(false);
     setIsYearOpen(false);
   };
 
-  // Định dạng hiển thị DD/MM/YYYY
-  const displayFormattedDate = useMemo(() => {
-    if (!value) return '';
-    const parts = value.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  // Xử lý khi gõ bàn phím vào ô nhập
+  const handleInputChange = (e) => {
+    isTypingRef.current = true;
+    let val = e.target.value;
+
+    if (!val) {
+      setInputValue('');
+      onChange('');
+      return;
     }
-    return value;
-  }, [value]);
+
+    const isBackspace = isBackspaceRef.current || e.nativeEvent?.inputType?.includes('delete');
+
+    // Chuyển dấu gạch ngang hoặc chấm thành gạch chéo /
+    val = val.replace(/[-.]/g, '/');
+
+    // Chỉ giữ lại chữ số và ký tự gạch chéo /
+    val = val.replace(/[^\d/]/g, '');
+
+    // Loại bỏ gạch chéo ở đầu
+    val = val.replace(/^\/+/, '');
+
+    // Tránh nhiều dấu gạch chéo liên tiếp
+    val = val.replace(/\/+/g, '/');
+
+    if (!isBackspace) {
+      // Khi gõ 2 chữ số ngày: tự động thêm /
+      if (/^\d{2}$/.test(val)) {
+        val = val + '/';
+      }
+      // Khi gõ 1 chữ số rồi gõ /: tự động bổ sung số 0 ở đầu (ví dụ: 5/ -> 05/)
+      else if (/^\d\/$/.test(val)) {
+        val = '0' + val;
+      }
+      // Khi gõ tiếp 2 chữ số tháng: tự động thêm /
+      else if (/^\d{2}\/\d{2}$/.test(val)) {
+        val = val + '/';
+      }
+      // Khi gõ tháng 1 chữ số rồi gõ /: tự động bổ sung số 0 ở đầu tháng
+      else if (/^\d{2}\/\d\/$/.test(val)) {
+        const parts = val.split('/');
+        val = `${parts[0]}/0${parts[1]}/`;
+      }
+    }
+
+    // Giới hạn tối đa 10 ký tự: dd/mm/yyyy
+    if (val.length > 10) {
+      val = val.slice(0, 10);
+    }
+
+    setInputValue(val);
+
+    // Khi đã gõ đủ 10 ký tự, kiểm tra tính hợp lệ và đồng bộ lịch
+    if (val.length === 10) {
+      const parsed = parseDateString(val);
+      if (parsed) {
+        const { day, month, year } = parsed;
+        if (isValidDate(day, month, year, minDate, maxDate)) {
+          const mPad = String(month).padStart(2, '0');
+          const dPad = String(day).padStart(2, '0');
+          const iso = `${year}-${mPad}-${dPad}`;
+          setViewYear(year);
+          setViewMonth(month - 1);
+          onChange(iso);
+          return;
+        }
+      }
+    }
+
+    // Nếu chưa đủ ngày hoàn chỉnh hoặc ngày không hợp lệ, xóa giá trị ở parent để tránh submit sai
+    if (value) {
+      onChange('');
+    }
+  };
+
+  // Phím bấm: Enter để xác nhận & đóng, Escape để đóng, Backspace flag
+  const handleKeyDown = (e) => {
+    if (e.key === 'Backspace') {
+      isBackspaceRef.current = true;
+    } else {
+      isBackspaceRef.current = false;
+    }
+
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+      setIsMonthOpen(false);
+      setIsYearOpen(false);
+    } else if (e.key === 'Enter') {
+      const parsed = parseDateString(inputValue);
+      if (parsed) {
+        const { day, month, year } = parsed;
+        if (isValidDate(day, month, year, minDate, maxDate)) {
+          e.preventDefault();
+          const mPad = String(month).padStart(2, '0');
+          const dPad = String(day).padStart(2, '0');
+          const formatted = `${dPad}/${mPad}/${year}`;
+          const iso = `${year}-${mPad}-${dPad}`;
+          isTypingRef.current = false;
+          setInputValue(formatted);
+          setViewYear(year);
+          setViewMonth(month - 1);
+          onChange(iso);
+          setIsOpen(false);
+          setIsMonthOpen(false);
+          setIsYearOpen(false);
+          inputRef.current?.blur();
+        }
+      }
+    }
+  };
+
+  // Hỗ trợ paste chuỗi ngày tháng ở nhiều định dạng: dd/mm/yyyy, yyyy-mm-dd, hoặc ddmmyyyy
+  const handlePaste = (e) => {
+    const pasteData = e.clipboardData.getData('text').trim();
+
+    // Dạng ISO: YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(pasteData)) {
+      e.preventDefault();
+      const [y, m, d] = pasteData.split('-').map(Number);
+      if (isValidDate(d, m, y, minDate, maxDate)) {
+        const mPad = String(m).padStart(2, '0');
+        const dPad = String(d).padStart(2, '0');
+        isTypingRef.current = false;
+        setInputValue(`${dPad}/${mPad}/${y}`);
+        setViewYear(y);
+        setViewMonth(m - 1);
+        onChange(`${y}-${mPad}-${dPad}`);
+      }
+      return;
+    }
+
+    // Dạng 8 số liền: DDMMYYYY
+    if (/^\d{8}$/.test(pasteData)) {
+      e.preventDefault();
+      const d = parseInt(pasteData.slice(0, 2), 10);
+      const m = parseInt(pasteData.slice(2, 4), 10);
+      const y = parseInt(pasteData.slice(4, 8), 10);
+      if (isValidDate(d, m, y, minDate, maxDate)) {
+        const mPad = String(m).padStart(2, '0');
+        const dPad = String(d).padStart(2, '0');
+        isTypingRef.current = false;
+        setInputValue(`${dPad}/${mPad}/${y}`);
+        setViewYear(y);
+        setViewMonth(m - 1);
+        onChange(`${y}-${mPad}-${dPad}`);
+      }
+      return;
+    }
+  };
+
+  // Khi rời khỏi ô nhập (Blur)
+  const handleBlur = (e) => {
+    // Nếu click vào nội dung trong popover của DatePicker, không reset
+    if (containerRef.current && containerRef.current.contains(e.relatedTarget)) {
+      return;
+    }
+
+    isTypingRef.current = false;
+
+    if (!inputValue.trim()) {
+      setInputValue('');
+      if (value) onChange('');
+      return;
+    }
+
+    const parsed = parseDateString(inputValue);
+    if (parsed) {
+      const { day, month, year } = parsed;
+      if (isValidDate(day, month, year, minDate, maxDate)) {
+        const mPad = String(month).padStart(2, '0');
+        const dPad = String(day).padStart(2, '0');
+        const formatted = `${dPad}/${mPad}/${year}`;
+        const iso = `${year}-${mPad}-${dPad}`;
+        setInputValue(formatted);
+        setViewYear(year);
+        setViewMonth(month - 1);
+        onChange(iso);
+        return;
+      }
+    }
+
+    // Nếu chuỗi nhập dở dang hoặc ngày không hợp lệ, khôi phục lại giá trị hợp lệ trước đó hoặc xóa rỗng
+    if (value) {
+      const parts = value.split('-');
+      if (parts.length === 3) {
+        setInputValue(`${parts[2]}/${parts[1]}/${parts[0]}`);
+      } else {
+        setInputValue('');
+      }
+    } else {
+      setInputValue('');
+    }
+  };
+
+  // Nút xóa nhanh ngày đã chọn
+  const handleClear = (e) => {
+    e.stopPropagation();
+    isTypingRef.current = false;
+    setInputValue('');
+    onChange('');
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
+    inputRef.current?.focus();
+  };
+
+  // Nút đóng/mở popover lịch
+  const toggleOpen = (e) => {
+    e.stopPropagation();
+    setIsOpen((prev) => !prev);
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
+    if (!isOpen) {
+      inputRef.current?.focus();
+    }
+  };
+
+  // Nút chọn nhanh "Hôm nay"
+  const handleSelectToday = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    isTypingRef.current = false;
+    setInputValue(`${d}/${m}/${y}`);
+    onChange(`${y}-${m}-${d}`);
+    setIsOpen(false);
+    setIsMonthOpen(false);
+    setIsYearOpen(false);
+  };
+
+  // Kiểm tra xem chuỗi đủ 10 ký tự có bị lỗi ngày không tồn tại hoặc ngoài khoảng không
+  const isInvalidCompleteDate = useMemo(() => {
+    if (inputValue.length === 10) {
+      const parsed = parseDateString(inputValue);
+      if (!parsed) return true;
+      return !isValidDate(parsed.day, parsed.month, parsed.year, minDate, maxDate);
+    }
+    return false;
+  }, [inputValue, minDate, maxDate]);
 
   return (
     <div className="relative w-full" ref={containerRef}>
-      {/* Input Box Trigger */}
-      <div
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setIsMonthOpen(false);
-          setIsYearOpen(false);
-        }}
-        className={`w-full h-11 pl-10 pr-9 rounded-xl border border-slate-200 bg-white flex items-center cursor-pointer transition-all ${
-          isOpen
-            ? 'ring-2 ring-crimson-primary/20 border-crimson-primary shadow-xs'
-            : 'hover:border-slate-300'
-        } ${className}`}
-      >
-        {/* Left Calendar Icon */}
-        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-[19px] pointer-events-none">
-          calendar_month
-        </span>
-
-        {/* Display Text */}
-        <span
-          className={`text-sm select-none truncate ${
-            displayFormattedDate
-              ? 'text-text-high-contrast font-medium'
-              : 'text-text-disabled'
-          }`}
+      {/* Input Box Wrapper */}
+      <div className="relative w-full">
+        {/* Left Calendar Icon Button */}
+        <button
+          type="button"
+          onClick={toggleOpen}
+          tabIndex={-1}
+          disabled={disabled}
+          className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-crimson-primary text-[19px] transition-colors cursor-pointer select-none z-10 p-0 border-0 bg-transparent flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+          title={isOpen ? 'Đóng lịch' : 'Mở lịch'}
         >
-          {displayFormattedDate || placeholder}
-        </span>
+          calendar_month
+        </button>
 
-        {/* Right Arrow / Clear Icon */}
-        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-          {value ? (
+        {/* Real Input Element for Keyboard Typing */}
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          onFocus={() => {
+            if (!isOpen) setIsOpen(true);
+            setIsMonthOpen(false);
+            setIsYearOpen(false);
+          }}
+          onBlur={handleBlur}
+          onClick={() => {
+            if (!isOpen) setIsOpen(true);
+          }}
+          placeholder={placeholder}
+          required={required}
+          disabled={disabled}
+          title={
+            isInvalidCompleteDate
+              ? 'Ngày không hợp lệ hoặc nằm ngoài khoảng cho phép (1940 - Hiện tại)'
+              : undefined
+          }
+          className={`w-full h-11 pl-10 ${
+            inputValue ? 'pr-14' : 'pr-10'
+          } rounded-xl border bg-white text-sm font-medium transition-all focus:outline-none ${
+            isInvalidCompleteDate
+              ? 'border-red-400 text-red-600 focus:border-red-500 focus:ring-2 focus:ring-red-200'
+              : isOpen
+              ? 'ring-2 ring-crimson-primary/20 border-crimson-primary shadow-xs text-text-high-contrast'
+              : 'border-slate-200 text-text-high-contrast hover:border-slate-300 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/20'
+          } placeholder:text-text-disabled disabled:bg-slate-50 disabled:text-text-disabled disabled:cursor-not-allowed ${className}`}
+        />
+
+        {/* Right Action Icons: Clear & Expand Toggle */}
+        <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
+          {inputValue && !disabled ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange('');
-                setIsMonthOpen(false);
-                setIsYearOpen(false);
-              }}
-              className="text-text-disabled hover:text-text-high-contrast transition-colors p-0.5"
+              onClick={handleClear}
+              className="text-text-disabled hover:text-text-high-contrast transition-colors p-0.5 cursor-pointer flex items-center justify-center rounded-full hover:bg-slate-100"
               title="Xóa ngày"
             >
               <span className="material-symbols-outlined text-[16px]">cancel</span>
             </button>
-          ) : (
+          ) : null}
+
+          <button
+            type="button"
+            onClick={toggleOpen}
+            tabIndex={-1}
+            disabled={disabled}
+            className="text-text-muted hover:text-crimson-primary transition-colors p-0.5 cursor-pointer flex items-center justify-center rounded-full hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isOpen ? 'Đóng lịch' : 'Mở lịch'}
+          >
             <span
-              className={`material-symbols-outlined text-text-muted text-[20px] transition-transform duration-200 pointer-events-none ${
+              className={`material-symbols-outlined text-[20px] transition-transform duration-200 select-none ${
                 isOpen ? 'rotate-180 text-crimson-primary' : ''
               }`}
             >
               expand_more
             </span>
-          )}
+          </button>
         </div>
       </div>
 
@@ -502,7 +815,7 @@ export default function DatePicker({
           {/* Days Grid */}
           <div className="grid grid-cols-7 gap-1 pt-1">
             {calendarDays.map((item, index) => {
-              const disabled = isDateDisabled(item.year, item.month, item.day);
+              const disabledDay = isDateDisabled(item.year, item.month, item.day);
               const mPad = String(item.month + 1).padStart(2, '0');
               const dPad = String(item.day).padStart(2, '0');
               const isoString = `${item.year}-${mPad}-${dPad}`;
@@ -512,12 +825,12 @@ export default function DatePicker({
                 <button
                   key={index}
                   type="button"
-                  disabled={disabled}
+                  disabled={disabledDay}
                   onClick={() => handleSelectDay(item.year, item.month, item.day)}
                   className={`h-8 w-full rounded-lg text-xs font-semibold flex items-center justify-center transition-all ${
                     isSelected
                       ? 'bg-crimson-primary text-white font-bold shadow-[0_4px_12px_rgba(227,30,36,0.35)] scale-105'
-                      : disabled
+                      : disabledDay
                       ? 'text-slate-300 opacity-40 cursor-not-allowed'
                       : item.isCurrentMonth
                       ? 'text-text-high-contrast hover:bg-surface-crimson-soft hover:text-crimson-dark'
@@ -534,16 +847,7 @@ export default function DatePicker({
           <div className="pt-2.5 mt-2 border-t border-slate-100 flex items-center justify-between text-xs">
             <button
               type="button"
-              onClick={() => {
-                const today = new Date();
-                const y = today.getFullYear();
-                const m = String(today.getMonth() + 1).padStart(2, '0');
-                const d = String(today.getDate()).padStart(2, '0');
-                onChange(`${y}-${m}-${d}`);
-                setIsOpen(false);
-                setIsMonthOpen(false);
-                setIsYearOpen(false);
-              }}
+              onClick={handleSelectToday}
               className="text-crimson-primary hover:text-crimson-dark font-bold py-1 px-1.5 rounded transition-colors"
             >
               Hôm nay

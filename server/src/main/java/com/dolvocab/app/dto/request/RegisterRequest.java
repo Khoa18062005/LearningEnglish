@@ -41,4 +41,15 @@ public class RegisterRequest {
 
     @NotNull(message = "Giới tính không được để trống")
     private Gender gender;
+
+    // Địa chỉ theo cấu trúc 2 cấp sáp nhập mới nhất (Provinces Open API v2)
+    private Integer provinceCode;
+    private String provinceName;
+    private Integer wardCode;
+    private String wardName;
+    private String addressDetail;
+
+    @NotBlank(message = "Mã OTP không được để trống")
+    @Pattern(regexp = "^[0-9]{6}$", message = "Mã OTP phải gồm đúng 6 chữ số")
+    private String otpCode;
 }

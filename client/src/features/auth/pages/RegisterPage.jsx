@@ -1,18 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { authApi } from '../../../api/authApi';
+import { locationApi } from '../../../api/locationApi';
 import AuthBanner from '../components/AuthBanner';
 import DatePicker from '../../../components/DatePicker';
+import SearchableSelect from '../../../components/SearchableSelect';
 
 export default function RegisterPage({
+  initialData = null,
   onNavigateLogin,
-  onRegisterSuccess,
+  onNavigateOtp,
 }) {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState('MALE'); // 'MALE' | 'FEMALE' | 'OTHER'
+  const [fullName, setFullName] = useState(initialData?.fullName || '');
+  const [email, setEmail] = useState(initialData?.email || '');
+  const [password, setPassword] = useState(initialData?.password || '');
+  const [confirmPassword, setConfirmPassword] = useState(initialData?.password || '');
+  const [dateOfBirth, setDateOfBirth] = useState(initialData?.dateOfBirth || '');
+  const [gender, setGender] = useState(initialData?.gender || 'MALE'); // 'MALE' | 'FEMALE' | 'OTHER'
+
+  // Địa chỉ theo Provinces Open API v2 (Cấu trúc 2 cấp sau sáp nhập: Tỉnh/Thành -> Phường/Xã)
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState(
+    initialData?.provinceCode ? String(initialData.provinceCode) : ''
+  );
+  const [selectedProvinceName, setSelectedProvinceName] = useState(initialData?.provinceName || '');
+  const [selectedWardCode, setSelectedWardCode] = useState(
+    initialData?.wardCode ? String(initialData.wardCode) : ''
+  );
+  const [selectedWardName, setSelectedWardName] = useState(initialData?.wardName || '');
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+
   const [agreeTerms, setAgreeTerms] = useState(true);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +38,35 @@ export default function RegisterPage({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [confirmStatus, setConfirmStatus] = useState(null); // null | 'MATCH' | 'MISMATCH'
+
+  // Ref đo chiều cao thực tế của khối form bên trái (từ đỉnh chữ "Đăng ký tài khoản" đến đáy chữ "Đã có tài khoản? Đăng nhập ngay")
+  const formContainerRef = useRef(null);
+  const [formHeight, setFormHeight] = useState(null);
+
+  useEffect(() => {
+    if (!formContainerRef.current) return;
+
+    const updateHeight = () => {
+      if (formContainerRef.current) {
+        setFormHeight(formContainerRef.current.offsetHeight);
+      }
+    };
+
+    updateHeight();
+
+    let observer = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updateHeight);
+      observer.observe(formContainerRef.current);
+    }
+
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, []);
 
   // Hiệu ứng kiểm tra khớp mật khẩu khi người dùng dừng nhập
   useEffect(() => {
@@ -38,6 +85,81 @@ export default function RegisterPage({
 
     return () => clearTimeout(timer);
   }, [confirmPassword, password]);
+
+  // Load danh sách 63 Tỉnh/Thành phố từ Provinces Open API v2 khi component mount
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProvinces = async () => {
+      setLoadingProvinces(true);
+      try {
+        const data = await locationApi.getProvinces();
+        if (isMounted) {
+          setProvinces(data);
+        }
+      } catch (err) {
+        console.error('Không thể tải danh sách Tỉnh/Thành phố:', err);
+      } finally {
+        if (isMounted) setLoadingProvinces(false);
+      }
+    };
+    fetchProvinces();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Khi selectedProvinceCode thay đổi, load danh sách Phường/Xã tương ứng (depth=2)
+  useEffect(() => {
+    if (!selectedProvinceCode) {
+      setWards([]);
+      return;
+    }
+    let isMounted = true;
+    const fetchWards = async () => {
+      setLoadingWards(true);
+      try {
+        const data = await locationApi.getWardsByProvince(selectedProvinceCode);
+        if (isMounted) {
+          setWards(data);
+        }
+      } catch (err) {
+        console.error('Không thể tải danh sách Phường/Xã:', err);
+      } finally {
+        if (isMounted) setLoadingWards(false);
+      }
+    };
+    fetchWards();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedProvinceCode]);
+
+  const handleProvinceSelect = (item) => {
+    if (!item) {
+      setSelectedProvinceCode('');
+      setSelectedProvinceName('');
+      setSelectedWardCode('');
+      setSelectedWardName('');
+      return;
+    }
+    setSelectedProvinceCode(String(item.code));
+    setSelectedProvinceName(item.name);
+    // Reset ward khi đổi tỉnh
+    setSelectedWardCode('');
+    setSelectedWardName('');
+    if (errorMessage) setErrorMessage('');
+  };
+
+  const handleWardSelect = (item) => {
+    if (!item) {
+      setSelectedWardCode('');
+      setSelectedWardName('');
+      return;
+    }
+    setSelectedWardCode(String(item.code));
+    setSelectedWardName(item.name);
+    if (errorMessage) setErrorMessage('');
+  };
 
   // Tiêu chí kiểm tra mật khẩu
   const passwordCriteria = [
@@ -125,6 +247,16 @@ export default function RegisterPage({
       return;
     }
 
+    if (!selectedProvinceCode) {
+      setErrorMessage('Vui lòng chọn Tỉnh / Thành phố');
+      return;
+    }
+
+    if (!selectedWardCode) {
+      setErrorMessage('Vui lòng chọn Phường / Xã');
+      return;
+    }
+
     if (!agreeTerms) {
       setErrorMessage('Vui lòng đồng ý với Điều khoản dịch vụ để tiếp tục');
       return;
@@ -133,24 +265,28 @@ export default function RegisterPage({
     setLoading(true);
 
     try {
-      const payload = {
+      // 1. Gửi yêu cầu sinh và gửi mã OTP qua email (hạn 3 phút)
+      await authApi.sendRegistrationOtp(trimmedEmail);
+
+      // 2. Chuyển sang trang nhập mã OTP kèm toàn bộ dữ liệu form đã điền
+      const registrationPayload = {
         fullName: trimmedFullName,
         email: trimmedEmail,
         password,
         dateOfBirth,
         gender,
+        provinceCode: selectedProvinceCode ? parseInt(selectedProvinceCode, 10) : null,
+        provinceName: selectedProvinceName,
+        wardCode: selectedWardCode ? parseInt(selectedWardCode, 10) : null,
+        wardName: selectedWardName,
       };
 
-      const res = await authApi.register(payload);
-
-      if (res && res.accessToken) {
-        localStorage.setItem('access_token', res.accessToken);
-        localStorage.setItem('current_user', JSON.stringify(res.user));
-        onRegisterSuccess(res.user, 'Đăng ký tài khoản thành công! Bạn đã đăng nhập vào hệ thống.');
+      if (onNavigateOtp) {
+        onNavigateOtp(registrationPayload);
       }
     } catch (err) {
-      console.error('Lỗi đăng ký:', err);
-      setErrorMessage(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      console.error('Lỗi khi gửi mã xác thực OTP:', err);
+      setErrorMessage(err.message || 'Không thể gửi mã xác thực OTP. Vui lòng kiểm tra lại email.');
     } finally {
       setLoading(false);
     }
@@ -162,10 +298,13 @@ export default function RegisterPage({
 
   return (
     <div className="min-h-screen w-full bg-white flex flex-col justify-center py-6 sm:py-8 lg:py-10 selection:bg-surface-crimson-soft selection:text-crimson-dark">
-      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
+      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-14 my-auto">
         {/* Left Form Column */}
         <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
-          <div className="max-w-[460px] w-full lg:-translate-x-7 xl:-translate-x-9">
+          <div
+            ref={formContainerRef}
+            className="max-w-[460px] w-full lg:-translate-x-7 xl:-translate-x-9"
+          >
             {/* Centered Header Section */}
             <div className="text-center mb-6">
               {/* Tiêu đề Đăng ký tài khoản */}
@@ -269,7 +408,7 @@ export default function RegisterPage({
                         key={item.id}
                         type="button"
                         onClick={() => setGender(item.id)}
-                        className={`text-xs font-semibold rounded-lg transition-all ${
+                        className={`text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                           gender === item.id
                             ? 'bg-crimson-primary text-white shadow-xs font-bold'
                             : 'text-text-muted hover:text-text-high-contrast'
@@ -280,6 +419,43 @@ export default function RegisterPage({
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Tỉnh / Thành phố */}
+              <div>
+                <label className="block text-xs font-bold text-text-body mb-1.5">
+                  Tỉnh / Thành phố <span className="text-crimson-primary">*</span>
+                </label>
+                <SearchableSelect
+                  value={selectedProvinceCode}
+                  onChange={handleProvinceSelect}
+                  options={provinces}
+                  placeholder="Gõ hoặc chọn Tỉnh / Thành phố..."
+                  icon="location_city"
+                  loading={loadingProvinces}
+                  emptyText="Không tìm thấy tỉnh / thành phố"
+                />
+              </div>
+
+              {/* Phường / Xã */}
+              <div>
+                <label className="block text-xs font-bold text-text-body mb-1.5">
+                  Phường / Xã <span className="text-crimson-primary">*</span>
+                </label>
+                <SearchableSelect
+                  value={selectedWardCode}
+                  onChange={handleWardSelect}
+                  options={wards}
+                  placeholder={
+                    !selectedProvinceCode
+                      ? 'Vui lòng chọn Tỉnh / Thành phố trước'
+                      : 'Gõ hoặc chọn Phường / Xã...'
+                  }
+                  icon="home_pin"
+                  disabled={!selectedProvinceCode || loadingWards}
+                  loading={loadingWards}
+                  emptyText="Không tìm thấy phường / xã"
+                />
               </div>
 
               {/* Password */}
@@ -425,14 +601,14 @@ export default function RegisterPage({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white font-bold text-sm shadow-[0_4px_14px_rgba(227,30,36,0.3)] hover:shadow-[0_6px_20px_rgba(227,30,36,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full h-11 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white font-bold text-sm shadow-[0_4px_14px_rgba(227,30,36,0.3)] hover:shadow-[0_6px_20px_rgba(227,30,36,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {loading && (
                     <span className="material-symbols-outlined animate-spin text-[18px]">
                       progress_activity
                     </span>
                   )}
-                  <span>Đăng ký tài khoản</span>
+                  <span>{loading ? 'Đang gửi mã OTP...' : 'Tiếp tục & Nhận mã OTP'}</span>
                 </button>
               </div>
 
@@ -449,7 +625,7 @@ export default function RegisterPage({
               <button
                 type="button"
                 onClick={handleGoogleRegisterMock}
-                className="w-full h-11 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-text-body font-semibold text-xs transition-all flex items-center justify-center gap-3 shadow-xs"
+                className="w-full h-11 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-text-body font-semibold text-xs transition-all flex items-center justify-center gap-3 shadow-xs cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -479,7 +655,7 @@ export default function RegisterPage({
               <button
                 type="button"
                 onClick={onNavigateLogin}
-                className="font-bold text-crimson-primary hover:text-crimson-dark transition-colors ml-1"
+                className="font-bold text-crimson-primary hover:text-crimson-dark transition-colors ml-1 cursor-pointer"
               >
                 Đăng nhập ngay
               </button>
@@ -488,10 +664,14 @@ export default function RegisterPage({
         </div>
 
         {/* Right Hero Card Column */}
-        <div className="hidden lg:flex lg:w-1/2 items-center justify-center py-4 w-full h-full min-h-[680px]">
-          <div className="w-full max-w-[620px] h-full flex">
+        <div className="hidden lg:flex lg:w-1/2 justify-center py-4 w-full">
+          <div
+            className="w-full max-w-[620px] flex flex-col transition-[height] duration-150"
+            style={formHeight ? { height: `${formHeight}px` } : { minHeight: '750px' }}
+          >
             <AuthBanner
               showLogo={true}
+              className="h-full flex-1"
               title="LinearVocab LMS"
               description={
                 <>

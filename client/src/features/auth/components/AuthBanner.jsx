@@ -10,9 +10,14 @@ export default function AuthBanner({
     </>
   ),
   showLogo = false,
+  className = '',
+  style = {},
 }) {
   return (
-    <div className="relative w-full h-full min-h-[520px] lg:min-h-[680px] rounded-[28px] lg:rounded-[36px] bg-gradient-to-b from-[#E31E24] to-[#B91C1C] p-8 lg:p-12 xl:p-14 flex flex-col justify-between overflow-hidden shadow-[0_20px_50px_rgba(227,30,36,0.25)] text-white select-none">
+    <div
+      style={style}
+      className={`relative w-full h-full min-h-[520px] rounded-[28px] lg:rounded-[36px] bg-gradient-to-b from-[#E31E24] to-[#B91C1C] p-8 lg:p-12 xl:p-14 flex flex-col justify-between overflow-hidden shadow-[0_20px_50px_rgba(227,30,36,0.25)] text-white select-none ${className}`}
+    >
       {/* Background Decorative Soft Light */}
       <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
@@ -43,7 +48,7 @@ export default function AuthBanner({
           <img
             src={astronautImg}
             alt="LinearVocab Mascot 3D"
-            className="w-52 sm:w-64 lg:w-80 xl:w-[330px] max-h-[360px] lg:max-h-[390px] object-contain pointer-events-none"
+            className="w-52 sm:w-64 lg:w-80 xl:w-[340px] max-h-[380px] lg:max-h-[440px] xl:max-h-[480px] object-contain pointer-events-none"
             style={{
               filter: 'drop-shadow(0px 16px 20px rgba(0, 0, 0, 0.42))',
               transform: 'translateZ(0)',

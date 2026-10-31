@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import DatePicker from '../../../components/DatePicker';
+import SearchableSelect from '../../../components/SearchableSelect';
+import { locationApi } from '../../../api/locationApi';
+import { authApi } from '../../../api/authApi';
 
 /**
  * EditProfileModal: Modal chỉnh sửa thông tin cá nhân
- * Cho phép học viên cập nhật các trường đăng ký: Họ tên, Ngày sinh, Giới tính, Ảnh đại diện.
+ * Cho phép học viên cập nhật các trường: Họ tên, Ngày sinh, Giới tính, Tỉnh/Thành phố, Phường/Xã, Ảnh đại diện.
  * Thiết kế đồng bộ hoàn hảo với template DOL / LinearVocab và UserProfileCard.
  */
 export default function EditProfileModal({
@@ -16,19 +19,111 @@ export default function EditProfileModal({
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('MALE');
   const [avatar, setAvatar] = useState(null);
+
+  // Thông tin địa chỉ 2 cấp (Provinces Open API v2)
+  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
+  const [selectedProvinceName, setSelectedProvinceName] = useState('');
+  const [selectedWardCode, setSelectedWardCode] = useState('');
+  const [selectedWardName, setSelectedWardName] = useState('');
+
+  const [provinces, setProvinces] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Đồng bộ thông tin khi mở modal hoặc currentUser thay đổi
   useEffect(() => {
     if (isOpen) {
       setFullName(currentUser?.fullName || 'Nguyễn Quốc Khoa');
       setDateOfBirth(currentUser?.dateOfBirth || '2005-06-18');
       setGender(currentUser?.gender || 'MALE');
       setAvatar(currentUser?.avatar || null);
+
+      setSelectedProvinceCode(currentUser?.provinceCode ? String(currentUser.provinceCode) : '');
+      setSelectedProvinceName(currentUser?.provinceName || '');
+      setSelectedWardCode(currentUser?.wardCode ? String(currentUser.wardCode) : '');
+      setSelectedWardName(currentUser?.wardName || '');
+
       setErrorMessage('');
       setIsSubmitting(false);
     }
   }, [isOpen, currentUser]);
+
+  // Tải danh sách Tỉnh/Thành phố khi mở Modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    const fetchProvinces = async () => {
+      setLoadingProvinces(true);
+      try {
+        const data = await locationApi.getProvinces();
+        if (isMounted) {
+          setProvinces(data);
+          // Khớp mã tỉnh nếu user có provinceName nhưng chưa có provinceCode
+          if (!currentUser?.provinceCode && currentUser?.provinceName) {
+            const match = data.find(
+              (p) => p.name.toLowerCase() === currentUser.provinceName.toLowerCase()
+            );
+            if (match) {
+              setSelectedProvinceCode(String(match.code));
+              setSelectedProvinceName(match.name);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Không thể tải danh sách Tỉnh/Thành phố:', err);
+      } finally {
+        if (isMounted) setLoadingProvinces(false);
+      }
+    };
+
+    fetchProvinces();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, currentUser]);
+
+  // Tải danh sách Phường/Xã khi selectedProvinceCode thay đổi
+  useEffect(() => {
+    if (!isOpen || !selectedProvinceCode) {
+      setWards([]);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchWards = async () => {
+      setLoadingWards(true);
+      try {
+        const data = await locationApi.getWardsByProvince(selectedProvinceCode);
+        if (isMounted) {
+          setWards(data);
+          // Khớp mã phường xã nếu user có wardName nhưng chưa có wardCode
+          if (!selectedWardCode && currentUser?.wardName) {
+            const match = data.find(
+              (w) => w.name.toLowerCase() === currentUser.wardName.toLowerCase()
+            );
+            if (match) {
+              setSelectedWardCode(String(match.code));
+              setSelectedWardName(match.name);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Không thể tải danh sách Phường/Xã:', err);
+      } finally {
+        if (isMounted) setLoadingWards(false);
+      }
+    };
+
+    fetchWards();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, selectedProvinceCode, currentUser]);
 
   if (!isOpen) return null;
 
@@ -53,7 +148,35 @@ export default function EditProfileModal({
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleProvinceSelect = (item) => {
+    if (!item) {
+      setSelectedProvinceCode('');
+      setSelectedProvinceName('');
+      setSelectedWardCode('');
+      setSelectedWardName('');
+      setWards([]);
+      return;
+    }
+    setSelectedProvinceCode(String(item.code));
+    setSelectedProvinceName(item.name);
+    // Reset ward khi đổi tỉnh
+    setSelectedWardCode('');
+    setSelectedWardName('');
+    if (errorMessage) setErrorMessage('');
+  };
+
+  const handleWardSelect = (item) => {
+    if (!item) {
+      setSelectedWardCode('');
+      setSelectedWardName('');
+      return;
+    }
+    setSelectedWardCode(String(item.code));
+    setSelectedWardName(item.name);
+    if (errorMessage) setErrorMessage('');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanName = fullName.trim();
     if (!cleanName) {
@@ -66,23 +189,69 @@ export default function EditProfileModal({
       return;
     }
 
-    setIsSubmitting(true);
+    if (selectedProvinceCode && !selectedWardCode) {
+      setErrorMessage('Vui lòng chọn Phường / Xã tương ứng với Tỉnh / Thành phố.');
+      return;
+    }
 
-    const updatedUser = {
-      ...(currentUser || {}),
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    // Chuẩn hóa định dạng dateOfBirth thành YYYY-MM-DD
+    let cleanDob = dateOfBirth;
+    if (typeof cleanDob === 'string' && cleanDob.includes('T')) {
+      cleanDob = cleanDob.split('T')[0];
+    }
+
+    const payload = {
       fullName: cleanName,
-      dateOfBirth,
+      dateOfBirth: cleanDob,
       gender,
+      provinceCode: selectedProvinceCode ? Number(selectedProvinceCode) : null,
+      provinceName: selectedProvinceName || null,
+      wardCode: selectedWardCode ? Number(selectedWardCode) : null,
+      wardName: selectedWardName || null,
+      addressDetail: currentUser?.addressDetail || null,
+    };
+
+    let updatedUser = {
+      ...(currentUser || {}),
+      ...payload,
       avatar,
     };
 
-    // Save to localStorage
+    const token = localStorage.getItem('access_token');
+
+    // 1. Nếu người dùng đang đăng nhập (có token), gọi API cập nhật lên Spring Boot Backend
+    if (token) {
+      try {
+        const responseData = await authApi.updateProfile(payload);
+        const savedUser = responseData?.data || responseData;
+        if (savedUser && savedUser.email) {
+          updatedUser = {
+            ...updatedUser,
+            ...savedUser,
+            avatar: avatar || currentUser?.avatar,
+          };
+        }
+      } catch (err) {
+        console.error('Lỗi khi cập nhật profile lên Backend:', err);
+        setErrorMessage(
+          err.message || 'Không thể lưu thông tin lên máy chủ. Vui lòng kiểm tra kết nối Backend hoặc khởi động lại Spring Boot.'
+        );
+        setIsSubmitting(false);
+        return; // Dừng lại, không đóng modal và không giả lập thành công nếu backend lỗi!
+      }
+    }
+
+    // 2. Lưu vào localStorage để duy trì trạng thái đăng nhập
     try {
       localStorage.setItem('current_user', JSON.stringify(updatedUser));
     } catch (err) {
-      console.error(err);
+      console.error('Lỗi lưu current_user vào localStorage:', err);
     }
 
+    // 3. Cập nhật state ở client
     if (onSave) {
       onSave(updatedUser);
     }
@@ -94,11 +263,11 @@ export default function EditProfileModal({
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200 overflow-y-auto">
       <div 
-        className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col my-auto relative animate-in zoom-in-95 duration-200"
+        className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col my-auto relative animate-in zoom-in-95 duration-200 max-h-[92vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 rounded-t-3xl">
+        {/* Header - Fixed top */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-crimson-primary text-[22px]">manage_accounts</span>
             <h2 className="font-headline font-bold text-base text-slate-900">
@@ -114,8 +283,8 @@ export default function EditProfileModal({
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+        {/* Form Body - Scrollable */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto custom-scrollbar flex-1">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-crimson-primary font-semibold flex items-center gap-2">
               <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
@@ -255,6 +424,49 @@ export default function EditProfileModal({
                 })}
               </div>
             </div>
+          </div>
+
+          {/* Tỉnh / Thành phố */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 flex items-center justify-between">
+              <span>Tỉnh / Thành phố</span>
+              {loadingProvinces && (
+                <span className="text-[11px] text-slate-400 font-normal italic">Đang tải...</span>
+              )}
+            </label>
+            <SearchableSelect
+              value={selectedProvinceCode}
+              onChange={handleProvinceSelect}
+              options={provinces}
+              placeholder="Gõ hoặc chọn Tỉnh / Thành phố..."
+              icon="location_city"
+              loading={loadingProvinces}
+              className="w-full"
+            />
+          </div>
+
+          {/* Phường / Xã */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-slate-700 flex items-center justify-between">
+              <span>Phường / Xã</span>
+              {loadingWards && (
+                <span className="text-[11px] text-slate-400 font-normal italic">Đang tải...</span>
+              )}
+            </label>
+            <SearchableSelect
+              value={selectedWardCode}
+              onChange={handleWardSelect}
+              options={wards}
+              placeholder={
+                selectedProvinceCode
+                  ? 'Gõ hoặc chọn Phường / Xã...'
+                  : 'Vui lòng chọn Tỉnh / Thành phố trước'
+              }
+              icon="home_pin"
+              disabled={!selectedProvinceCode || loadingWards}
+              loading={loadingWards}
+              className="w-full"
+            />
           </div>
 
           {/* Ngày tạo tài khoản (Read-only) */}

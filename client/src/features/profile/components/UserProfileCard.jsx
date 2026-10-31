@@ -6,7 +6,7 @@ import React, { useState } from 'react';
  * Bố cục:
  * - Trên cùng: Tiêu đề "Thông tin cá nhân" bên trái, nút "Chỉnh sửa" bên phải + gạch ngang.
  * - Trung tâm: Avatar hình tròn to đẹp, cách trên dưới đều đặn, thoáng đãng.
- * - Bên dưới: Các trường thông tin chuẩn template (Họ tên, Email, Ngày sinh, Giới tính, Ngày tạo tài khoản).
+ * - Bên dưới: Các trường thông tin chuẩn template (Họ tên, Email, Ngày sinh, Giới tính, Tỉnh/Thành phố, Phường/Xã, Ngày tạo tài khoản).
  */
 export default function UserProfileCard({
   currentUser,
@@ -21,6 +21,8 @@ export default function UserProfileCard({
     email: currentUser?.email || '',
     dateOfBirth: currentUser?.dateOfBirth || '',
     gender: currentUser?.gender || 'MALE',
+    provinceName: currentUser?.provinceName || '',
+    wardName: currentUser?.wardName || '',
     role: currentUser?.role || 'ROLE_USER',
     createdAt: currentUser?.createdAt || '',
     avatar: currentUser?.avatar || null,
@@ -73,7 +75,7 @@ export default function UserProfileCard({
           </button>
         </div>
 
-        {/* 1. TRÊN CÙNG: AVATAR HÌNH TRÒN TO ĐẸP (XÍCH XUỐNG DƯỚI MỘT CHÚT CHO CÂN ĐỐI) */}
+        {/* 1. TRÊN CÙNG: AVATAR HÌNH TRÒN TO ĐẸP */}
         <div className="flex flex-col items-center justify-center pt-3.5 pb-5 sm:pt-4 sm:pb-6 text-center">
           <div 
             onClick={onOpenEditModal}
@@ -203,7 +205,55 @@ export default function UserProfileCard({
             </div>
           </div>
 
-          {/* Trường 5: Ngày tạo tài khoản */}
+          {/* Trường 5: Tỉnh / Thành phố */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-700">
+              Tỉnh / Thành phố
+            </label>
+            <div 
+              onClick={onOpenEditModal}
+              className="h-10 px-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 text-slate-800 text-xs font-semibold cursor-pointer group/field"
+              title="Bấm để chỉnh sửa Tỉnh / Thành phố"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="material-symbols-outlined text-[19px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
+                  location_city
+                </span>
+                <span className={`truncate ${!userData.provinceName ? 'text-slate-400 font-normal italic' : 'text-slate-800'}`}>
+                  {userData.provinceName || 'Chưa cập nhật'}
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
+                edit
+              </span>
+            </div>
+          </div>
+
+          {/* Trường 6: Phường / Xã */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-700">
+              Phường / Xã
+            </label>
+            <div 
+              onClick={onOpenEditModal}
+              className="h-10 px-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 text-slate-800 text-xs font-semibold cursor-pointer group/field"
+              title="Bấm để chỉnh sửa Phường / Xã"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="material-symbols-outlined text-[19px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
+                  home_pin
+                </span>
+                <span className={`truncate ${!userData.wardName ? 'text-slate-400 font-normal italic' : 'text-slate-800'}`}>
+                  {userData.wardName || 'Chưa cập nhật'}
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
+                edit
+              </span>
+            </div>
+          </div>
+
+          {/* Trường 7: Ngày tạo tài khoản */}
           <div className="space-y-1">
             <label className="block text-xs font-bold text-slate-700">
               Ngày tạo tài khoản

@@ -13,6 +13,7 @@ import Toast from './components/Toast';
 import HomePage from './features/home/pages/HomePage';
 import LoginPage from './features/auth/pages/LoginPage';
 import RegisterPage from './features/auth/pages/RegisterPage';
+import VerifyOtpPage from './features/auth/pages/VerifyOtpPage';
 import ProfilePage from './features/profile/pages/ProfilePage';
 
 import { vocabApi } from './api/vocabApi';
@@ -44,6 +45,14 @@ export default function App() {
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [lastMutation, setLastMutation] = useState(null);
+  const [pendingRegistrationData, setPendingRegistrationData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('pending_registration');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // Phân tích trạng thái điều hướng từ URL hoặc sessionStorage để giữ tab khi F5
   const parseNavState = () => {
@@ -53,6 +62,7 @@ export default function App() {
 
     if (path === '/login') return { view: 'login', listId: null, category: null };
     if (path === '/register') return { view: 'register', listId: null, category: null };
+    if (path === '/verify-otp') return { view: 'verify-otp', listId: null, category: null };
     if (path === '/profile') return { view: 'profile', listId: null, category: null };
     if (path === '/' || path === '') return { view: 'home', listId: null, category: null };
 
@@ -299,6 +309,8 @@ export default function App() {
       targetPath = '/login';
     } else if (currentView === 'register') {
       targetPath = '/register';
+    } else if (currentView === 'verify-otp') {
+      targetPath = '/verify-otp';
     } else if (currentView === 'profile') {
       targetPath = '/vocab';
       params.set('tab', 'profile');
@@ -863,8 +875,51 @@ export default function App() {
     return (
       <div className="min-h-screen bg-white">
         <RegisterPage
+          initialData={pendingRegistrationData}
           onNavigateLogin={() => navigateTo('login')}
+          onNavigateOtp={(data) => {
+            setPendingRegistrationData(data);
+            try {
+              sessionStorage.setItem('pending_registration', JSON.stringify(data));
+            } catch (e) {}
+            setCurrentView('verify-otp');
+          }}
           onRegisterSuccess={(user, message) => {
+            setPendingRegistrationData(null);
+            try {
+              sessionStorage.removeItem('pending_registration');
+            } catch (e) {}
+            handleAuthSuccess(user, message);
+          }}
+        />
+        <NotificationModal
+          isOpen={notification.isOpen}
+          onClose={closeNotification}
+          onConfirm={notification.onConfirm}
+          title={notification.title}
+          message={notification.message}
+          type={notification.type}
+          confirmText={notification.confirmText}
+          cancelText={notification.cancelText}
+          isAlertOnly={notification.isAlertOnly}
+        />
+        <Toast toast={toast} onClose={() => setToast(null)} />
+      </div>
+    );
+  }
+
+  // Trang riêng: Xác thực OTP 6 số
+  if (currentView === 'verify-otp') {
+    return (
+      <div className="min-h-screen bg-white">
+        <VerifyOtpPage
+          registrationData={pendingRegistrationData}
+          onNavigateRegister={() => setCurrentView('register')}
+          onRegisterSuccess={(user, message) => {
+            setPendingRegistrationData(null);
+            try {
+              sessionStorage.removeItem('pending_registration');
+            } catch (e) {}
             handleAuthSuccess(user, message);
           }}
         />

@@ -40,6 +40,22 @@ public class User {
     @Builder.Default
     private Gender gender = Gender.OTHER;
 
+    // Địa chỉ theo cấu trúc 2 cấp (Provinces Open API v2 sau sáp nhập)
+    @Column(name = "province_code")
+    private Integer provinceCode;
+
+    @Column(name = "province_name", length = 100)
+    private String provinceName;
+
+    @Column(name = "ward_code")
+    private Integer wardCode;
+
+    @Column(name = "ward_name", length = 100)
+    private String wardName;
+
+    @Column(name = "address_detail", length = 255)
+    private String addressDetail;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     @Builder.Default
