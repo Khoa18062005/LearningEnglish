@@ -14,12 +14,35 @@ const removeVietnameseTones = (str) => {
 };
 
 /**
+ * Trích xuất viết tắt / acronyms (ví dụ: "Thành phố Hồ Chí Minh" -> ["tphcm", "hcm"])
+ */
+const getAcronyms = (str) => {
+  if (!str) return [];
+  const clean = removeVietnameseTones(str);
+  const words = clean.split(/[^a-z0-9]+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const fullAcronym = words.map((w) => w[0]).join('');
+  const withoutPrefixWords = words
+    .filter(
+      (w, idx) =>
+        !(
+          idx === 0 &&
+          ['tinh', 'thanh', 'tp', 'quan', 'huyen', 'thi', 'phuong', 'xa'].includes(w)
+        )
+    )
+    .filter((w, idx) => !(idx === 0 && words[0] === 'thanh' && w === 'pho'));
+  const shortAcronym = withoutPrefixWords.map((w) => w[0]).join('');
+  return [fullAcronym, shortAcronym].filter(Boolean);
+};
+
+/**
  * SearchableSelect Component (Autocomplete / Combobox)
  * Chuẩn DOL Crimson Design System
  * - Người dùng gõ trực tiếp từ bàn phím vào chính ô input để lọc danh sách tức thì
  * - Menu popover hiển thị danh sách 5 mục với thanh scrollbar tinh tế
  * - Chọn mục bằng click chuột hoặc nhấn Enter
  * - Tự động phát hiện hướng mở (lên trên hoặc xuống dưới) theo khoảng trống màn hình
+ * - Hỗ trợ đầy đủ macOS Safari, iOS WebKit, Chrome, Firefox
  */
 export default function SearchableSelect({
   value = '',
@@ -37,6 +60,7 @@ export default function SearchableSelect({
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
@@ -66,9 +90,20 @@ export default function SearchableSelect({
     const cleanQuery = removeVietnameseTones(inputText.trim());
     return options.filter((item) => {
       const cleanName = removeVietnameseTones(item.name || '');
-      return cleanName.includes(cleanQuery);
+      if (cleanName.includes(cleanQuery)) return true;
+      const acronyms = getAcronyms(item.name || '');
+      return acronyms.some((a) => a.includes(cleanQuery));
     });
   }, [options, inputText, isTyping]);
+
+  // Reset highlightedIndex khi filteredOptions hoặc trạng thái mở thay đổi
+  useEffect(() => {
+    if (isOpen) {
+      setHighlightedIndex(0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, filteredOptions]);
 
   // Tự động phát hiện hướng mở (lên trên hoặc xuống dưới)
   useEffect(() => {
@@ -85,6 +120,16 @@ export default function SearchableSelect({
       }
     }
   }, [isOpen]);
+
+  // Tự động cuộn đến mục được highlight khi dùng phím mũi tên
+  useEffect(() => {
+    if (isOpen && listRef.current && highlightedIndex >= 0) {
+      const itemEl = listRef.current.children[highlightedIndex];
+      if (itemEl && typeof itemEl.scrollIntoView === 'function') {
+        itemEl.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [isOpen, highlightedIndex]);
 
   // Tự động cuộn đến mục đã chọn khi mở danh sách
   useEffect(() => {
@@ -147,7 +192,17 @@ export default function SearchableSelect({
     }
   };
 
-  // Khi ô input mất focus (Blur)
+  // Khi chọn một mục từ danh sách dropdown
+  const handleSelect = (item) => {
+    if (!item) return;
+    setInputText(item.name);
+    setIsTyping(false);
+    onChange(item);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  // Khi ô input mất focus (Blur - do phím Tab hoặc bấm ra ngoài)
   const handleInputBlur = (e) => {
     // Nếu click vào một mục trong danh sách dropdown thì bỏ qua vì handleSelect sẽ xử lý
     if (containerRef.current && containerRef.current.contains(e.relatedTarget)) {
@@ -164,12 +219,28 @@ export default function SearchableSelect({
       return;
     }
 
-    // Kiểm tra xem chuỗi vừa gõ có khớp chính xác với mục nào trong danh sách không
+    // Kiểm tra xem chuỗi vừa gõ có khớp với mục nào trong danh sách không
     const clean = removeVietnameseTones(trimmed);
-    const exactMatch = options.find((o) => removeVietnameseTones(o.name) === clean);
-    if (exactMatch) {
-      setInputText(exactMatch.name);
-      onChange(exactMatch);
+    const stripPrefix = (name) =>
+      removeVietnameseTones(name)
+        .replace(/^(thanh pho|tinh|quan|huyen|thi xa|phuong|xa|thi tran)\s+/i, '')
+        .trim();
+
+    let matched = options.find((o) => removeVietnameseTones(o.name) === clean);
+    if (!matched) {
+      matched = options.find(
+        (o) =>
+          stripPrefix(o.name) === clean ||
+          stripPrefix(o.name) === stripPrefix(trimmed)
+      );
+    }
+    if (!matched && filteredOptions.length === 1) {
+      matched = filteredOptions[0];
+    }
+
+    if (matched) {
+      setInputText(matched.name);
+      onChange(matched);
     } else if (selectedItem) {
       // Khôi phục lại giá trị hợp lệ trước đó
       setInputText(selectedItem.name);
@@ -177,14 +248,6 @@ export default function SearchableSelect({
       setInputText('');
       onChange(null);
     }
-  };
-
-  // Khi chọn một mục từ danh sách dropdown
-  const handleSelect = (item) => {
-    setInputText(item.name);
-    setIsTyping(false);
-    onChange(item);
-    setIsOpen(false);
   };
 
   // Nút xóa nhanh lựa chọn
@@ -214,7 +277,7 @@ export default function SearchableSelect({
     }
   };
 
-  // Xử lý phím Enter / Escape trong ô input
+  // Xử lý phím Enter / Escape / Mũi tên trong ô input
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsOpen(false);
@@ -222,10 +285,30 @@ export default function SearchableSelect({
       if (selectedItem) {
         setInputText(selectedItem.name);
       }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else if (filteredOptions.length > 0) {
+        setHighlightedIndex((prev) =>
+          prev < filteredOptions.length - 1 ? prev + 1 : 0
+        );
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (isOpen && filteredOptions.length > 0) {
+        setHighlightedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredOptions.length - 1
+        );
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (isOpen && filteredOptions.length > 0) {
-        handleSelect(filteredOptions[0]);
+        const itemToSelect =
+          highlightedIndex >= 0 && highlightedIndex < filteredOptions.length
+            ? filteredOptions[highlightedIndex]
+            : filteredOptions[0];
+        handleSelect(itemToSelect);
         inputRef.current?.blur();
       }
     }
@@ -239,6 +322,7 @@ export default function SearchableSelect({
         <button
           type="button"
           tabIndex={-1}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={toggleOpen}
           disabled={disabled}
           className={`material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[18px] transition-colors p-0 border-0 bg-transparent flex items-center justify-center select-none z-10 ${
@@ -289,6 +373,7 @@ export default function SearchableSelect({
                 <button
                   type="button"
                   tabIndex={-1}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={handleClear}
                   className="text-text-disabled hover:text-text-high-contrast transition-colors p-1 cursor-pointer rounded-full flex items-center justify-center hover:bg-slate-100"
                   title="Xóa lựa chọn"
@@ -301,6 +386,7 @@ export default function SearchableSelect({
                 type="button"
                 tabIndex={-1}
                 disabled={disabled}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={toggleOpen}
                 className="text-text-muted hover:text-crimson-primary transition-colors p-1 cursor-pointer flex items-center justify-center rounded-full hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={isOpen ? 'Đóng danh sách' : 'Mở danh sách'}
@@ -321,6 +407,10 @@ export default function SearchableSelect({
       {/* Dropdown Popover: 5-Item Scrollable Options List */}
       {isOpen && !disabled && (
         <div
+          onMouseDown={(e) => {
+            // Ngăn chặn mousedown làm blur ô input trước khi chọn mục (đặc biệt cần thiết trên Safari macOS/iOS)
+            e.preventDefault();
+          }}
           className={`absolute left-0 ${
             openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
           } z-50 w-full bg-white rounded-2xl shadow-[0_16px_36px_rgba(0,0,0,0.18)] border border-slate-200/90 p-1.5 animate-in fade-in zoom-in-95 duration-150 select-none`}
@@ -332,17 +422,26 @@ export default function SearchableSelect({
             style={{ scrollbarWidth: 'thin' }}
           >
             {filteredOptions.length > 0 ? (
-              filteredOptions.map((item) => {
+              filteredOptions.map((item, index) => {
                 const isSelected = String(item.code) === String(value);
+                const isHighlighted = index === highlightedIndex;
                 return (
                   <button
                     key={item.code}
                     type="button"
                     data-code={item.code}
+                    onMouseDown={(e) => {
+                      // e.preventDefault() ngăn input bị blur; gọi trực tiếp handleSelect để phản hồi tức thì
+                      e.preventDefault();
+                      handleSelect(item);
+                    }}
                     onClick={() => handleSelect(item)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
                     className={`w-full text-left px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-between transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-crimson-primary text-white shadow-xs font-bold'
+                        : isHighlighted
+                        ? 'bg-surface-crimson-subtle text-crimson-primary'
                         : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                     }`}
                   >
