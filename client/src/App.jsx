@@ -986,6 +986,74 @@ export default function App() {
     );
   };
 
+  // Delete Word Family
+  const handleDeleteWordFamily = (family) => {
+    if (!family) return;
+    const { id, rootWord } = family;
+    showNotification({
+      title: 'Xóa gia đình từ (Word Family)',
+      message: `Bạn có chắc chắn muốn xóa gia đình từ "${rootWord}"? Các từ vựng thuộc cụm này sẽ được gỡ liên kết (vẫn được lưu an toàn trong kho từ vựng).`,
+      type: 'danger',
+      confirmText: 'Xóa gia đình từ',
+      onConfirm: async () => {
+        try {
+          if (id && isBackendConnected) {
+            await wordFamilyApi.delete(id);
+          }
+        } catch (err) {
+          console.warn('Lỗi khi xóa Word Family trên Backend, xóa cục bộ:', err);
+        }
+
+        // 1. Remove from wordFamilies
+        setWordFamilies((prev) =>
+          prev.filter(
+            (wf) => !((id && wf.id === id) || (rootWord && wf.rootWord?.toLowerCase() === rootWord.toLowerCase()))
+          )
+        );
+
+        // 2. Unlink vocabularies that belonged to this family
+        setVocabList((prev) =>
+          prev.map((v) => {
+            const matchesFamily =
+              (id && v.wordFamilyId === id) ||
+              (rootWord && v.rootWord?.toLowerCase() === rootWord.toLowerCase()) ||
+              (Array.isArray(v.wordFamily) && v.wordFamily.some((w) => w?.toLowerCase() === rootWord.toLowerCase()));
+
+            if (matchesFamily) {
+              return {
+                ...v,
+                wordFamilyId: null,
+                rootWord: null,
+                wordFamily: [],
+              };
+            }
+            return v;
+          })
+        );
+
+        // 3. Clean up localStorage
+        try {
+          const STORAGE_KEY = 'linearvocab_family_config';
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const cfg = JSON.parse(raw);
+            if (id) delete cfg[String(id)];
+            if (rootWord) delete cfg[rootWord.toLowerCase()];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+          }
+        } catch (e) {
+          console.error('Cannot clean up family config in localStorage', e);
+        }
+
+        showToast({
+          title: 'Đã xóa gia đình từ',
+          message: `Gia đình từ "${rootWord}" đã được gỡ bỏ thành công!`,
+          type: 'success',
+        });
+      },
+    });
+  };
+
   // Active reading list object (hỗ trợ so khớp id dạng số hoặc chuỗi, hoặc code)
   const activeReadingList = readingLists.find(
     (r) => String(r.id) === String(selectedReadingListId) || r.code === selectedReadingListId
@@ -1392,6 +1460,7 @@ export default function App() {
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onEditVocab={handleEditVocab}
               onUpdateWordFamily={handleUpdateWordFamily}
+              onDeleteWordFamily={handleDeleteWordFamily}
             />
           )}
 

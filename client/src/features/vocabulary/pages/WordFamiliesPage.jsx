@@ -28,6 +28,7 @@ export default function WordFamiliesPage({
   onOpenAddModal,
   onEditVocab,
   onUpdateWordFamily,
+  onDeleteWordFamily,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [savedConfig, setSavedConfig] = useState(loadSavedConfig);
@@ -36,6 +37,19 @@ export default function WordFamiliesPage({
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  const handleDeleteFamily = (family) => {
+    if (!family) return;
+    const newConfig = { ...savedConfig };
+    if (family.id) delete newConfig[family.id];
+    if (family.rootWord) delete newConfig[family.rootWord.toLowerCase()];
+    setSavedConfig(newConfig);
+    saveConfigToStorage(newConfig);
+
+    if (onDeleteWordFamily) {
+      onDeleteWordFamily(family);
+    }
   };
 
   // Group and compute unified family cards
@@ -330,6 +344,7 @@ export default function WordFamiliesPage({
               onPronounce={onPronounce}
               onEditVocab={onEditVocab}
               onSaveFamily={handleSaveFamilyChanges}
+              onDeleteFamily={handleDeleteFamily}
             />
           ))
         )}
@@ -346,7 +361,7 @@ export default function WordFamiliesPage({
  * - Reordering words inside the family via Up/Down buttons or Drag & Drop
  * - Removal of bottom footer ("1 cấu trúc & collocation và ETM reading...")
  */
-function WordFamilyCard({ family, onPronounce, onEditVocab, onSaveFamily }) {
+function WordFamilyCard({ family, onPronounce, onEditVocab, onSaveFamily, onDeleteFamily }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentRootWord, setCurrentRootWord] = useState(family.rootWord);
   const [items, setItems] = useState(family.items);
@@ -482,15 +497,32 @@ function WordFamilyCard({ family, onPronounce, onEditVocab, onSaveFamily }) {
               </button>
             </>
           ) : (
-            /* Green Pen Button replacing the red speaker */
-            <button
-              type="button"
-              onClick={handleStartEdit}
-              title="Chỉnh sửa gia đình từ (Chọn từ đại diện, sắp xếp thứ tự)"
-              className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-100 hover:border-emerald-300 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105"
-            >
-              <span className="material-symbols-outlined text-[15px]">edit</span>
-            </button>
+            <>
+              {/* Green Pen Button */}
+              <button
+                type="button"
+                onClick={handleStartEdit}
+                title="Chỉnh sửa gia đình từ (Chọn từ đại diện, sắp xếp thứ tự)"
+                className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200/80 hover:bg-emerald-100 hover:border-emerald-300 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+              >
+                <span className="material-symbols-outlined text-[15px]">edit</span>
+              </button>
+
+              {/* Delete Word Family Button */}
+              {onDeleteFamily && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteFamily(family);
+                  }}
+                  title={`Xóa gia đình từ "${currentRootWord}"`}
+                  className="w-7 h-7 rounded-full bg-red-50 text-crimson-primary border border-red-200/80 hover:bg-red-100 hover:border-red-300 flex items-center justify-center transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[15px]">delete</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
