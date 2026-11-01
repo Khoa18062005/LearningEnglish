@@ -539,6 +539,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                 .synonyms(vocab.getSynonyms())
                 .meanings(meaningList)
                 .meaningDetails(meaningDetailResponses)
+                .meaningDetailsJson(vocab.getMeaningDetailsJson())
                 .wordFamilyId(wfId)
                 .rootWord(rootWord)
                 .wordFamily(wfList)

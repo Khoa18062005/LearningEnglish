@@ -23,6 +23,7 @@ public class VocabDetailResponse {
     private String meaning;
     private String closeMeanings;
     private String synonyms;
+    private String meaningDetailsJson;
 
     @Builder.Default
     private List<String> meanings = new ArrayList<>();
@@ -118,7 +119,11 @@ public class VocabDetailResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MeaningDetailResponse {
+        private Object id;
         private String text;
+        private String meaning;
+        private String example;
+        private String note;
         private String synonyms;
         private String closeMeanings;
     }

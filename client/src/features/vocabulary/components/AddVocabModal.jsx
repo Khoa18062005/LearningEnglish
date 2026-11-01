@@ -91,6 +91,8 @@ export default function AddVocabModal({
     {
       id: 1,
       text: '',
+      example: '',
+      note: '',
       synonyms: '',
       closeMeanings: '',
       showSynonyms: false,
@@ -106,6 +108,8 @@ export default function AddVocabModal({
       {
         id: Date.now() + Math.random(),
         text: '',
+        example: '',
+        note: '',
         synonyms: '',
         closeMeanings: '',
         showSynonyms: false,
@@ -121,6 +125,8 @@ export default function AddVocabModal({
         copy[idx] = {
           id: Date.now() + idx,
           text: val,
+          example: '',
+          note: '',
           synonyms: '',
           closeMeanings: '',
           showSynonyms: false,
@@ -133,6 +139,48 @@ export default function AddVocabModal({
     });
   };
 
+  const handleUpdateMeaningExample = (idx, val) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      if (typeof copy[idx] === 'string') {
+        copy[idx] = {
+          id: Date.now() + idx,
+          text: copy[idx],
+          example: val,
+          note: '',
+          synonyms: '',
+          closeMeanings: '',
+          showSynonyms: false,
+          showCloseMeanings: false,
+        };
+      } else {
+        copy[idx] = { ...copy[idx], example: val };
+      }
+      return copy;
+    });
+  };
+
+  const handleUpdateMeaningNote = (idx, val) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      if (typeof copy[idx] === 'string') {
+        copy[idx] = {
+          id: Date.now() + idx,
+          text: copy[idx],
+          example: '',
+          note: val,
+          synonyms: '',
+          closeMeanings: '',
+          showSynonyms: false,
+          showCloseMeanings: false,
+        };
+      } else {
+        copy[idx] = { ...copy[idx], note: val };
+      }
+      return copy;
+    });
+  };
+
   const handleRemoveMeaning = (idx) => {
     setMeanings((prev) => {
       if (prev.length <= 1) {
@@ -140,6 +188,8 @@ export default function AddVocabModal({
           {
             id: Date.now(),
             text: '',
+            example: '',
+            note: '',
             synonyms: '',
             closeMeanings: '',
             showSynonyms: false,
@@ -162,7 +212,7 @@ export default function AddVocabModal({
     setMeanings((prev) => {
       const copy = [...prev];
       const current = typeof copy[idx] === 'string'
-        ? { id: Date.now() + idx, text: copy[idx], synonyms: '', closeMeanings: '', showSynonyms: false, showCloseMeanings: false }
+        ? { id: Date.now() + idx, text: copy[idx], example: '', note: '', synonyms: '', closeMeanings: '', showSynonyms: false, showCloseMeanings: false }
         : { ...copy[idx] };
 
       if (type === 'close_meaning') {
@@ -516,9 +566,32 @@ export default function AddVocabModal({
             const finalSyn = itemSynList || (idx === 0 ? fallbackSyn : '');
             const finalClose = itemCloseList || (idx === 0 ? fallbackClose : '');
 
+            const isPatternOrCollocationExample = (text) => {
+              if (!text) return false;
+              const clean = text.trim().toLowerCase();
+              return (initialVocab.forms || []).some(
+                (f) => (f.pattern || f.collocation || f.type === 'phrasal_verb') && (f.example || '').trim().toLowerCase() === clean
+              );
+            };
+
+            const isPatternOrCollocationNote = (text) => {
+              if (!text) return false;
+              const clean = text.trim().toLowerCase();
+              return (initialVocab.forms || []).some(
+                (f) => (f.pattern || f.collocation || f.type === 'phrasal_verb') && (f.note || '').trim().toLowerCase() === clean
+              );
+            };
+
+            const rawEx = (m.example || '').trim();
+            const rawNt = (m.note || m.notes || '').trim();
+            const cleanEx = isPatternOrCollocationExample(rawEx) ? '' : rawEx;
+            const cleanNt = isPatternOrCollocationNote(rawNt) ? '' : rawNt;
+
             return {
               id: m.id || Date.now() + idx,
               text: m.text || m.meaning || '',
+              example: cleanEx,
+              note: cleanNt,
               synonyms: finalSyn,
               closeMeanings: finalClose,
               showSynonyms: !!finalSyn,
@@ -529,10 +602,33 @@ export default function AddVocabModal({
       } else if (Array.isArray(initialVocab.meanings) && initialVocab.meanings.length > 0) {
         setMeanings(
           initialVocab.meanings.map((m, idx) => {
+            const isPatternOrCollocationExample = (text) => {
+              if (!text) return false;
+              const clean = text.trim().toLowerCase();
+              return (initialVocab.forms || []).some(
+                (f) => (f.pattern || f.collocation || f.type === 'phrasal_verb') && (f.example || '').trim().toLowerCase() === clean
+              );
+            };
+
+            const isPatternOrCollocationNote = (text) => {
+              if (!text) return false;
+              const clean = text.trim().toLowerCase();
+              return (initialVocab.forms || []).some(
+                (f) => (f.pattern || f.collocation || f.type === 'phrasal_verb') && (f.note || '').trim().toLowerCase() === clean
+              );
+            };
+
+            const rawEx = typeof m === 'string' ? '' : (m.example || '').trim();
+            const rawNt = typeof m === 'string' ? '' : (m.note || m.notes || '').trim();
+            const cleanEx = isPatternOrCollocationExample(rawEx) ? '' : rawEx;
+            const cleanNt = isPatternOrCollocationNote(rawNt) ? '' : rawNt;
+
             if (typeof m === 'string') {
               return {
                 id: Date.now() + idx,
                 text: m,
+                example: '',
+                note: '',
                 synonyms: idx === 0 ? fallbackSyn : '',
                 closeMeanings: idx === 0 ? fallbackClose : '',
                 showSynonyms: idx === 0 && !!fallbackSyn,
@@ -542,6 +638,8 @@ export default function AddVocabModal({
             return {
               id: m.id || Date.now() + idx,
               text: m.text || m.meaning || '',
+              example: cleanEx,
+              note: cleanNt,
               synonyms: m.synonyms || (idx === 0 ? fallbackSyn : ''),
               closeMeanings: m.closeMeanings || m.nearSynonyms || (idx === 0 ? fallbackClose : ''),
               showSynonyms: !!(m.synonyms || (idx === 0 && fallbackSyn)),
@@ -558,6 +656,8 @@ export default function AddVocabModal({
             ? parts.map((p, idx) => ({
                 id: Date.now() + idx,
                 text: p,
+                example: '',
+                note: '',
                 synonyms: idx === 0 ? fallbackSyn : '',
                 closeMeanings: idx === 0 ? fallbackClose : '',
                 showSynonyms: idx === 0 && !!fallbackSyn,
@@ -567,6 +667,8 @@ export default function AddVocabModal({
                 {
                   id: Date.now(),
                   text: '',
+                  example: '',
+                  note: '',
                   synonyms: '',
                   closeMeanings: '',
                   showSynonyms: false,
@@ -579,6 +681,8 @@ export default function AddVocabModal({
           {
             id: Date.now(),
             text: initialVocab.forms[0].meaning.trim(),
+            example: initialVocab.forms[0].example || initialVocab.example || '',
+            note: initialVocab.forms[0].note || initialVocab.notes || '',
             synonyms: fallbackSyn,
             closeMeanings: fallbackClose,
             showSynonyms: !!fallbackSyn,
@@ -590,6 +694,8 @@ export default function AddVocabModal({
           {
             id: Date.now(),
             text: '',
+            example: '',
+            note: '',
             synonyms: '',
             closeMeanings: '',
             showSynonyms: false,
@@ -711,6 +817,8 @@ export default function AddVocabModal({
         {
           id: Date.now(),
           text: '',
+          example: '',
+          note: '',
           synonyms: '',
           closeMeanings: '',
           showSynonyms: false,
@@ -1262,8 +1370,11 @@ export default function AddVocabModal({
           const text = (typeof m === 'string' ? m : m.text || '').trim();
           if (!text) return null;
           return {
+            id: m.id,
             text,
             meaning: text,
+            example: (typeof m === 'object' ? m.example || '' : '').trim(),
+            note: (typeof m === 'object' ? m.note || '' : '').trim(),
             synonyms: (typeof m === 'object' ? m.synonyms || '' : '').trim(),
             closeMeanings: (typeof m === 'object' ? m.closeMeanings || '' : '').trim(),
           };
@@ -1275,14 +1386,19 @@ export default function AddVocabModal({
             const text = (typeof m === 'string' ? m : m.text || '').trim();
             if (!text) return null;
             return {
+              id: m.id,
               text,
               meaning: text,
+              example: (typeof m === 'object' ? m.example || '' : '').trim(),
+              note: (typeof m === 'object' ? m.note || '' : '').trim(),
               synonyms: (typeof m === 'object' ? m.synonyms || '' : '').trim(),
               closeMeanings: (typeof m === 'object' ? m.closeMeanings || '' : '').trim(),
             };
           })
           .filter(Boolean)
       ),
+      example: (meanings[0]?.example || '').trim(),
+      note: (meanings[0]?.note || '').trim(),
       synonyms: effectiveSynonym,
       closeMeanings: effectiveCloseMeaning,
       phonetic: hasPhonetic ? (phonetic.trim() || `/${word.trim()}/`) : '',
@@ -1309,6 +1425,8 @@ export default function AddVocabModal({
       {
         id: Date.now(),
         text: '',
+        example: '',
+        note: '',
         synonyms: '',
         closeMeanings: '',
         showSynonyms: false,
@@ -1637,6 +1755,8 @@ export default function AddVocabModal({
                         ? {
                             id: idx,
                             text: m,
+                            example: '',
+                            note: '',
                             synonyms: '',
                             closeMeanings: '',
                             showSynonyms: false,
@@ -2062,6 +2182,81 @@ export default function AddVocabModal({
                             </div>
                           );
                         })()}
+
+                        {/* Hàng: Ô nhập Ví dụ & Ghi chú cho nét nghĩa này */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200/60">
+                          {/* Cột 1: Ví dụ cho nét nghĩa */}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-[15px] text-teal-600">
+                                  format_quote
+                                </span>
+                                <span>Ví dụ cho nét nghĩa {meanings.length > 1 ? `#${idx + 1}` : ''}</span>
+                              </label>
+                              <span className="text-[10px] text-slate-400 font-normal">Tùy chọn</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={itemObj.example || ''}
+                                onChange={(e) => handleUpdateMeaningExample(idx, e.target.value)}
+                                placeholder={
+                                  idx === 0
+                                    ? 'e.g. They decided to hire a new marketing manager.'
+                                    : `Nhập ví dụ minh họa cho nét nghĩa #${idx + 1}...`
+                                }
+                                className="w-full h-10 pl-3 pr-8 bg-white hover:bg-white focus:bg-white rounded-xl text-xs font-medium text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-3 focus:ring-crimson-primary/10 transition-all outline-none"
+                              />
+                              {itemObj.example && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateMeaningExample(idx, '')}
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                  title="Xóa ví dụ"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">cancel</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Cột 2: Ghi chú cho nét nghĩa */}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-[15px] text-amber-600">
+                                  sticky_note_2
+                                </span>
+                                <span>Ghi chú {meanings.length > 1 ? `#${idx + 1}` : ''}</span>
+                              </label>
+                              <span className="text-[10px] text-slate-400 font-normal">Tùy chọn</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={itemObj.note || ''}
+                                onChange={(e) => handleUpdateMeaningNote(idx, e.target.value)}
+                                placeholder={
+                                  idx === 0
+                                    ? 'e.g. Thuê người làm việc ngắn hạn, trả lương...'
+                                    : `Nhập ghi chú cách dùng cho nét nghĩa #${idx + 1}...`
+                                }
+                                className="w-full h-10 pl-3 pr-8 bg-white hover:bg-white focus:bg-white rounded-xl text-xs font-medium text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-3 focus:ring-crimson-primary/10 transition-all outline-none"
+                              />
+                              {itemObj.note && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateMeaningNote(idx, '')}
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                  title="Xóa ghi chú"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">cancel</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}

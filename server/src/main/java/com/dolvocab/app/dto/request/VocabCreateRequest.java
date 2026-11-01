@@ -114,8 +114,11 @@ public class VocabCreateRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MeaningDetailItemRequest {
+        private Object id;
         private String text;
         private String meaning;
+        private String example;
+        private String note;
         private String synonyms;
         @JsonAlias({"closeMeanings", "nearSynonyms", "closeMeaningWords"})
         private String closeMeanings;

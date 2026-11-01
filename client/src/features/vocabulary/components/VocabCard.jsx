@@ -112,6 +112,8 @@ export default function VocabCard({
     if (Array.isArray(details) && details.length > 0) {
       return details.map((md) => ({
         text: (md.text || md.meaning || '').trim(),
+        example: (md.example || '').trim(),
+        note: (md.note || md.notes || '').trim(),
         closeMeanings: (typeof md.closeMeanings === 'string' ? md.closeMeanings.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(md.closeMeanings) ? md.closeMeanings : []) || [],
         synonyms: (typeof md.synonyms === 'string' ? md.synonyms.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(md.synonyms) ? md.synonyms : []) || [],
       })).filter((m) => m.text);
@@ -120,10 +122,18 @@ export default function VocabCard({
     if (Array.isArray(vocab?.meanings) && vocab.meanings.length > 0) {
       return vocab.meanings.map((m) => {
         if (typeof m === 'string') {
-          return { text: m.trim(), closeMeanings: [], synonyms: [] };
+          return {
+            text: m.trim(),
+            example: '',
+            note: '',
+            closeMeanings: [],
+            synonyms: [],
+          };
         }
         return {
           text: (m.text || m.meaning || '').trim(),
+          example: (m.example || '').trim(),
+          note: (m.note || m.notes || '').trim(),
           closeMeanings: (typeof m.closeMeanings === 'string' ? m.closeMeanings.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(m.closeMeanings) ? m.closeMeanings : []) || [],
           synonyms: (typeof m.synonyms === 'string' ? m.synonyms.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(m.synonyms) ? m.synonyms : []) || [],
         };
@@ -324,16 +334,35 @@ export default function VocabCard({
         return true;
       });
 
+      const cleanEx = (m.example || '').trim();
+      const cleanNt = (m.note || '').trim();
+      const isDupEx = cleanEx && (
+        patterns.some((p) => (p.example || '').trim().toLowerCase() === cleanEx.toLowerCase()) ||
+        collocations.some((c) => (c.example || '').trim().toLowerCase() === cleanEx.toLowerCase()) ||
+        phrasalVerbs.some((pv) => (pv.example || '').trim().toLowerCase() === cleanEx.toLowerCase())
+      );
+      const isDupNt = cleanNt && (
+        patterns.some((p) => (p.note || '').trim().toLowerCase() === cleanNt.toLowerCase()) ||
+        collocations.some((c) => (c.note || '').trim().toLowerCase() === cleanNt.toLowerCase()) ||
+        phrasalVerbs.some((pv) => (pv.note || '').trim().toLowerCase() === cleanNt.toLowerCase())
+      );
+
       return {
         ...m,
+        example: isDupEx ? '' : cleanEx,
+        note: isDupNt ? '' : cleanNt,
         closeMeanings: uniqueClose,
         synonyms: uniqueSyn,
       };
     });
-  }, [parsedMeanings, relations, vocab?.word]);
+  }, [parsedMeanings, relations, vocab?.word, patterns, collocations, phrasalVerbs]);
 
   const hasItemLevelDetails = displayParsedMeanings.some(
     (m) => m.closeMeanings.length > 0 || m.synonyms.length > 0
+  );
+
+  const hasItemLevelExampleOrNote = displayParsedMeanings.some(
+    (m) => m.example || m.note
   );
 
   // POS badge styling
@@ -469,6 +498,24 @@ export default function VocabCard({
                     {mItem.text}
                   </span>
                 </div>
+
+                {/* Ví dụ & Ghi chú riêng của từng nét nghĩa chung */}
+                {isExpanded && (mItem.example || mItem.note) && (
+                  <div className="flex flex-col gap-1.5 pt-0.5 pb-1 text-xs">
+                    {mItem.example && (
+                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                        <span className="font-semibold text-slate-700 text-[11px] not-italic shrink-0">Ví dụ:</span>
+                        <span className="italic leading-relaxed text-slate-700">&ldquo;{mItem.example}&rdquo;</span>
+                      </div>
+                    )}
+                    {mItem.note && (
+                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                        <span className="font-semibold text-slate-700 text-[11px] shrink-0">Ghi chú:</span>
+                        <span className="leading-relaxed text-slate-700">{mItem.note.replace(/^Ghi chú:\s*/i, '')}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Nét nghĩa tương đương riêng của từng nét nghĩa */}
                 {mItem.closeMeanings.length > 0 && (
@@ -852,10 +899,10 @@ export default function VocabCard({
         )}
 
         {/* HÀNG 4: NẾU LÀ BASE HOẶC IDIOM KHÔNG CÓ PATTERN/COLLOCATION */}
-        {patterns.length === 0 && collocations.length === 0 && phrasalVerbs.length === 0 && baseSenses.length > 0 && (
+        {patterns.length === 0 && collocations.length === 0 && phrasalVerbs.length === 0 && !hasItemLevelExampleOrNote && baseSenses.length > 0 && (
           <div className="flex flex-col gap-2">
             {baseSenses.map((base, bIdx) => (
-              (base.example || base.note) && (
+              isExpanded && (base.example || base.note) && (
                 <div key={`b-${bIdx}`} className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 flex flex-col gap-1.5 text-xs">
                   {base.example && (
                     <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
@@ -879,6 +926,7 @@ export default function VocabCard({
         {(patterns.some((p) => p.example || p.note) ||
           collocations.some((c) => c.example || c.note) ||
           phrasalVerbs.some((pv) => pv.example || pv.note) ||
+          hasItemLevelExampleOrNote ||
           baseSenses.some((b) => b.example || b.note)) && (
           <div className="pt-1">
             <button
