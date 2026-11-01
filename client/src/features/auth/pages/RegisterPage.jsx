@@ -9,6 +9,7 @@ export default function RegisterPage({
   initialData = null,
   onNavigateLogin,
   onNavigateOtp,
+  onNavigateHome,
 }) {
   const [fullName, setFullName] = useState(initialData?.fullName || '');
   const [email, setEmail] = useState(initialData?.email || '');
@@ -265,10 +266,10 @@ export default function RegisterPage({
     setLoading(true);
 
     try {
-      // 1. Gửi yêu cầu sinh và gửi mã OTP qua email (hạn 3 phút)
+      // 1. Gọi API gửi mã OTP 6 số tới email
       await authApi.sendRegistrationOtp(trimmedEmail);
 
-      // 2. Chuyển sang trang nhập mã OTP kèm toàn bộ dữ liệu form đã điền
+      // 2. Đóng gói dữ liệu form đăng ký và chuyển sang màn hình xác thực OTP
       const registrationPayload = {
         fullName: trimmedFullName,
         email: trimmedEmail,
@@ -286,7 +287,9 @@ export default function RegisterPage({
       }
     } catch (err) {
       console.error('Lỗi khi gửi mã xác thực OTP:', err);
-      setErrorMessage(err.message || 'Không thể gửi mã xác thực OTP. Vui lòng kiểm tra lại email.');
+      setErrorMessage(
+        err.message || 'Không thể gửi mã xác thực OTP. Vui lòng kiểm tra lại email hoặc thử lại sau.'
+      );
     } finally {
       setLoading(false);
     }
@@ -601,14 +604,23 @@ export default function RegisterPage({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white font-bold text-sm shadow-[0_4px_14px_rgba(227,30,36,0.3)] hover:shadow-[0_6px_20px_rgba(227,30,36,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full h-11 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white font-bold text-sm shadow-[0_4px_14px_rgba(227,30,36,0.3)] hover:shadow-[0_6px_20px_rgba(227,30,36,0.4)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-wait"
                 >
-                  {loading && (
-                    <span className="material-symbols-outlined animate-spin text-[18px]">
-                      progress_activity
-                    </span>
+                  {loading ? (
+                    <>
+                      <span className="material-symbols-outlined animate-spin text-[18px]">
+                        progress_activity
+                      </span>
+                      <span>Đang tạo mã OTP & gửi email...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Tiếp tục & Nhận mã OTP</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        arrow_forward
+                      </span>
+                    </>
                   )}
-                  <span>{loading ? 'Đang gửi mã OTP...' : 'Tiếp tục & Nhận mã OTP'}</span>
                 </button>
               </div>
 
@@ -673,6 +685,7 @@ export default function RegisterPage({
               showLogo={true}
               className="h-full flex-1"
               title="LinearVocab LMS"
+              onNavigateHome={onNavigateHome}
               description={
                 <>
                   Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
@@ -684,6 +697,46 @@ export default function RegisterPage({
           </div>
         </div>
       </div>
+
+      {/* Loading Modal Overlay khi đang tạo mã OTP & gửi email */}
+      {loading && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-7 sm:p-8 max-w-[420px] w-full shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+            {/* Animated Icon with Glowing Rings */}
+            <div className="relative mb-5 flex items-center justify-center">
+              <div className="absolute w-20 h-20 rounded-full bg-crimson-primary/10 animate-ping"></div>
+              <div className="w-16 h-16 rounded-2xl bg-surface-crimson-soft border border-border-crimson-tint flex items-center justify-center relative shadow-sm">
+                <span className="material-symbols-outlined text-[32px] text-crimson-primary animate-pulse">
+                  mark_email_read
+                </span>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-extrabold text-text-high-contrast mb-1.5 font-sans">
+              Đang khởi tạo mã xác thực
+            </h3>
+            <p className="text-xs text-text-muted leading-relaxed max-w-xs mb-5">
+              Hệ thống đang bảo mật thông tin và gửi mã OTP 6 số tới email:
+              <br />
+              <span className="font-bold text-crimson-primary mt-1 inline-block text-xs break-all">
+                {email}
+              </span>
+            </p>
+
+            {/* Animated Loading Bar */}
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-3 relative">
+              <div className="h-full bg-gradient-to-r from-crimson-primary via-rose-500 to-crimson-dark rounded-full animate-pulse w-full"></div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] font-medium text-text-muted">
+              <span className="material-symbols-outlined animate-spin text-[14px] text-crimson-primary">
+                progress_activity
+              </span>
+              <span>Vui lòng chờ trong giây lát...</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

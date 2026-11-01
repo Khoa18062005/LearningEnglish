@@ -99,10 +99,18 @@ public class NoteListServiceImpl implements NoteListService {
         User currentUser = securityUtils.getCurrentUser();
         String code = request.getCode();
         if (code == null || code.trim().isEmpty()) {
-            long nextNumber = noteListRepository.countByUserId(currentUser.getId()) + 1;
-            code = String.format("LIST %02d", nextNumber);
+            long counter = 1;
+            String candidate = String.format("LIST %02d", counter);
+            while (noteListRepository.findByCodeIgnoreCaseAndUserId(candidate, currentUser.getId()).isPresent()) {
+                counter++;
+                candidate = String.format("LIST %02d", counter);
+            }
+            code = candidate;
         } else {
             code = code.trim();
+            if (noteListRepository.findByCodeIgnoreCaseAndUserId(code, currentUser.getId()).isPresent()) {
+                throw new RuntimeException("Mã danh sách '" + code + "' đã tồn tại!");
+            }
         }
 
         NoteList list = NoteList.builder()
@@ -127,7 +135,12 @@ public class NoteListServiceImpl implements NoteListService {
 
         list.setTitle(request.getTitle().trim());
         if (request.getCode() != null && !request.getCode().trim().isEmpty()) {
-            list.setCode(request.getCode().trim());
+            String newCode = request.getCode().trim();
+            java.util.Optional<NoteList> existing = noteListRepository.findByCodeIgnoreCaseAndUserId(newCode, currentUser.getId());
+            if (existing.isPresent() && !existing.get().getId().equals(id)) {
+                throw new RuntimeException("Mã danh sách '" + newCode + "' đã tồn tại!");
+            }
+            list.setCode(newCode);
         }
         list.setSourceReference(request.getSourceReference() != null ? request.getSourceReference().trim() : null);
         list.setPassage(request.getPassage() != null ? request.getPassage().trim() : null);

@@ -12,7 +12,17 @@ export default function AuthBanner({
   showLogo = false,
   className = '',
   style = {},
+  onNavigateHome,
 }) {
+  const handleGoHome = (e) => {
+    if (e) e.preventDefault();
+    if (onNavigateHome) {
+      onNavigateHome();
+    } else if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  };
+
   return (
     <div
       style={style}
@@ -38,17 +48,22 @@ export default function AuthBanner({
         </p>
       </div>
 
-      {/* Center 3D Mascot Character */}
+      {/* Center 3D Mascot Character - Bấm vào để quay về trang chủ */}
       <div className="relative z-10 my-auto flex items-center justify-center py-6">
         {/* Soft Ambient Glow under mascot */}
         <div className="absolute w-60 h-60 sm:w-72 sm:h-72 lg:w-80 lg:h-80 rounded-full bg-white/20 blur-3xl scale-95 pointer-events-none" />
         
-        {/* Tách riêng wrapper transform để tránh lỗi Safari biến drop-shadow thành khối chữ nhật */}
-        <div className="relative z-10 transition-transform duration-500 ease-out hover:scale-105 will-change-transform select-none">
+        {/* Mascot Link to Home */}
+        <a
+          href="/"
+          onClick={handleGoHome}
+          title="Bấm vào phi hành gia để quay về trang chủ LinearVocab"
+          className="group relative z-10 flex flex-col items-center cursor-pointer transition-transform duration-300 ease-out hover:scale-105 active:scale-95 will-change-transform select-none"
+        >
           <img
             src={astronautImg}
-            alt="LinearVocab Mascot 3D"
-            className="w-52 sm:w-64 lg:w-80 xl:w-[340px] max-h-[380px] lg:max-h-[440px] xl:max-h-[480px] object-contain pointer-events-none"
+            alt="LinearVocab Mascot 3D - Bấm để quay về trang chủ"
+            className="w-52 sm:w-64 lg:w-80 xl:w-[340px] max-h-[380px] lg:max-h-[440px] xl:max-h-[480px] object-contain transition-transform duration-300 group-hover:-translate-y-1.5"
             style={{
               filter: 'drop-shadow(0px 16px 20px rgba(0, 0, 0, 0.42))',
               transform: 'translateZ(0)',
@@ -57,7 +72,12 @@ export default function AuthBanner({
               backfaceVisibility: 'hidden',
             }}
           />
-        </div>
+          {/* Floating Pill Badge on Hover */}
+          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/25 hover:bg-white/35 backdrop-blur-md border border-white/40 text-white text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-y-1 group-hover:translate-y-0 shadow-md">
+            <span className="material-symbols-outlined text-[15px]">home</span>
+            <span>Về trang chủ</span>
+          </div>
+        </a>
       </div>
     </div>
   );

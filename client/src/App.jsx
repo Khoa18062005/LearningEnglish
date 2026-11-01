@@ -3,9 +3,12 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import MasterListPage from './features/vocabulary/pages/MasterListPage';
 import ReadingListView from './features/reading-lists/pages/ReadingListView';
+import ListVocabularyPage from './features/reading-lists/pages/ListVocabularyPage';
 import WordFamiliesPage from './features/vocabulary/pages/WordFamiliesPage';
 import CategoryView from './features/categories/pages/CategoryView';
 import AddVocabModal from './features/vocabulary/components/AddVocabModal';
+import VocabDetailModal from './features/vocabulary/components/VocabDetailModal';
+import RelatedVocabGroupModal from './features/vocabulary/components/RelatedVocabGroupModal';
 import AddReadingListModal from './features/reading-lists/components/AddReadingListModal';
 import CategoryModal from './components/CategoryModal';
 import NotificationModal from './components/NotificationModal';
@@ -84,6 +87,9 @@ export default function App() {
       if (tab === 'word-families' || tab === 'families') {
         return { view: 'word-families', listId: null, category: null };
       }
+      if (tab === 'list-vocabulary' || tab === 'list vocabulary' || tab === 'lists' || tab === 'reading-lists') {
+        return { view: 'list-vocabulary', listId: null, category: null };
+      }
 
       // Fallback từ sessionStorage nếu người dùng F5 trên URL /vocab
       try {
@@ -104,6 +110,9 @@ export default function App() {
         if (savedView === 'word-families') {
           return { view: 'word-families', listId: null, category: null };
         }
+        if (savedView === 'list-vocabulary') {
+          return { view: 'list-vocabulary', listId: null, category: null };
+        }
       } catch (e) {}
 
       return { view: 'master', listId: null, category: null };
@@ -118,6 +127,7 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState(initialNav.category);
   const [selectedPos, setSelectedPos] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
   // Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -131,6 +141,55 @@ export default function App() {
   const handleEditVocab = (vocab) => {
     setEditingVocab(vocab);
     setIsAddModalOpen(true);
+  };
+
+  // State cho Modal xem nhanh thẻ từ vựng liên quan riêng lẻ (từ đồng nghĩa / nét nghĩa tương đương)
+  const [selectedDetailVocab, setSelectedDetailVocab] = useState(null);
+  const [detailSourceWord, setDetailSourceWord] = useState(null);
+
+  // State cho Hộp thoại cuộn xem toàn bộ danh sách các từ đồng nghĩa / nét nghĩa tương đương
+  const [relatedGroupModalData, setRelatedGroupModalData] = useState(null);
+
+  const handleOpenRelatedGroup = (words, sourceWord, type = 'close') => {
+    if (!Array.isArray(words) || words.length === 0) return;
+    setRelatedGroupModalData({ words, sourceWord, type });
+  };
+
+  const handleSelectRelatedWord = (wordStr, fromWord = null) => {
+    if (!wordStr) return;
+    const cleanWord = wordStr.trim().toLowerCase();
+    const found = (vocabList || []).find(
+      (v) => (v.word || '').trim().toLowerCase() === cleanWord
+    );
+
+    if (found) {
+      setSelectedDetailVocab(found);
+      if (fromWord) setDetailSourceWord(fromWord);
+    } else {
+      showNotification({
+        title: `Chưa có từ "${wordStr}"`,
+        message: `Từ vựng "${wordStr}" chưa có trong danh sách của bạn. Bạn có muốn tạo thẻ từ mới cho "${wordStr}" không?`,
+        type: 'confirm',
+        confirmText: 'Tạo thẻ từ này',
+        cancelText: 'Để sau',
+        onConfirm: () => {
+          setEditingVocab({ word: wordStr.trim() });
+          setIsAddModalOpen(true);
+        },
+      });
+    }
+  };
+
+  const handleScrollToCard = (targetVocab) => {
+    if (!targetVocab?.id) return;
+    const cardEl = document.getElementById(`vocab-card-${targetVocab.id}`);
+    if (cardEl) {
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      cardEl.classList.add('ring-4', 'ring-crimson-primary/70', 'transition-all');
+      setTimeout(() => {
+        cardEl.classList.remove('ring-4', 'ring-crimson-primary/70');
+      }, 2500);
+    }
   };
   const [isAddReadingListModalOpen, setIsAddReadingListModalOpen] = useState(false);
   const [editingReadingList, setEditingReadingList] = useState(null);
@@ -231,12 +290,35 @@ export default function App() {
       if (Array.isArray(vocabsData)) {
         const seen = new Set();
         const unique = vocabsData.filter((v) => {
-          const key = v.id || v.word.toLowerCase();
+          const key = v.id || v.word?.toLowerCase();
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
         });
-        setVocabList(unique);
+        setVocabList((prev) => {
+          const prevMap = new Map();
+          (prev || []).forEach((v) => {
+            if (v.id) prevMap.set(String(v.id), v);
+            if (v.word) prevMap.set(v.word.toLowerCase(), v);
+          });
+          return unique.map((serverItem) => {
+            const localItem =
+              prevMap.get(String(serverItem.id)) ||
+              prevMap.get((serverItem.word || '').toLowerCase());
+            if (!localItem) return serverItem;
+            return {
+              ...localItem,
+              ...serverItem,
+              closeMeanings: serverItem.closeMeanings || localItem.closeMeanings || '',
+              synonyms: serverItem.synonyms || localItem.synonyms || '',
+              meaningDetails:
+                Array.isArray(serverItem.meaningDetails) && serverItem.meaningDetails.length > 0
+                  ? serverItem.meaningDetails
+                  : (localItem.meaningDetails || []),
+              meaningDetailsJson: serverItem.meaningDetailsJson || localItem.meaningDetailsJson || '',
+            };
+          });
+        });
       }
       if (Array.isArray(listsData)) {
         setReadingLists(listsData);
@@ -285,7 +367,7 @@ export default function App() {
   // Điều hướng trang
   const navigateTo = (view) => {
     setCurrentView(view);
-    if (view === 'master' || view === 'vocab' || view === 'profile') {
+    if (view === 'master' || view === 'vocab' || view === 'profile' || view === 'list-vocabulary') {
       setSelectedReadingListId(null);
       setSelectedCategory(null);
     }
@@ -324,6 +406,14 @@ export default function App() {
       params.set('tab', 'word-families');
       try {
         sessionStorage.setItem('last_vocab_view', 'word-families');
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
+    } else if (currentView === 'list-vocabulary') {
+      targetPath = '/vocab';
+      params.set('tab', 'list-vocabulary');
+      try {
+        sessionStorage.setItem('last_vocab_view', 'list-vocabulary');
         sessionStorage.removeItem('last_vocab_list_id');
         sessionStorage.removeItem('last_vocab_category');
       } catch (e) {}
@@ -367,6 +457,11 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      if (currentView === 'verify-otp') {
+        // Chặn hoàn toàn việc dùng nút Back của trình duyệt để quay lại trang đăng ký
+        window.history.pushState({ currentView: 'verify-otp' }, '', '/verify-otp');
+        return;
+      }
       const nav = parseNavState();
       setCurrentView(nav.view);
       setSelectedReadingListId(nav.listId);
@@ -375,7 +470,7 @@ export default function App() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [currentView]);
 
   const handleOpenAuthModal = (mode = 'login') => {
     navigateTo(mode);
@@ -445,6 +540,23 @@ export default function App() {
     }
   };
 
+  // Helper to safely merge updated server response without wiping out local rich meaning details
+  const safeMergeVocab = (local, remote) => {
+    if (!remote) return local;
+    if (!local) return remote;
+    return {
+      ...local,
+      ...remote,
+      closeMeanings: remote.closeMeanings || local.closeMeanings || '',
+      synonyms: remote.synonyms || local.synonyms || '',
+      meaningDetails:
+        Array.isArray(remote.meaningDetails) && remote.meaningDetails.length > 0
+          ? remote.meaningDetails
+          : (local.meaningDetails || []),
+      meaningDetailsJson: remote.meaningDetailsJson || local.meaningDetailsJson || '',
+    };
+  };
+
   // Add or update vocabulary (syncs to Spring Boot if available)
   const handleSaveVocab = async (vocabData, editId) => {
     const targetId = editId || editingVocab?.id || (vocabList.find((v) => v.word.toLowerCase() === vocabData.word.toLowerCase())?.id);
@@ -452,10 +564,17 @@ export default function App() {
     try {
       if (targetId && isBackendConnected) {
         const updated = await vocabApi.update(targetId, vocabData);
-        setLastMutation({ type: 'update', data: updated, timestamp: Date.now() });
+        const mergedUpdated = safeMergeVocab(vocabData, updated);
+        setLastMutation({ type: 'update', data: mergedUpdated, timestamp: Date.now() });
         setVocabList((prev) =>
-          prev.map((v) => (v.id === targetId || v.word.toLowerCase() === vocabData.word.toLowerCase() ? updated : v))
+          prev.map((v) => (v.id === targetId || v.word.toLowerCase() === vocabData.word.toLowerCase() ? mergedUpdated : v))
         );
+        setSelectedDetailVocab((prev) => {
+          if (!prev) return null;
+          const isMatch = (targetId && prev.id === targetId) ||
+            ((prev.word || '').trim().toLowerCase() === (vocabData.word || '').trim().toLowerCase());
+          return isMatch ? { ...prev, ...mergedUpdated } : prev;
+        });
         loadBackendData();
         setIsAddModalOpen(false);
         setEditingVocab(null);
@@ -464,7 +583,8 @@ export default function App() {
 
       if (isBackendConnected) {
         const created = await vocabApi.create(vocabData);
-        setLastMutation({ type: 'create', data: created, timestamp: Date.now() });
+        const mergedCreated = safeMergeVocab(vocabData, created);
+        setLastMutation({ type: 'create', data: mergedCreated, timestamp: Date.now() });
         if (selectedPos !== 'all' && created.pos && created.pos !== selectedPos) {
           setSelectedPos('all');
         }
@@ -472,7 +592,7 @@ export default function App() {
         if (assignedListId) {
           setReadingLists((prev) =>
             prev.map((r) =>
-              (r.id === assignedListId || r.code === assignedListId || r.shortTitle === assignedListId)
+              (String(r.id) === String(assignedListId))
                 ? { ...r, count: (r.count || 0) + 1 }
                 : r
             )
@@ -481,9 +601,15 @@ export default function App() {
         setVocabList((prev) => {
           const exists = prev.some((v) => v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase());
           if (exists) {
-            return prev.map((v) => (v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase() ? created : v));
+            return prev.map((v) => (v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase() ? mergedCreated : v));
           }
-          return [created, ...prev];
+          return [mergedCreated, ...prev];
+        });
+        setSelectedDetailVocab((prev) => {
+          if (!prev) return null;
+          const isMatch = (created.id && prev.id === created.id) ||
+            ((prev.word || '').trim().toLowerCase() === (created.word || '').trim().toLowerCase());
+          return isMatch ? { ...prev, ...mergedCreated } : prev;
         });
         loadBackendData();
         setIsAddModalOpen(false);
@@ -507,10 +633,17 @@ export default function App() {
       return [vocabData, ...prev];
     });
 
+    setSelectedDetailVocab((prev) => {
+      if (!prev) return null;
+      const isMatch = (targetId && prev.id === targetId) ||
+        ((prev.word || '').trim().toLowerCase() === (vocabData.word || '').trim().toLowerCase());
+      return isMatch ? { ...prev, ...vocabData } : prev;
+    });
+
     if (vocabData.readingListId && !targetId) {
       setReadingLists((prev) =>
         prev.map((r) =>
-          r.id === vocabData.readingListId ? { ...r, count: (r.count || 0) + 1 } : r
+          String(r.id) === String(vocabData.readingListId) ? { ...r, count: (r.count || 0) + 1 } : r
         )
       );
     }
@@ -543,6 +676,7 @@ export default function App() {
         }
         setVocabList((prev) => prev.filter((v) => v.id !== id));
         setLastMutation({ type: 'delete', data: id, timestamp: Date.now() });
+        setSelectedDetailVocab((prev) => (prev?.id === id ? null : prev));
       },
     });
   };
@@ -554,6 +688,19 @@ export default function App() {
       await handleUpdateReadingList(targetId, newListPayload);
       setIsAddReadingListModalOpen(false);
       setEditingReadingList(null);
+      return;
+    }
+
+    // Kiểm tra trùng mã danh sách trước khi tạo mới
+    const targetCode = (newListPayload.code || '').trim().toUpperCase();
+    if (targetCode && readingLists.some((r) => (r.code || r.shortTitle || '').trim().toUpperCase() === targetCode)) {
+      showNotification({
+        title: 'Trùng mã danh sách',
+        message: `Mã danh sách "${newListPayload.code}" đã được sử dụng. Vui lòng chọn một mã khác!`,
+        type: 'danger',
+        isAlertOnly: true,
+        confirmText: 'Đã hiểu',
+      });
       return;
     }
 
@@ -619,6 +766,28 @@ export default function App() {
 
   // Update Reading List (syncs to Spring Boot if available)
   const handleUpdateReadingList = async (id, updatedPayload) => {
+    // Kiểm tra trùng mã danh sách khi cập nhật (ngoại trừ chính nó)
+    if (updatedPayload.code !== undefined && updatedPayload.code !== null) {
+      const targetCode = String(updatedPayload.code).trim().toUpperCase();
+      if (
+        targetCode &&
+        readingLists.some(
+          (r) =>
+            String(r.id) !== String(id) &&
+            (r.code || r.shortTitle || '').trim().toUpperCase() === targetCode
+        )
+      ) {
+        showNotification({
+          title: 'Trùng mã danh sách',
+          message: `Mã danh sách "${updatedPayload.code}" đã được sử dụng bởi danh sách khác. Vui lòng chọn một mã khác!`,
+          type: 'danger',
+          isAlertOnly: true,
+          confirmText: 'Đã hiểu',
+        });
+        return;
+      }
+    }
+
     try {
       if (isBackendConnected) {
         const updated = await noteListApi.update(id, updatedPayload);
@@ -850,6 +1019,7 @@ export default function App() {
       <div className="min-h-screen bg-white">
         <LoginPage
           onNavigateRegister={() => navigateTo('register')}
+          onNavigateHome={() => navigateTo('home')}
           onLoginSuccess={(user, message) => {
             handleAuthSuccess(user, message);
           }}
@@ -877,6 +1047,7 @@ export default function App() {
         <RegisterPage
           initialData={pendingRegistrationData}
           onNavigateLogin={() => navigateTo('login')}
+          onNavigateHome={() => navigateTo('home')}
           onNavigateOtp={(data) => {
             setPendingRegistrationData(data);
             try {
@@ -914,7 +1085,7 @@ export default function App() {
       <div className="min-h-screen bg-white">
         <VerifyOtpPage
           registrationData={pendingRegistrationData}
-          onNavigateRegister={() => setCurrentView('register')}
+          onNavigateHome={() => navigateTo('home')}
           onRegisterSuccess={(user, message) => {
             setPendingRegistrationData(null);
             try {
@@ -972,6 +1143,7 @@ export default function App() {
         setSelectedCategory={setSelectedCategory}
         readingLists={readingLists}
         categories={categories}
+        vocabList={vocabList}
         onOpenAddModal={handleOpenAddModal}
         onOpenAddReadingListModal={handleOpenAddReadingListModal}
         onOpenAddCategoryModal={handleOpenAddCategoryModal}
@@ -1027,12 +1199,16 @@ export default function App() {
               onEditVocab={handleEditVocab}
               onDeleteVocab={handleDeleteVocab}
               onPronounce={handlePronounce}
+              onSelectRelatedWord={handleSelectRelatedWord}
+              onOpenRelatedGroup={handleOpenRelatedGroup}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
               selectedPos={selectedPos}
               setSelectedPos={setSelectedPos}
               selectedCategory={selectedCategory}
               lastMutation={lastMutation}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
             />
           )}
 
@@ -1041,16 +1217,26 @@ export default function App() {
               <ReadingListView
                 readingList={activeReadingList}
                 vocabList={vocabList}
+                existingLists={readingLists}
                 onOpenAddModal={handleOpenAddModal}
                 onEditVocab={handleEditVocab}
                 onPronounce={handlePronounce}
                 onDeleteVocab={handleDeleteVocab}
                 onDeleteReadingList={handleDeleteReadingList}
                 onUpdateReadingList={handleUpdateReadingList}
+                onSelectRelatedWord={handleSelectRelatedWord}
+                onOpenRelatedGroup={handleOpenRelatedGroup}
+                onBackToListVocabulary={() => {
+                  setCurrentView('list-vocabulary');
+                  setSelectedReadingListId(null);
+                  setSelectedCategory(null);
+                }}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 selectedPos={selectedPos}
                 setSelectedPos={setSelectedPos}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
               />
             ) : loading ? (
               <div className="p-16 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
@@ -1075,6 +1261,17 @@ export default function App() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      setCurrentView('list-vocabulary');
+                      setSelectedReadingListId(null);
+                      setSelectedCategory(null);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-50 text-crimson-primary text-xs font-bold hover:bg-red-100"
+                  >
+                    Xem List Vocabulary
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setCurrentView('master')}
                     className="px-4 py-2 rounded-lg bg-slate-100 text-text-body text-xs font-semibold hover:bg-slate-200"
                   >
@@ -1094,12 +1291,16 @@ export default function App() {
                 onPronounce={handlePronounce}
                 onEditVocab={handleEditVocab}
                 onDeleteVocab={handleDeleteVocab}
+                onSelectRelatedWord={handleSelectRelatedWord}
+                onOpenRelatedGroup={handleOpenRelatedGroup}
                 onEditCategory={handleEditCategory}
                 onDeleteCategory={handleDeleteCategory}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 selectedPos={selectedPos}
                 setSelectedPos={setSelectedPos}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
               />
             ) : loading ? (
               <div className="p-16 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
@@ -1144,6 +1345,24 @@ export default function App() {
               onUpdateWordFamily={handleUpdateWordFamily}
             />
           )}
+
+          {currentView === 'list-vocabulary' && (
+            <div className="px-6 lg:px-8 pt-5 pb-8 max-w-[1600px] mx-auto w-full">
+              <ListVocabularyPage
+                readingLists={readingLists}
+                vocabList={vocabList}
+                onSelectList={(listId) => {
+                  setSelectedReadingListId(listId);
+                  setSelectedCategory(null);
+                  setCurrentView('reading-list');
+                }}
+                onOpenAddReadingListModal={handleOpenAddReadingListModal}
+                onOpenAddModal={handleOpenAddModal}
+                onEditReadingList={handleEditReadingList}
+                onDeleteReadingList={handleDeleteReadingList}
+              />
+            </div>
+          )}
         </main>
       </div>
 
@@ -1164,6 +1383,46 @@ export default function App() {
         defaultReadingList={currentView === 'reading-list' ? selectedReadingListId : null}
         onOpenAddReadingListModal={handleOpenAddReadingListModal}
         onOpenAddCategoryModal={handleOpenAddCategoryModal}
+      />
+
+      {/* Modal Chi Tiết Thẻ Từ Vựng Liên Quan Riêng Lẻ (mở khi click vào từng từ riêng lẻ) */}
+      <VocabDetailModal
+        isOpen={Boolean(selectedDetailVocab)}
+        vocab={selectedDetailVocab}
+        vocabList={vocabList}
+        sourceWord={detailSourceWord}
+        onClose={() => {
+          setSelectedDetailVocab(null);
+          setDetailSourceWord(null);
+        }}
+        onPronounce={handlePronounce}
+        onEdit={(vocabToEdit) => {
+          handleEditVocab(vocabToEdit);
+        }}
+        onDelete={handleDeleteVocab}
+        onSelectRelatedWord={handleSelectRelatedWord}
+        onOpenRelatedGroup={handleOpenRelatedGroup}
+        onScrollToCard={handleScrollToCard}
+      />
+
+      {/* Hộp Thoại Cuộn Toàn Bộ Nhóm Từ Liên Quan (mở khi click vào nút Nét nghĩa tương đương / Đồng nghĩa) */}
+      <RelatedVocabGroupModal
+        isOpen={Boolean(relatedGroupModalData)}
+        data={relatedGroupModalData}
+        vocabList={vocabList}
+        onClose={() => setRelatedGroupModalData(null)}
+        onPronounce={handlePronounce}
+        onEdit={(vocabToEdit) => {
+          handleEditVocab(vocabToEdit);
+        }}
+        onDelete={handleDeleteVocab}
+        onSelectRelatedWord={handleSelectRelatedWord}
+        onOpenRelatedGroup={handleOpenRelatedGroup}
+        onScrollToCard={handleScrollToCard}
+        onCreateVocab={(newWord) => {
+          setEditingVocab({ word: newWord });
+          setIsAddModalOpen(true);
+        }}
       />
 
       {/* Modal Thêm / Chỉnh Sửa Danh Sách Bài Đọc */}

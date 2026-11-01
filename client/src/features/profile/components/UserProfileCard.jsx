@@ -212,19 +212,14 @@ export default function UserProfileCard({
             </label>
             <div 
               onClick={onOpenEditModal}
-              className="h-10 px-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 text-slate-800 text-xs font-semibold cursor-pointer group/field"
+              className="h-10 px-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center gap-2.5 text-slate-800 text-xs font-semibold cursor-pointer"
               title="Bấm để chỉnh sửa Tỉnh / Thành phố"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="material-symbols-outlined text-[19px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
-                  location_city
-                </span>
-                <span className={`truncate ${!userData.provinceName ? 'text-slate-400 font-normal italic' : 'text-slate-800'}`}>
-                  {userData.provinceName || 'Chưa cập nhật'}
-                </span>
-              </div>
-              <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
-                edit
+              <span className="material-symbols-outlined text-[19px] text-slate-400 shrink-0">
+                location_city
+              </span>
+              <span className={`truncate ${!userData.provinceName ? 'text-slate-400 font-normal italic' : 'text-slate-800'}`}>
+                {userData.provinceName || 'Chưa cập nhật'}
               </span>
             </div>
           </div>
@@ -236,19 +231,14 @@ export default function UserProfileCard({
             </label>
             <div 
               onClick={onOpenEditModal}
-              className="h-10 px-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 text-slate-800 text-xs font-semibold cursor-pointer group/field"
+              className="h-10 px-3.5 rounded-xl border border-slate-200/90 bg-slate-50/60 hover:bg-slate-50 transition-colors flex items-center gap-2.5 text-slate-800 text-xs font-semibold cursor-pointer"
               title="Bấm để chỉnh sửa Phường / Xã"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="material-symbols-outlined text-[19px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
-                  home_pin
-                </span>
-                <span className={`truncate ${!userData.wardName ? 'text-slate-400 font-normal italic' : 'text-slate-800'}`}>
-                  {userData.wardName || 'Chưa cập nhật'}
-                </span>
-              </div>
-              <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover/field:text-crimson-primary transition-colors shrink-0">
-                edit
+              <span className="material-symbols-outlined text-[19px] text-slate-400 shrink-0">
+                home_pin
+              </span>
+              <span className={`truncate ${!userData.wardName ? 'text-slate-400 font-normal italic' : 'text-slate-800'}`}>
+                {userData.wardName || 'Chưa cập nhật'}
               </span>
             </div>
           </div>

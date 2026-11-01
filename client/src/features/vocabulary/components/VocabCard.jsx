@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { resolveVocabRelations } from '../../../utils/vocabRelations';
 
-export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showReadingList = true }) {
+export default function VocabCard({
+  vocab,
+  vocabList = [],
+  onPronounce,
+  onEdit,
+  onDelete,
+  showReadingList = true,
+  onSelectRelatedWord,
+  onOpenRelatedGroup,
+}) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -85,25 +95,246 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
     (f) => !f.pattern && !f.collocation && f.type !== 'phrasal_verb' && f.pos !== 'phrasal_verb' && !isPhrasePos
   );
 
-  // General Vietnamese meaning
-  // General Vietnamese meanings list (supports vocab.meanings array or semicolon-separated string)
-  const displayMeanings = useMemo(() => {
-    if (Array.isArray(vocab?.meanings) && vocab.meanings.length > 0) {
-      const filtered = vocab.meanings.map((m) => (typeof m === 'string' ? m.trim() : m)).filter(Boolean);
-      if (filtered.length > 0) return filtered;
+  // General Vietnamese meanings list (supports meaningDetails, meanings array, or semicolon-separated string)
+  const parsedMeanings = useMemo(() => {
+    let details = vocab?.meaningDetails;
+    if (typeof details === 'string') {
+      try {
+        details = JSON.parse(details);
+      } catch {}
     }
+    if ((!details || details.length === 0) && vocab?.meaningDetailsJson) {
+      try {
+        details = JSON.parse(vocab.meaningDetailsJson);
+      } catch {}
+    }
+
+    if (Array.isArray(details) && details.length > 0) {
+      return details.map((md) => ({
+        text: (md.text || md.meaning || '').trim(),
+        closeMeanings: (typeof md.closeMeanings === 'string' ? md.closeMeanings.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(md.closeMeanings) ? md.closeMeanings : []) || [],
+        synonyms: (typeof md.synonyms === 'string' ? md.synonyms.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(md.synonyms) ? md.synonyms : []) || [],
+      })).filter((m) => m.text);
+    }
+
+    if (Array.isArray(vocab?.meanings) && vocab.meanings.length > 0) {
+      return vocab.meanings.map((m) => {
+        if (typeof m === 'string') {
+          return { text: m.trim(), closeMeanings: [], synonyms: [] };
+        }
+        return {
+          text: (m.text || m.meaning || '').trim(),
+          closeMeanings: (typeof m.closeMeanings === 'string' ? m.closeMeanings.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(m.closeMeanings) ? m.closeMeanings : []) || [],
+          synonyms: (typeof m.synonyms === 'string' ? m.synonyms.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : Array.isArray(m.synonyms) ? m.synonyms : []) || [],
+        };
+      }).filter((m) => m.text);
+    }
+
     const rawMeaning = vocab?.meaning || vocab?.forms?.[0]?.meaning || '';
     if (rawMeaning && rawMeaning.includes(';')) {
       const parts = rawMeaning.split(';').map((s) => s.trim()).filter(Boolean);
-      if (parts.length > 0) return parts;
+      if (parts.length > 0) {
+        return parts.map((p) => ({ text: p, closeMeanings: [], synonyms: [] }));
+      }
     }
-    return rawMeaning ? [rawMeaning] : ['Chưa cập nhật nghĩa'];
-  }, [vocab?.meanings, vocab?.meaning, vocab?.forms]);
+    return [{ text: rawMeaning || 'Chưa cập nhật nghĩa', closeMeanings: [], synonyms: [] }];
+  }, [vocab?.meaningDetails, vocab?.meaningDetailsJson, vocab?.meanings, vocab?.meaning, vocab?.forms]);
 
+  const displayMeanings = useMemo(() => parsedMeanings.map((m) => m.text), [parsedMeanings]);
   const generalMeaning = displayMeanings[0] || 'Chưa cập nhật nghĩa';
 
-  // Synonyms if present
-  const synonyms = vocab.forms?.find((f) => f.synonym)?.synonym || '';
+  // Giải quyết quan hệ bắc cầu đồ thị (Transitive Closure: lease ⇄ hire, hire ⇄ rent => lease ⇄ hire ⇄ rent)
+  const relations = useMemo(() => {
+    return resolveVocabRelations(vocab, vocabList);
+  }, [vocab, vocabList]);
+
+  // Extract all close meanings (Nét nghĩa tương đương) across all potential paths in vocab
+  const rawGlobalCloseMeanings = useMemo(() => {
+    const list = [];
+    if (vocab?.closeMeanings) list.push(vocab.closeMeanings);
+    if (vocab?.nearSynonyms) list.push(vocab.nearSynonyms);
+    if (vocab?.closeMeaningWords) list.push(vocab.closeMeaningWords);
+
+    let mdList = vocab?.meaningDetails;
+    if (typeof mdList === 'string') {
+      try {
+        mdList = JSON.parse(mdList);
+      } catch {}
+    }
+    if ((!mdList || mdList.length === 0) && vocab?.meaningDetailsJson) {
+      try {
+        mdList = JSON.parse(vocab.meaningDetailsJson);
+      } catch {}
+    }
+
+    if (Array.isArray(mdList)) {
+      mdList.forEach((md) => {
+        if (md.closeMeanings) list.push(md.closeMeanings);
+        if (md.nearSynonyms) list.push(md.nearSynonyms);
+      });
+    }
+
+    if (Array.isArray(vocab?.meanings)) {
+      vocab.meanings.forEach((m) => {
+        if (typeof m === 'object' && m) {
+          if (m.closeMeanings) list.push(m.closeMeanings);
+          if (m.nearSynonyms) list.push(m.nearSynonyms);
+        }
+      });
+    }
+
+    if (Array.isArray(vocab?.forms)) {
+      vocab.forms.forEach((f) => {
+        if (f.closeMeanings) list.push(f.closeMeanings);
+        if (f.nearSynonyms) list.push(f.nearSynonyms);
+      });
+    }
+
+    if (Array.isArray(vocab?.domainForms)) {
+      vocab.domainForms.forEach((df) => {
+        if (Array.isArray(df.senses)) {
+          df.senses.forEach((s) => {
+            if (s.closeMeanings) list.push(s.closeMeanings);
+          });
+        }
+      });
+    }
+
+    const allWords = list
+      .flatMap((item) => (typeof item === 'string' ? item.split(/[,;\n]/) : Array.isArray(item) ? item : []))
+      .map((w) => (typeof w === 'string' ? w.trim() : ''))
+      .filter(Boolean);
+
+    return Array.from(new Set(allWords));
+  }, [vocab]);
+
+  // Hợp nhất quan hệ bắc cầu cho Nét nghĩa tương đương toàn cục
+  const globalCloseMeanings = useMemo(() => {
+    const cleanCurrent = (vocab?.word || '').trim().toLowerCase();
+    const combined = [...rawGlobalCloseMeanings, ...(relations.closeMeanings || [])];
+    const seen = new Set();
+    return combined.filter((w) => {
+      const c = (w || '').trim().toLowerCase();
+      if (!c || c === cleanCurrent || seen.has(c)) return false;
+      seen.add(c);
+      return true;
+    });
+  }, [rawGlobalCloseMeanings, relations.closeMeanings, vocab?.word]);
+
+  // Extract all synonyms (Từ đồng nghĩa) across all potential paths in vocab
+  const rawGlobalSynonyms = useMemo(() => {
+    const list = [];
+    if (vocab?.synonyms) list.push(vocab.synonyms);
+    if (vocab?.synonym) list.push(vocab.synonym);
+
+    let mdSynList = vocab?.meaningDetails;
+    if (typeof mdSynList === 'string') {
+      try {
+        mdSynList = JSON.parse(mdSynList);
+      } catch {}
+    }
+    if ((!mdSynList || mdSynList.length === 0) && vocab?.meaningDetailsJson) {
+      try {
+        mdSynList = JSON.parse(vocab.meaningDetailsJson);
+      } catch {}
+    }
+
+    if (Array.isArray(mdSynList)) {
+      mdSynList.forEach((md) => {
+        if (md.synonyms) list.push(md.synonyms);
+        if (md.synonym) list.push(md.synonym);
+      });
+    }
+
+    if (Array.isArray(vocab?.meanings)) {
+      vocab.meanings.forEach((m) => {
+        if (typeof m === 'object' && m) {
+          if (m.synonyms) list.push(m.synonyms);
+          if (m.synonym) list.push(m.synonym);
+        }
+      });
+    }
+
+    if (Array.isArray(vocab?.forms)) {
+      vocab.forms.forEach((f) => {
+        if (f.synonym) list.push(f.synonym);
+        if (f.synonyms) list.push(f.synonyms);
+      });
+    }
+
+    if (Array.isArray(vocab?.domainForms)) {
+      vocab.domainForms.forEach((df) => {
+        if (Array.isArray(df.senses)) {
+          df.senses.forEach((s) => {
+            if (s.synonyms) list.push(s.synonyms);
+            if (s.synonym) list.push(s.synonym);
+          });
+        }
+      });
+    }
+
+    const allWords = list
+      .flatMap((item) => (typeof item === 'string' ? item.split(/[,;\n]/) : Array.isArray(item) ? item : []))
+      .map((w) => (typeof w === 'string' ? w.trim() : ''))
+      .filter(Boolean);
+
+    return Array.from(new Set(allWords));
+  }, [vocab]);
+
+  // Hợp nhất quan hệ bắc cầu cho Từ đồng nghĩa toàn cục
+  const globalSynonyms = useMemo(() => {
+    const cleanCurrent = (vocab?.word || '').trim().toLowerCase();
+    const combined = [...rawGlobalSynonyms, ...(relations.synonyms || [])];
+    const seen = new Set();
+    return combined.filter((w) => {
+      const c = (w || '').trim().toLowerCase();
+      if (!c || c === cleanCurrent || seen.has(c)) return false;
+      seen.add(c);
+      return true;
+    });
+  }, [rawGlobalSynonyms, relations.synonyms, vocab?.word]);
+
+  // Nét nghĩa hiển thị đã được mở rộng bắc cầu (tự động phân bổ cho từng nét nghĩa hoặc nét nghĩa duy nhất)
+  const displayParsedMeanings = useMemo(() => {
+    if (!parsedMeanings || parsedMeanings.length === 0) return [];
+    const cleanCurrent = (vocab?.word || '').trim().toLowerCase();
+
+    return parsedMeanings.map((m) => {
+      const combinedClose = [
+        ...(m.closeMeanings || []),
+        ...(parsedMeanings.length === 1 || m.closeMeanings?.length > 0 ? (relations.closeMeanings || []) : []),
+      ];
+      const seenClose = new Set();
+      const uniqueClose = combinedClose.filter((w) => {
+        const c = (w || '').trim().toLowerCase();
+        if (!c || c === cleanCurrent || seenClose.has(c)) return false;
+        seenClose.add(c);
+        return true;
+      });
+
+      const combinedSyn = [
+        ...(m.synonyms || []),
+        ...(parsedMeanings.length === 1 || m.synonyms?.length > 0 ? (relations.synonyms || []) : []),
+      ];
+      const seenSyn = new Set();
+      const uniqueSyn = combinedSyn.filter((w) => {
+        const c = (w || '').trim().toLowerCase();
+        if (!c || c === cleanCurrent || seenSyn.has(c)) return false;
+        seenSyn.add(c);
+        return true;
+      });
+
+      return {
+        ...m,
+        closeMeanings: uniqueClose,
+        synonyms: uniqueSyn,
+      };
+    });
+  }, [parsedMeanings, relations, vocab?.word]);
+
+  const hasItemLevelDetails = displayParsedMeanings.some(
+    (m) => m.closeMeanings.length > 0 || m.synonyms.length > 0
+  );
 
   // POS badge styling
   const getPosBadge = () => {
@@ -164,7 +395,11 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/90 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_-4px_rgba(0,0,0,0.08)] transition-all overflow-hidden p-5 sm:p-7 flex flex-col md:flex-row gap-6 group">
+    <div
+      id={vocab?.id ? `vocab-card-${vocab.id}` : undefined}
+      data-word={(vocab?.word || '').toLowerCase()}
+      className="bg-white rounded-3xl border border-slate-200/90 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_10px_30px_-4px_rgba(0,0,0,0.08)] transition-all overflow-hidden p-5 sm:p-7 flex flex-col md:flex-row gap-6 group"
+    >
       
       {/* ======================================================== */}
       {/* CỘT TRÁI: TỪ VỰNG, PHÁT ÂM, PHIÊN ÂM, TỪ LOẠI, TAGS      */}
@@ -233,25 +468,201 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
         
         {/* HÀNG 1: NGHĨA TIẾNG VIỆT CHUNG VỚI ICON [VI] & ACTIONS */}
         <div className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100">
-          <div className="flex flex-col gap-2.5 flex-1">
-            {displayMeanings.map((m, mIdx) => (
-              <div key={mIdx} className="flex items-start gap-2.5">
-                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300/80 shrink-0 mt-0.5 font-mono shadow-2xs">
-                  VI
-                </span>
-                <span className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
-                  {m}
-                </span>
+          <div className="flex flex-col gap-3 flex-1">
+            {displayParsedMeanings.map((mItem, mIdx) => (
+              <div key={mIdx} className="flex flex-col gap-2">
+                <div className="flex items-start gap-2.5">
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300/80 shrink-0 mt-0.5 font-mono shadow-2xs">
+                    VI
+                  </span>
+                  <span className="font-bold text-base sm:text-lg text-slate-900 leading-snug">
+                    {mItem.text}
+                  </span>
+                </div>
+
+                {/* Nét nghĩa tương đương riêng của từng nét nghĩa */}
+                {mItem.closeMeanings.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenRelatedGroup) {
+                          onOpenRelatedGroup(mItem.closeMeanings, vocab.word, 'close');
+                        } else if (onSelectRelatedWord) {
+                          onSelectRelatedWord(mItem.closeMeanings[0], vocab.word);
+                        }
+                      }}
+                      className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100 hover:border-amber-300 hover:text-amber-900 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer transition-all active:scale-95 group/lbl"
+                      title={`Bấm để mở hộp thoại xem toàn bộ các từ có nét nghĩa tương đương (${mItem.closeMeanings.join(', ')})`}
+                    >
+                      <span className="material-symbols-outlined text-[13px] text-amber-600 group-hover/lbl:scale-110 transition-transform">
+                        compare_arrows
+                      </span>
+                      <span>Nét nghĩa tương đương</span>
+                      <span className="material-symbols-outlined text-[12px] text-amber-500 opacity-70 group-hover/lbl:opacity-100 transition-opacity">
+                        open_in_new
+                      </span>
+                    </button>
+                    {mItem.closeMeanings.map((word, wIdx) => (
+                      <button
+                        key={wIdx}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectRelatedWord) {
+                            onSelectRelatedWord(word, vocab.word);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-amber-300 hover:bg-amber-50/60 hover:border-amber-400 hover:text-amber-900 shadow-2xs active:scale-95 transition-all cursor-pointer group/word"
+                        title={`Bấm để mở nhanh thẻ từ vựng: "${word}"`}
+                      >
+                        <span>{word}</span>
+                        <span className="material-symbols-outlined text-[13px] text-amber-500 opacity-70 group-hover/word:opacity-100 group-hover/word:text-amber-700 group-hover/word:translate-x-0.5 transition-all">
+                          open_in_new
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Từ đồng nghĩa riêng của từng nét nghĩa */}
+                {mItem.synonyms.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenRelatedGroup) {
+                          onOpenRelatedGroup(mItem.synonyms, vocab.word, 'synonym');
+                        } else if (onSelectRelatedWord) {
+                          onSelectRelatedWord(mItem.synonyms[0], vocab.word);
+                        }
+                      }}
+                      className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-teal-50 text-teal-800 border border-teal-200/80 hover:bg-teal-100 hover:border-teal-300 hover:text-teal-900 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer transition-all active:scale-95 group/lbl"
+                      title={`Bấm để mở hộp thoại xem toàn bộ các từ đồng nghĩa (${mItem.synonyms.join(', ')})`}
+                    >
+                      <span className="material-symbols-outlined text-[13px] text-teal-600 group-hover/lbl:scale-110 transition-transform">
+                        sync_alt
+                      </span>
+                      <span>Đồng nghĩa</span>
+                      <span className="material-symbols-outlined text-[12px] text-teal-500 opacity-70 group-hover/lbl:opacity-100 transition-opacity">
+                        open_in_new
+                      </span>
+                    </button>
+                    {mItem.synonyms.map((word, wIdx) => (
+                      <button
+                        key={wIdx}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectRelatedWord) {
+                            onSelectRelatedWord(word, vocab.word);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-teal-300 hover:bg-teal-50/60 hover:border-teal-400 hover:text-teal-900 shadow-2xs active:scale-95 transition-all cursor-pointer group/word"
+                        title={`Bấm để mở nhanh thẻ từ vựng: "${word}"`}
+                      >
+                        <span>{word}</span>
+                        <span className="material-symbols-outlined text-[13px] text-teal-600 opacity-70 group-hover/word:opacity-100 group-hover/word:text-teal-800 group-hover/word:translate-x-0.5 transition-all">
+                          open_in_new
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
 
-            {/* Synonyms if available */}
-            {synonyms && (
-              <div className="flex items-center gap-2 pl-9 text-xs text-slate-500">
-                <span className="font-semibold text-slate-400">Đồng nghĩa:</span>
-                <span className="font-medium text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
-                  {synonyms}
-                </span>
+            {/* Hiển thị Nét nghĩa tương đương chung nếu chưa hiển thị ở từng nét nghĩa */}
+            {!hasItemLevelDetails && globalCloseMeanings.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenRelatedGroup) {
+                      onOpenRelatedGroup(globalCloseMeanings, vocab.word, 'close');
+                    } else if (onSelectRelatedWord) {
+                      onSelectRelatedWord(globalCloseMeanings[0], vocab.word);
+                    }
+                  }}
+                  className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-amber-50 text-amber-800 border border-amber-200/80 hover:bg-amber-100 hover:border-amber-300 hover:text-amber-900 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer transition-all active:scale-95 group/lbl"
+                  title={`Bấm để mở hộp thoại xem toàn bộ các từ có nét nghĩa tương đương (${globalCloseMeanings.join(', ')})`}
+                >
+                  <span className="material-symbols-outlined text-[13px] text-amber-600 group-hover/lbl:scale-110 transition-transform">
+                    compare_arrows
+                  </span>
+                  <span>Nét nghĩa tương đương</span>
+                  <span className="material-symbols-outlined text-[12px] text-amber-500 opacity-70 group-hover/lbl:opacity-100 transition-opacity">
+                    open_in_new
+                  </span>
+                </button>
+                {globalCloseMeanings.map((word, wIdx) => (
+                  <button
+                    key={wIdx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectRelatedWord) {
+                        onSelectRelatedWord(word, vocab.word);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-amber-300 hover:bg-amber-50/60 hover:border-amber-400 hover:text-amber-900 shadow-2xs active:scale-95 transition-all cursor-pointer group/word"
+                    title={`Bấm để mở nhanh thẻ từ vựng: "${word}"`}
+                  >
+                    <span>{word}</span>
+                    <span className="material-symbols-outlined text-[13px] text-amber-500 opacity-70 group-hover/word:opacity-100 group-hover/word:text-amber-700 group-hover/word:translate-x-0.5 transition-all">
+                      open_in_new
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Hiển thị Từ đồng nghĩa chung nếu chưa hiển thị ở từng nét nghĩa */}
+            {!hasItemLevelDetails && globalSynonyms.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenRelatedGroup) {
+                      onOpenRelatedGroup(globalSynonyms, vocab.word, 'synonym');
+                    } else if (onSelectRelatedWord) {
+                      onSelectRelatedWord(globalSynonyms[0], vocab.word);
+                    }
+                  }}
+                  className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-teal-50 text-teal-800 border border-teal-200/80 hover:bg-teal-100 hover:border-teal-300 hover:text-teal-900 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer transition-all active:scale-95 group/lbl"
+                  title={`Bấm để mở hộp thoại xem toàn bộ các từ đồng nghĩa (${globalSynonyms.join(', ')})`}
+                >
+                  <span className="material-symbols-outlined text-[13px] text-teal-600 group-hover/lbl:scale-110 transition-transform">
+                    sync_alt
+                  </span>
+                  <span>Đồng nghĩa</span>
+                  <span className="material-symbols-outlined text-[12px] text-teal-500 opacity-70 group-hover/lbl:opacity-100 transition-opacity">
+                    open_in_new
+                  </span>
+                </button>
+                {globalSynonyms.map((word, wIdx) => (
+                  <button
+                    key={wIdx}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onSelectRelatedWord) {
+                        onSelectRelatedWord(word, vocab.word);
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-teal-300 hover:bg-teal-50/60 hover:border-teal-400 hover:text-teal-900 shadow-2xs active:scale-95 transition-all cursor-pointer group/word"
+                    title={`Bấm để mở nhanh thẻ từ vựng: "${word}"`}
+                  >
+                    <span>{word}</span>
+                    <span className="material-symbols-outlined text-[13px] text-teal-600 opacity-70 group-hover/word:opacity-100 group-hover/word:text-teal-800 group-hover/word:translate-x-0.5 transition-all">
+                      open_in_new
+                    </span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -339,15 +750,15 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
                 {isExpanded && (pat.example || pat.note) && (
                   <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-200/60 text-xs">
                     {pat.example && (
-                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-crimson-primary">
-                        <span className="font-semibold text-slate-400 text-[11px] not-italic shrink-0">Ví dụ:</span>
-                        <span className="italic leading-relaxed">&ldquo;{pat.example}&rdquo;</span>
+                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                        <span className="font-semibold text-slate-700 text-[11px] not-italic shrink-0">Ví dụ:</span>
+                        <span className="italic leading-relaxed text-slate-700">&ldquo;{pat.example}&rdquo;</span>
                       </div>
                     )}
                     {pat.note && (
-                      <div className="flex items-start gap-2 text-slate-600 pl-2.5 border-l-2 border-amber-400">
-                        <span className="font-semibold text-amber-700 text-[11px] shrink-0">Ghi chú:</span>
-                        <span className="leading-relaxed">{pat.note.replace(/^Ghi chú:\s*/i, '')}</span>
+                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                        <span className="font-semibold text-slate-700 text-[11px] shrink-0">Ghi chú:</span>
+                        <span className="leading-relaxed text-slate-700">{pat.note.replace(/^Ghi chú:\s*/i, '')}</span>
                       </div>
                     )}
                   </div>
@@ -384,15 +795,15 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
                 {isExpanded && (col.example || col.note) && (
                   <div className="flex flex-col gap-1.5 pt-1.5 border-t border-indigo-100/70 text-xs">
                     {col.example && (
-                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-collocation-indigo">
-                        <span className="font-semibold text-slate-400 text-[11px] not-italic shrink-0">Ví dụ:</span>
-                        <span className="italic leading-relaxed">&ldquo;{col.example}&rdquo;</span>
+                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                        <span className="font-semibold text-slate-700 text-[11px] not-italic shrink-0">Ví dụ:</span>
+                        <span className="italic leading-relaxed text-slate-700">&ldquo;{col.example}&rdquo;</span>
                       </div>
                     )}
                     {col.note && (
-                      <div className="flex items-start gap-2 text-slate-600 pl-2.5 border-l-2 border-indigo-300">
-                        <span className="font-semibold text-indigo-700 text-[11px] shrink-0">Ghi chú:</span>
-                        <span className="leading-relaxed">{col.note.replace(/^Ghi chú:\s*/i, '')}</span>
+                      <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                        <span className="font-semibold text-slate-700 text-[11px] shrink-0">Ghi chú:</span>
+                        <span className="leading-relaxed text-slate-700">{col.note.replace(/^Ghi chú:\s*/i, '')}</span>
                       </div>
                     )}
                   </div>
@@ -431,15 +842,15 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
                   {isExpanded && (pv.example || pv.note) && (
                     <div className="flex flex-col gap-1.5 pt-1.5 border-t border-teal-100/70 text-xs">
                       {pv.example && (
-                        <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-teal-600">
-                          <span className="font-semibold text-slate-400 text-[11px] not-italic shrink-0">Ví dụ:</span>
-                          <span className="italic leading-relaxed">&ldquo;{pv.example}&rdquo;</span>
+                        <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                          <span className="font-semibold text-slate-700 text-[11px] not-italic shrink-0">Ví dụ:</span>
+                          <span className="italic leading-relaxed text-slate-700">&ldquo;{pv.example}&rdquo;</span>
                         </div>
                       )}
                       {pv.note && (
-                        <div className="flex items-start gap-2 text-slate-600 pl-2.5 border-l-2 border-teal-400">
-                          <span className="font-semibold text-teal-700 text-[11px] shrink-0">Ghi chú:</span>
-                          <span className="leading-relaxed">{pv.note.replace(/^Ghi chú:\s*/i, '')}</span>
+                        <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                          <span className="font-semibold text-slate-700 text-[11px] shrink-0">Ghi chú:</span>
+                          <span className="leading-relaxed text-slate-700">{pv.note.replace(/^Ghi chú:\s*/i, '')}</span>
                         </div>
                       )}
                     </div>
@@ -457,15 +868,15 @@ export default function VocabCard({ vocab, onPronounce, onEdit, onDelete, showRe
               (base.example || base.note) && (
                 <div key={`b-${bIdx}`} className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 flex flex-col gap-1.5 text-xs">
                   {base.example && (
-                    <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-crimson-primary">
-                      <span className="font-semibold text-slate-400 text-[11px] not-italic shrink-0">Ví dụ:</span>
-                      <span className="italic leading-relaxed">&ldquo;{base.example}&rdquo;</span>
+                    <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                      <span className="font-semibold text-slate-700 text-[11px] not-italic shrink-0">Ví dụ:</span>
+                      <span className="italic leading-relaxed text-slate-700">&ldquo;{base.example}&rdquo;</span>
                     </div>
                   )}
                   {base.note && (
-                    <div className="flex items-start gap-2 text-slate-600 pl-2.5 border-l-2 border-amber-400">
-                      <span className="font-semibold text-amber-700 text-[11px] shrink-0">Ghi chú:</span>
-                      <span className="leading-relaxed">{base.note.replace(/^Ghi chú:\s*/i, '')}</span>
+                    <div className="flex items-start gap-2 text-slate-700 pl-2.5 border-l-2 border-slate-700">
+                      <span className="font-semibold text-slate-700 text-[11px] shrink-0">Ghi chú:</span>
+                      <span className="leading-relaxed text-slate-700">{base.note.replace(/^Ghi chú:\s*/i, '')}</span>
                     </div>
                   )}
                 </div>

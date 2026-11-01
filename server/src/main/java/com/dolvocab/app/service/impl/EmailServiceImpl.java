@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -27,6 +28,7 @@ public class EmailServiceImpl implements EmailService {
         this.mailSender = mailSender;
     }
 
+    @Async
     @Override
     public void sendOtpEmail(String toEmail, String otpCode) {
         log.info("==================================================");
@@ -53,8 +55,8 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
             log.info("Đã gửi email OTP thành công tới: {}", toEmail);
         } catch (Exception e) {
-            log.error("Không thể gửi email OTP tới {}: {}. Vui lòng kiểm tra lại cấu hình SMTP.", toEmail, e.getMessage());
-            // Không rethrow để tránh chặn flow kiểm thử nếu người dùng chưa điền App Password SMTP thật
+            log.error("Không thể gửi email OTP tới {}: {}. Chi tiết lỗi:", toEmail, e.getMessage(), e);
+            // Không rethrow để tránh crash async worker, mã OTP vẫn hợp lệ trong DB và log
         }
     }
 

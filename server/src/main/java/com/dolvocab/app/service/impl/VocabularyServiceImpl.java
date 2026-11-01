@@ -43,6 +43,21 @@ public class VocabularyServiceImpl implements VocabularyService {
     private final WordFamilyService wordFamilyService;
 
     private final SecurityUtils securityUtils;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    private String serializeMeaningDetails(VocabCreateRequest request) {
+        if (request.getMeaningDetailsJson() != null && !request.getMeaningDetailsJson().trim().isEmpty()) {
+            return request.getMeaningDetailsJson().trim();
+        }
+        if (request.getMeaningDetails() != null && !request.getMeaningDetails().isEmpty()) {
+            try {
+                return objectMapper.writeValueAsString(request.getMeaningDetails());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return null;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -146,6 +161,9 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
         vocab.setMeaning(request.getMeaning());
+        vocab.setCloseMeanings(request.getCloseMeanings());
+        vocab.setSynonyms(request.getSynonyms());
+        vocab.setMeaningDetailsJson(serializeMeaningDetails(request));
 
         // 1. Word Family
         handleWordFamily(vocab, request, currentUser);
@@ -181,6 +199,9 @@ public class VocabularyServiceImpl implements VocabularyService {
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
         vocab.setMeaning(request.getMeaning());
+        vocab.setCloseMeanings(request.getCloseMeanings());
+        vocab.setSynonyms(request.getSynonyms());
+        vocab.setMeaningDetailsJson(serializeMeaningDetails(request));
 
         handleWordFamily(vocab, request, currentUser);
         handleCategories(vocab, request, currentUser);
@@ -312,6 +333,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                             .pattern(senseReq.getPattern())
                             .collocation(senseReq.getCollocation())
                             .synonyms(senseReq.getSynonyms())
+                            .closeMeanings(senseReq.getCloseMeanings())
                             .vietnameseMeaning(senseReq.getVietnameseMeaning() != null ? senseReq.getVietnameseMeaning() : "Chưa cập nhật nghĩa")
                             .usageNote(senseReq.getUsageNote())
                             .displayOrder(senseOrder++)
@@ -333,6 +355,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                         ? item.getCollocation()
                         : item.getPhrase();
                 String synonyms = item.getSynonym() != null ? item.getSynonym() : item.getSynonyms();
+                String closeMeanings = item.getCloseMeanings();
                 String meaning = item.getMeaning() != null ? item.getMeaning() : "Chưa cập nhật nghĩa";
                 String note = item.getNote() != null ? item.getNote() : item.getUsageNote();
 
@@ -340,6 +363,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                         .pattern(pattern)
                         .collocation(collocation)
                         .synonyms(synonyms)
+                        .closeMeanings(closeMeanings)
                         .vietnameseMeaning(meaning)
                         .usageNote(note)
                         .displayOrder(senseOrder++)
@@ -455,6 +479,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                         .collocation(isFormPhrasal ? "" : (sense.getCollocation() != null ? sense.getCollocation() : ""))
                         .phrase(phrase)
                         .synonym(sense.getSynonyms() != null ? sense.getSynonyms() : "")
+                        .closeMeanings(sense.getCloseMeanings() != null ? sense.getCloseMeanings() : "")
                         .meaning(sense.getVietnameseMeaning())
                         .example(exampleStr)
                         .note(sense.getUsageNote() != null ? sense.getUsageNote() : "")
@@ -465,6 +490,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                         .pattern(sense.getPattern())
                         .collocation(sense.getCollocation())
                         .synonyms(sense.getSynonyms())
+                        .closeMeanings(sense.getCloseMeanings())
                         .vietnameseMeaning(sense.getVietnameseMeaning())
                         .usageNote(sense.getUsageNote())
                         .displayOrder(sense.getDisplayOrder())
@@ -481,6 +507,27 @@ public class VocabularyServiceImpl implements VocabularyService {
                     .build());
         }
 
+        List<String> meaningList = new ArrayList<>();
+        if (vocab.getMeaning() != null && !vocab.getMeaning().trim().isEmpty()) {
+            String[] parts = vocab.getMeaning().split(";");
+            for (String p : parts) {
+                if (!p.trim().isEmpty()) meaningList.add(p.trim());
+            }
+        }
+
+        List<VocabDetailResponse.MeaningDetailResponse> meaningDetailResponses = new ArrayList<>();
+        if (vocab.getMeaningDetailsJson() != null && !vocab.getMeaningDetailsJson().trim().isEmpty()) {
+            try {
+                List<VocabDetailResponse.MeaningDetailResponse> parsed = objectMapper.readValue(
+                        vocab.getMeaningDetailsJson(),
+                        new com.fasterxml.jackson.core.type.TypeReference<List<VocabDetailResponse.MeaningDetailResponse>>() {}
+                );
+                if (parsed != null) {
+                    meaningDetailResponses.addAll(parsed);
+                }
+            } catch (Exception ignored) {}
+        }
+
         return VocabDetailResponse.builder()
                 .id(vocab.getId())
                 .word(vocab.getWord())
@@ -488,6 +535,10 @@ public class VocabularyServiceImpl implements VocabularyService {
                 .audioUrl(vocab.getAudioUrl())
                 .generalNote(vocab.getGeneralNote())
                 .meaning(vocab.getMeaning())
+                .closeMeanings(vocab.getCloseMeanings())
+                .synonyms(vocab.getSynonyms())
+                .meanings(meaningList)
+                .meaningDetails(meaningDetailResponses)
                 .wordFamilyId(wfId)
                 .rootWord(rootWord)
                 .wordFamily(wfList)

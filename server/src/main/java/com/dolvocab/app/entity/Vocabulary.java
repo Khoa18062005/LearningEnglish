@@ -56,6 +56,15 @@ public class Vocabulary {
     @Column(columnDefinition = "TEXT")
     private String meaning;
 
+    @Column(name = "close_meanings", length = 500)
+    private String closeMeanings;
+
+    @Column(name = "synonyms", length = 500)
+    private String synonyms;
+
+    @Column(name = "meaning_details_json", columnDefinition = "TEXT")
+    private String meaningDetailsJson;
+
     @ManyToMany
     @JoinTable(
         name = "vocab_categories",

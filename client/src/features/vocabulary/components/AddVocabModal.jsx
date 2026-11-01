@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import NotificationModal from '../../../components/NotificationModal';
+import { resolveVocabRelations } from '../../../utils/vocabRelations';
 
 const POS_OPTIONS = [
   {
@@ -86,27 +87,221 @@ export default function AddVocabModal({
     type: 'warning',
   });
   const [word, setWord] = useState('');
-  const [meanings, setMeanings] = useState(['']);
+  const [meanings, setMeanings] = useState([
+    {
+      id: 1,
+      text: '',
+      synonyms: '',
+      closeMeanings: '',
+      showSynonyms: false,
+      showCloseMeanings: false,
+    },
+  ]);
   // Primary meaning (first item) for backward compatibility
-  const meaning = meanings[0] || '';
+  const meaning = typeof meanings[0] === 'string' ? meanings[0] : (meanings[0]?.text || '');
 
   const handleAddMeaning = () => {
-    setMeanings((prev) => [...prev, '']);
+    setMeanings((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        text: '',
+        synonyms: '',
+        closeMeanings: '',
+        showSynonyms: false,
+        showCloseMeanings: false,
+      },
+    ]);
   };
 
   const handleUpdateMeaning = (idx, val) => {
     setMeanings((prev) => {
       const copy = [...prev];
-      copy[idx] = val;
+      if (typeof copy[idx] === 'string') {
+        copy[idx] = {
+          id: Date.now() + idx,
+          text: val,
+          synonyms: '',
+          closeMeanings: '',
+          showSynonyms: false,
+          showCloseMeanings: false,
+        };
+      } else {
+        copy[idx] = { ...copy[idx], text: val };
+      }
       return copy;
     });
   };
 
   const handleRemoveMeaning = (idx) => {
     setMeanings((prev) => {
-      if (prev.length <= 1) return [''];
+      if (prev.length <= 1) {
+        return [
+          {
+            id: Date.now(),
+            text: '',
+            synonyms: '',
+            closeMeanings: '',
+            showSynonyms: false,
+            showCloseMeanings: false,
+          },
+        ];
+      }
       return prev.filter((_, i) => i !== idx);
     });
+  };
+
+  const [activeSynonymDropdownIdx, setActiveSynonymDropdownIdx] = useState(null);
+
+  const handleToggleSynonymDropdown = (idx, e) => {
+    e?.stopPropagation();
+    setActiveSynonymDropdownIdx((prev) => (prev === idx ? null : idx));
+  };
+
+  const handleSelectSynonymType = (idx, type) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      const current = typeof copy[idx] === 'string'
+        ? { id: Date.now() + idx, text: copy[idx], synonyms: '', closeMeanings: '', showSynonyms: false, showCloseMeanings: false }
+        : { ...copy[idx] };
+
+      if (type === 'close_meaning') {
+        current.showCloseMeanings = true;
+      } else if (type === 'synonym') {
+        current.showSynonyms = true;
+      }
+      copy[idx] = current;
+      return copy;
+    });
+    setActiveSynonymDropdownIdx(null);
+  };
+
+  const handleUpdateMeaningField = (idx, field, val) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      const current = typeof copy[idx] === 'string'
+        ? { id: Date.now() + idx, text: copy[idx], synonyms: '', closeMeanings: '', showSynonyms: false, showCloseMeanings: false }
+        : { ...copy[idx] };
+      current[field] = val;
+      copy[idx] = current;
+      return copy;
+    });
+  };
+
+  const handleRemoveMeaningField = (idx, type) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      const current = typeof copy[idx] === 'string'
+        ? { id: Date.now() + idx, text: copy[idx], synonyms: '', closeMeanings: '', showSynonyms: false, showCloseMeanings: false }
+        : { ...copy[idx] };
+
+      if (type === 'close_meaning') {
+        current.showCloseMeanings = false;
+        current.closeMeanings = '';
+      } else if (type === 'synonym') {
+        current.showSynonyms = false;
+        current.synonyms = '';
+      }
+      copy[idx] = current;
+      return copy;
+    });
+  };
+
+  // Autocomplete dropdown cho Nét nghĩa tương đương & Từ đồng nghĩa
+  const [activeWordAutocomplete, setActiveWordAutocomplete] = useState({
+    idx: null,
+    field: null, // 'closeMeanings' | 'synonyms'
+    query: '',
+  });
+
+  // State lưu giá trị đang gõ tạm thời trong ô nhập tag
+  const [tagInputValues, setTagInputValues] = useState({});
+
+  const getWordSuggestions = useCallback(
+    (query) => {
+      if (!query || query.trim().length === 0) return [];
+      const q = query.trim().toLowerCase();
+      const currentWordLower = (word || '').trim().toLowerCase();
+
+      return (vocabList || [])
+        .filter((v) => {
+          const vWord = (v.word || '').trim().toLowerCase();
+          if (!vWord || vWord === currentWordLower) return false;
+          return vWord.startsWith(q) || vWord.includes(q);
+        })
+        .sort((a, b) => {
+          const aWord = (a.word || '').toLowerCase();
+          const bWord = (b.word || '').toLowerCase();
+          const aStarts = aWord.startsWith(q);
+          const bStarts = bWord.startsWith(q);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return aWord.localeCompare(bWord);
+        })
+        .slice(0, 8);
+    },
+    [vocabList, word]
+  );
+
+  const handleAddTag = (idx, field, rawWord) => {
+    const wordToAdd = (rawWord || '').trim();
+    if (!wordToAdd) return;
+    setMeanings((prev) => {
+      const copy = [...prev];
+      const current =
+        typeof copy[idx] === 'string'
+          ? {
+              id: Date.now() + idx,
+              text: copy[idx],
+              synonyms: '',
+              closeMeanings: '',
+              showSynonyms: false,
+              showCloseMeanings: false,
+            }
+          : { ...copy[idx] };
+      const currentVal = current[field] || '';
+      const parts = currentVal
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (!parts.some((p) => p.toLowerCase() === wordToAdd.toLowerCase())) {
+        parts.push(wordToAdd);
+      }
+      current[field] = parts.join(', ');
+      copy[idx] = current;
+      return copy;
+    });
+    setTagInputValues((prev) => ({ ...prev, [`${idx}-${field}`]: '' }));
+    setActiveWordAutocomplete({ idx: null, field: null, query: '' });
+  };
+
+  const handleRemoveTag = (idx, field, wordToRemove) => {
+    setMeanings((prev) => {
+      const copy = [...prev];
+      const current =
+        typeof copy[idx] === 'string'
+          ? {
+              id: Date.now() + idx,
+              text: copy[idx],
+              synonyms: '',
+              closeMeanings: '',
+              showSynonyms: false,
+              showCloseMeanings: false,
+            }
+          : { ...copy[idx] };
+      const currentVal = current[field] || '';
+      const parts = currentVal
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p.toLowerCase() !== wordToRemove.toLowerCase());
+      current[field] = parts.join(', ');
+      copy[idx] = current;
+      return copy;
+    });
+  };
+
+  const handleSelectWordSuggestion = (idx, field, selectedWord) => {
+    handleAddTag(idx, field, selectedWord);
   };
 
   const [pos, setPos] = useState('v');
@@ -263,17 +458,144 @@ export default function AddVocabModal({
       lastFetchedWordRef.current = (initialVocab.word || '').trim().toLowerCase();
       setWord(initialVocab.word || '');
       // Populate multiple meanings if available
-      if (Array.isArray(initialVocab.meanings) && initialVocab.meanings.length > 0) {
-        setMeanings(initialVocab.meanings);
+      const rawFallbackSyn =
+        initialVocab.synonyms ||
+        initialVocab.synonym ||
+        initialVocab.forms?.map((f) => f.synonym || f.synonyms).filter(Boolean).join(', ') ||
+        initialVocab.domainForms?.flatMap((df) => df.senses || []).map((s) => s.synonyms || s.synonym).filter(Boolean).join(', ') ||
+        '';
+      const rawFallbackClose =
+        initialVocab.closeMeanings ||
+        initialVocab.nearSynonyms ||
+        initialVocab.closeMeaningWords ||
+        initialVocab.forms?.map((f) => f.closeMeanings || f.nearSynonyms).filter(Boolean).join(', ') ||
+        initialVocab.domainForms?.flatMap((df) => df.senses || []).map((s) => s.closeMeanings).filter(Boolean).join(', ') ||
+        '';
+
+      // Giải quyết quan hệ bắc cầu tự động từ vocabList (lease ⇄ hire, hire ⇄ rent => lease ⇄ hire ⇄ rent)
+      const transitiveRel = resolveVocabRelations(initialVocab, vocabList);
+      const cleanWord = (initialVocab.word || '').trim().toLowerCase();
+
+      const combinedSynList = Array.from(new Set([
+        ...rawFallbackSyn.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean),
+        ...(transitiveRel.synonyms || []),
+      ])).filter((w) => w.toLowerCase() !== cleanWord);
+      const fallbackSyn = combinedSynList.join(', ');
+
+      const combinedCloseList = Array.from(new Set([
+        ...rawFallbackClose.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean),
+        ...(transitiveRel.closeMeanings || []),
+      ])).filter((w) => w.toLowerCase() !== cleanWord);
+      const fallbackClose = combinedCloseList.join(', ');
+
+      let parsedMeaningDetails = initialVocab.meaningDetails;
+      if (typeof parsedMeaningDetails === 'string') {
+        try {
+          parsedMeaningDetails = JSON.parse(parsedMeaningDetails);
+        } catch {}
+      }
+      if (!parsedMeaningDetails && initialVocab.meaningDetailsJson) {
+        try {
+          parsedMeaningDetails = JSON.parse(initialVocab.meaningDetailsJson);
+        } catch {}
+      }
+
+      if (Array.isArray(parsedMeaningDetails) && parsedMeaningDetails.length > 0) {
+        setMeanings(
+          parsedMeaningDetails.map((m, idx) => {
+            const itemSynList = Array.from(new Set([
+              ...(m.synonyms ? m.synonyms.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : []),
+              ...(idx === 0 || parsedMeaningDetails.length === 1 ? (transitiveRel.synonyms || []) : []),
+            ])).filter((w) => w.toLowerCase() !== cleanWord).join(', ');
+
+            const itemCloseList = Array.from(new Set([
+              ...(m.closeMeanings ? m.closeMeanings.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean) : []),
+              ...(idx === 0 || parsedMeaningDetails.length === 1 ? (transitiveRel.closeMeanings || []) : []),
+            ])).filter((w) => w.toLowerCase() !== cleanWord).join(', ');
+
+            const finalSyn = itemSynList || (idx === 0 ? fallbackSyn : '');
+            const finalClose = itemCloseList || (idx === 0 ? fallbackClose : '');
+
+            return {
+              id: m.id || Date.now() + idx,
+              text: m.text || m.meaning || '',
+              synonyms: finalSyn,
+              closeMeanings: finalClose,
+              showSynonyms: !!finalSyn,
+              showCloseMeanings: !!finalClose,
+            };
+          })
+        );
+      } else if (Array.isArray(initialVocab.meanings) && initialVocab.meanings.length > 0) {
+        setMeanings(
+          initialVocab.meanings.map((m, idx) => {
+            if (typeof m === 'string') {
+              return {
+                id: Date.now() + idx,
+                text: m,
+                synonyms: idx === 0 ? fallbackSyn : '',
+                closeMeanings: idx === 0 ? fallbackClose : '',
+                showSynonyms: idx === 0 && !!fallbackSyn,
+                showCloseMeanings: idx === 0 && !!fallbackClose,
+              };
+            }
+            return {
+              id: m.id || Date.now() + idx,
+              text: m.text || m.meaning || '',
+              synonyms: m.synonyms || (idx === 0 ? fallbackSyn : ''),
+              closeMeanings: m.closeMeanings || m.nearSynonyms || (idx === 0 ? fallbackClose : ''),
+              showSynonyms: !!(m.synonyms || (idx === 0 && fallbackSyn)),
+              showCloseMeanings: !!(m.closeMeanings || m.nearSynonyms || (idx === 0 && fallbackClose)),
+            };
+          })
+        );
       } else if (initialVocab.meaning) {
         const parts = initialVocab.meaning.includes(';')
           ? initialVocab.meaning.split(';').map((s) => s.trim()).filter(Boolean)
           : [initialVocab.meaning.trim()];
-        setMeanings(parts.length > 0 ? parts : ['']);
+        setMeanings(
+          parts.length > 0
+            ? parts.map((p, idx) => ({
+                id: Date.now() + idx,
+                text: p,
+                synonyms: idx === 0 ? fallbackSyn : '',
+                closeMeanings: idx === 0 ? fallbackClose : '',
+                showSynonyms: idx === 0 && !!fallbackSyn,
+                showCloseMeanings: idx === 0 && !!fallbackClose,
+              }))
+            : [
+                {
+                  id: Date.now(),
+                  text: '',
+                  synonyms: '',
+                  closeMeanings: '',
+                  showSynonyms: false,
+                  showCloseMeanings: false,
+                },
+              ]
+        );
       } else if (initialVocab.forms?.[0]?.meaning) {
-        setMeanings([initialVocab.forms[0].meaning.trim()]);
+        setMeanings([
+          {
+            id: Date.now(),
+            text: initialVocab.forms[0].meaning.trim(),
+            synonyms: fallbackSyn,
+            closeMeanings: fallbackClose,
+            showSynonyms: !!fallbackSyn,
+            showCloseMeanings: !!fallbackClose,
+          },
+        ]);
       } else {
-        setMeanings(['']);
+        setMeanings([
+          {
+            id: Date.now(),
+            text: '',
+            synonyms: '',
+            closeMeanings: '',
+            showSynonyms: false,
+            showCloseMeanings: false,
+          },
+        ]);
       }
       const currentPos = initialVocab.pos || initialVocab.forms?.[0]?.pos || 'v';
       setPos(currentPos);
@@ -385,7 +707,16 @@ export default function AddVocabModal({
       // Reset for creating new word
       lastFetchedWordRef.current = '';
       setWord('');
-      setMeanings(['']);
+      setMeanings([
+        {
+          id: Date.now(),
+          text: '',
+          synonyms: '',
+          closeMeanings: '',
+          showSynonyms: false,
+          showCloseMeanings: false,
+        },
+      ]);
       setPhonetic('');
       setAudioUrl('');
       setPos('v');
@@ -509,15 +840,27 @@ export default function AddVocabModal({
       ) {
         setIsFamilyDropdownOpen(false);
       }
+      if (!event.target.closest('[data-synonym-dropdown]')) {
+        setActiveSynonymDropdownIdx(null);
+      }
+      if (!event.target.closest('[data-word-autocomplete]')) {
+        setActiveWordAutocomplete({ idx: null, field: null, query: '' });
+      }
     };
 
-    if (isCategoryDropdownOpen || isReadingListDropdownOpen || isFamilyDropdownOpen) {
+    if (
+      isCategoryDropdownOpen ||
+      isReadingListDropdownOpen ||
+      isFamilyDropdownOpen ||
+      activeSynonymDropdownIdx !== null ||
+      activeWordAutocomplete.idx !== null
+    ) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isCategoryDropdownOpen, isReadingListDropdownOpen, isFamilyDropdownOpen]);
+  }, [isCategoryDropdownOpen, isReadingListDropdownOpen, isFamilyDropdownOpen, activeSynonymDropdownIdx, activeWordAutocomplete.idx]);
 
   // Handle hotkeys: Escape to close, Cmd/Ctrl + Enter to submit
   useEffect(() => {
@@ -731,7 +1074,9 @@ export default function AddVocabModal({
       });
       return;
     }
-    const validMeanings = meanings.map((m) => m.trim()).filter(Boolean);
+    const validMeanings = meanings
+      .map((m) => (typeof m === 'string' ? m : m.text || '').trim())
+      .filter(Boolean);
     if (validMeanings.length === 0) {
       setModalAlert({
         isOpen: true,
@@ -742,6 +1087,18 @@ export default function AddVocabModal({
       return;
     }
     const compiledMeaning = validMeanings.join('; ');
+
+    const allExactSynonyms = meanings
+      .map((m) => (typeof m === 'object' ? m.synonyms || '' : '').trim())
+      .filter(Boolean)
+      .join(', ');
+    const allCloseMeanings = meanings
+      .map((m) => (typeof m === 'object' ? m.closeMeanings || '' : '').trim())
+      .filter(Boolean)
+      .join(', ');
+
+    const effectiveSynonym = allExactSynonyms || synonyms?.trim() || '';
+    const effectiveCloseMeaning = allCloseMeanings || '';
 
     const currentOption = POS_OPTIONS.find((p) => p.id === pos);
     const posLabel = currentOption ? currentOption.shortLabel : 'Verb';
@@ -756,7 +1113,8 @@ export default function AddVocabModal({
         countability: null,
         pattern: '',
         collocation: '',
-        synonym: synonyms?.trim() || '',
+        synonym: effectiveSynonym,
+        closeMeanings: effectiveCloseMeaning,
         meaning: compiledMeaning,
         example: '',
         note: '',
@@ -774,7 +1132,8 @@ export default function AddVocabModal({
             pattern: '',
             collocation: '',
             phrase: phraseClean,
-            synonym: synonyms?.trim() || '',
+            synonym: effectiveSynonym,
+            closeMeanings: effectiveCloseMeaning,
             meaning: compiledMeaning,
             example: (pv.example || '').trim(),
             note: (pv.note || '').trim(),
@@ -792,7 +1151,8 @@ export default function AddVocabModal({
           pattern: '',
           collocation: '',
           phrase: word.trim(),
-          synonym: synonyms?.trim() || '',
+          synonym: effectiveSynonym,
+          closeMeanings: effectiveCloseMeaning,
           meaning: compiledMeaning,
           example: '',
           note: '',
@@ -809,7 +1169,8 @@ export default function AddVocabModal({
             countability: countability || '[C]',
             pattern: '',
             collocation: c.collocation.trim(),
-            synonym: synonyms?.trim() || '',
+            synonym: effectiveSynonym,
+            closeMeanings: effectiveCloseMeaning,
             meaning: c.meaning.trim() || compiledMeaning,
             example: c.example.trim(),
             note: c.note.trim(),
@@ -826,7 +1187,8 @@ export default function AddVocabModal({
           countability: countability || '[C]',
           pattern: '',
           collocation: '',
-          synonym: synonyms?.trim() || '',
+          synonym: effectiveSynonym,
+          closeMeanings: effectiveCloseMeaning,
           meaning: compiledMeaning,
           example: '',
           note: '',
@@ -843,7 +1205,8 @@ export default function AddVocabModal({
             countability: null,
             pattern: p.pattern.trim(),
             collocation: '',
-            synonym: synonyms?.trim() || '',
+            synonym: effectiveSynonym,
+            closeMeanings: effectiveCloseMeaning,
             meaning: p.meaning.trim() || compiledMeaning,
             example: p.example.trim(),
             note: p.note.trim(),
@@ -860,7 +1223,8 @@ export default function AddVocabModal({
             countability: null,
             pattern: '',
             collocation: c.collocation.trim(),
-            synonym: synonyms?.trim() || '',
+            synonym: effectiveSynonym,
+            closeMeanings: effectiveCloseMeaning,
             meaning: c.meaning.trim() || compiledMeaning,
             example: c.example.trim(),
             note: c.note.trim(),
@@ -877,7 +1241,8 @@ export default function AddVocabModal({
           countability: null,
           pattern: '',
           collocation: '',
-          synonym: synonyms?.trim() || '',
+          synonym: effectiveSynonym,
+          closeMeanings: effectiveCloseMeaning,
           meaning: compiledMeaning,
           example: '',
           note: '',
@@ -885,13 +1250,41 @@ export default function AddVocabModal({
       }
     }
 
-    const matchedList = readingLists.find((r) => r.id === selectedReadingList);
+    const matchedList = readingLists.find((r) => String(r.id) === String(selectedReadingList));
 
     const newVocab = {
       id: initialVocab?.id || Date.now(),
       word: word.trim(),
       meaning: compiledMeaning,
       meanings: validMeanings,
+      meaningDetails: meanings
+        .map((m) => {
+          const text = (typeof m === 'string' ? m : m.text || '').trim();
+          if (!text) return null;
+          return {
+            text,
+            meaning: text,
+            synonyms: (typeof m === 'object' ? m.synonyms || '' : '').trim(),
+            closeMeanings: (typeof m === 'object' ? m.closeMeanings || '' : '').trim(),
+          };
+        })
+        .filter(Boolean),
+      meaningDetailsJson: JSON.stringify(
+        meanings
+          .map((m) => {
+            const text = (typeof m === 'string' ? m : m.text || '').trim();
+            if (!text) return null;
+            return {
+              text,
+              meaning: text,
+              synonyms: (typeof m === 'object' ? m.synonyms || '' : '').trim(),
+              closeMeanings: (typeof m === 'object' ? m.closeMeanings || '' : '').trim(),
+            };
+          })
+          .filter(Boolean)
+      ),
+      synonyms: effectiveSynonym,
+      closeMeanings: effectiveCloseMeaning,
       phonetic: hasPhonetic ? (phonetic.trim() || `/${word.trim()}/`) : '',
       audioUrl: hasPhonetic ? audioUrl.trim() : '',
       pos: pos,
@@ -901,7 +1294,7 @@ export default function AddVocabModal({
       wordFamily: selectedRootWord ? [selectedRootWord.trim()] : [],
       readingListId: selectedReadingList || null,
       readingListName: matchedList
-        ? matchedList.code || matchedList.shortTitle || matchedList.title
+        ? matchedList.code || matchedList.title
         : null,
       categories:
         selectedCategories || [],
@@ -912,7 +1305,16 @@ export default function AddVocabModal({
 
     // Reset form to fresh state
     setWord('');
-    setMeanings(['']);
+    setMeanings([
+      {
+        id: Date.now(),
+        text: '',
+        synonyms: '',
+        closeMeanings: '',
+        showSynonyms: false,
+        showCloseMeanings: false,
+      },
+    ]);
     setPhonetic('');
     setAudioUrl('');
     lastFetchedWordRef.current = '';
@@ -953,7 +1355,7 @@ export default function AddVocabModal({
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-[1060px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(15,23,42,0.3)] flex flex-col my-auto max-h-[92vh] overflow-hidden border border-slate-200/90 ring-1 ring-black/5 animate-in zoom-in-95 duration-150">
         
         {/* Top Gradient Hairline Accent */}
@@ -1228,65 +1630,441 @@ export default function AddVocabModal({
                   </button>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  {meanings.map((m, idx) => (
-                    <div key={idx} className="flex items-center gap-2 animate-in fade-in duration-200">
-                      <div className="relative flex-1">
-                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-                          translate
-                        </span>
-                        {idx > 0 && (
-                          <span className="absolute left-9 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 text-slate-700">
-                            #{idx + 1}
-                          </span>
-                        )}
-                        <input
-                          type="text"
-                          value={m}
-                          onChange={(e) => handleUpdateMeaning(idx, e.target.value)}
-                          placeholder={
-                            idx === 0
-                              ? pos === 'v'
-                                ? 'e.g. thuê, mướn tài sản (ngắn hạn hoặc dài hạn)'
-                                : pos === 'n'
-                                ? 'e.g. nhân viên kế toán, kiểm toán / hợp đồng thuê mướn'
-                                : pos === 'adj'
-                                ? 'e.g. có thể chịu trách nhiệm, đáng tin cậy'
-                                : pos === 'adv'
-                                ? 'e.g. một cách đáng kể, rõ rệt'
-                                : 'e.g. cực kỳ vui sướng, hạnh phúc ngập tràn'
-                              : `Nhập nét nghĩa thứ ${idx + 1} (e.g. hợp đồng thuê mướn, sự biến động...)`
+                <div className="flex flex-col gap-2.5">
+                  {meanings.map((m, idx) => {
+                    const itemObj =
+                      typeof m === 'string'
+                        ? {
+                            id: idx,
+                            text: m,
+                            synonyms: '',
+                            closeMeanings: '',
+                            showSynonyms: false,
+                            showCloseMeanings: false,
                           }
-                          className={`w-full h-11 pr-8 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-semibold text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none ${
-                            idx > 0 ? 'pl-16' : 'pl-10'
-                          }`}
-                          required={idx === 0}
-                          autoFocus={idx > 0}
-                        />
-                        {m && (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateMeaning(idx, '')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">cancel</span>
-                          </button>
-                        )}
-                      </div>
+                        : m;
+                    const meaningVal = itemObj.text || '';
+                    const hasAnySynonym = !!(itemObj.synonyms || itemObj.closeMeanings);
 
-                      {/* Nút xóa nét nghĩa bổ sung nếu có từ 2 nét nghĩa trở lên */}
-                      {idx > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMeaning(idx)}
-                          className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-crimson-primary border border-slate-200 hover:border-red-200 transition-all cursor-pointer shrink-0 shadow-2xs"
-                          title="Xóa nét nghĩa này"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    return (
+                      <div
+                        key={itemObj.id || idx}
+                        className={`p-3 rounded-2xl border transition-all duration-200 flex flex-col gap-2.5 ${
+                          activeSynonymDropdownIdx === idx
+                            ? 'bg-red-50/20 border-red-200 shadow-sm'
+                            : hasAnySynonym
+                            ? 'bg-slate-50/80 border-slate-200/90 shadow-2xs'
+                            : 'bg-slate-50/40 hover:bg-slate-50/70 border-slate-200/80'
+                        }`}
+                      >
+                        {/* Hàng 1: Ô nhập Nghĩa tiếng Việt + Nút Dropdown thêm từ đồng nghĩa + Nút xóa */}
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                              translate
+                            </span>
+                            {idx > 0 && (
+                              <span className="absolute left-9 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200/80 text-slate-700">
+                                #{idx + 1}
+                              </span>
+                            )}
+                            <input
+                              type="text"
+                              value={meaningVal}
+                              onChange={(e) => handleUpdateMeaning(idx, e.target.value)}
+                              placeholder={
+                                idx === 0
+                                  ? pos === 'v'
+                                    ? 'e.g. thuê, mướn tài sản (ngắn hạn hoặc dài hạn)'
+                                    : pos === 'n'
+                                    ? 'e.g. nhân viên kế toán, kiểm toán / hợp đồng thuê mướn'
+                                    : pos === 'adj'
+                                    ? 'e.g. có thể chịu trách nhiệm, đáng tin cậy'
+                                    : pos === 'adv'
+                                    ? 'e.g. một cách đáng kể, rõ rệt'
+                                    : 'e.g. cực kỳ vui sướng, hạnh phúc ngập tràn'
+                                  : `Nhập nét nghĩa thứ ${idx + 1} (e.g. hợp đồng thuê mướn, sự biến động...)`
+                              }
+                              className={`w-full h-11 pr-8 bg-white hover:bg-white focus:bg-white rounded-xl text-xs font-semibold text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none ${
+                                idx > 0 ? 'pl-16' : 'pl-10'
+                              }`}
+                              required={idx === 0}
+                              autoFocus={idx > 0}
+                            />
+                            {meaningVal && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateMeaning(idx, '')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                title="Xóa trắng nội dung nghĩa"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">cancel</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Nút dropdown thêm từ đồng nghĩa vào cuối mỗi nghĩa chung */}
+                          <div className="relative shrink-0" data-synonym-dropdown>
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleSynonymDropdown(idx, e)}
+                              className={`h-11 px-3 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer active:scale-95 ${
+                                activeSynonymDropdownIdx === idx
+                                  ? 'bg-red-50 text-crimson-primary border-red-300 ring-2 ring-crimson-primary/15'
+                                  : hasAnySynonym
+                                  ? 'bg-white text-slate-700 border-slate-300 hover:border-red-200 hover:text-crimson-primary'
+                                  : 'bg-white hover:bg-slate-50 text-slate-600 hover:text-crimson-primary border-slate-200 hover:border-red-200'
+                              }`}
+                              title="Thêm từ có nét nghĩa tương đương hoặc từ đồng nghĩa"
+                            >
+                              <span className="material-symbols-outlined text-[17px] text-crimson-primary">
+                                sync_alt
+                              </span>
+                              <span className="hidden sm:inline">Thêm từ đồng nghĩa</span>
+                              <span
+                                className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform duration-200 ${
+                                  activeSynonymDropdownIdx === idx ? 'rotate-180 text-crimson-primary' : ''
+                                }`}
+                              >
+                                expand_more
+                              </span>
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {activeSynonymDropdownIdx === idx && (
+                              <div className="absolute top-full right-0 mt-1.5 w-72 sm:w-80 bg-white rounded-xl shadow-xl border border-slate-200/90 py-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                  Chọn loại quan hệ từ vựng
+                                </div>
+
+                                {/* Option 1: Từ có nét nghĩa tương đương */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectSynonymType(idx, 'close_meaning')}
+                                  className="w-full px-3.5 py-2.5 text-left hover:bg-amber-50/70 flex items-start gap-2.5 transition-colors group cursor-pointer"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                                    <span className="material-symbols-outlined text-[16px]">compare_arrows</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-slate-800 group-hover:text-amber-800 flex items-center gap-1.5">
+                                      <span>Từ có nét nghĩa tương đương</span>
+                                      {itemObj.showCloseMeanings && (
+                                        <span className="material-symbols-outlined text-amber-600 text-[14px]">
+                                          check
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                      Nét nghĩa gần tương đồng (e.g. lease, hire, rent)
+                                    </p>
+                                  </div>
+                                </button>
+
+                                {/* Option 2: Từ đồng nghĩa */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectSynonymType(idx, 'synonym')}
+                                  className="w-full px-3.5 py-2.5 text-left hover:bg-teal-50/70 flex items-start gap-2.5 transition-colors group cursor-pointer border-t border-slate-100/80"
+                                >
+                                  <div className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                                    <span className="material-symbols-outlined text-[16px]">sync_alt</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-slate-800 group-hover:text-teal-800 flex items-center gap-1.5">
+                                      <span>Từ đồng nghĩa</span>
+                                      {itemObj.showSynonyms && (
+                                        <span className="material-symbols-outlined text-teal-600 text-[14px]">
+                                          check
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                      Từ đồng nghĩa hoàn toàn (Synonyms)
+                                    </p>
+                                  </div>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Nút xóa nét nghĩa bổ sung nếu có từ 2 nét nghĩa trở lên */}
+                          {idx > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMeaning(idx)}
+                              className="w-11 h-11 flex items-center justify-center rounded-xl bg-white hover:bg-red-50 text-slate-400 hover:text-crimson-primary border border-slate-200 hover:border-red-200 transition-all cursor-pointer shrink-0 shadow-2xs"
+                              title="Xóa nét nghĩa này"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Hàng 2: Input cho Từ có nét nghĩa tương đương (nếu được kích hoạt) */}
+                        {itemObj.showCloseMeanings && (() => {
+                          const currentTags = (itemObj.closeMeanings || '')
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          const inputKey = `${idx}-closeMeanings`;
+                          const inputValue = tagInputValues[inputKey] || '';
+
+                          return (
+                            <div className="flex items-start gap-2 pl-2 sm:pl-3 pt-2 border-t border-slate-200/70 animate-in fade-in slide-in-from-top-1 duration-150">
+                              <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200/80 shrink-0 flex items-center gap-1.5 shadow-2xs mt-1">
+                                <span className="material-symbols-outlined text-[14px] text-amber-600">
+                                  compare_arrows
+                                </span>
+                                <span>Nét nghĩa tương đương</span>
+                              </span>
+                              <div className="relative flex-1" data-word-autocomplete>
+                                <div className="min-h-9 px-2.5 py-1 bg-white rounded-xl border border-amber-300/90 focus-within:border-amber-500 focus-within:ring-2 focus-within:ring-amber-500/10 transition-all flex flex-wrap items-center gap-1.5 shadow-2xs">
+                                  {/* Các thẻ viền vàng bao bọc từng từ đã chọn */}
+                                  {currentTags.map((tag, tIdx) => (
+                                    <span
+                                      key={tIdx}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-white text-slate-800 border border-amber-300 shadow-2xs animate-in zoom-in-95 duration-150 shrink-0 group/tag"
+                                    >
+                                      <span className="material-symbols-outlined text-[13px] text-amber-600">
+                                        compare_arrows
+                                      </span>
+                                      <span>{tag}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveTag(idx, 'closeMeanings', tag)}
+                                        className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                                        title={`Xóa "${tag}"`}
+                                      >
+                                        <span className="material-symbols-outlined text-[12px]">close</span>
+                                      </button>
+                                    </span>
+                                  ))}
+
+                                  {/* Ô nhập từ để tìm gợi ý */}
+                                  <input
+                                    type="text"
+                                    value={inputValue}
+                                    onFocus={(e) => {
+                                      if (e.target.value.trim()) {
+                                        setActiveWordAutocomplete({ idx, field: 'closeMeanings', query: e.target.value.trim() });
+                                      }
+                                    }}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setTagInputValues((prev) => ({ ...prev, [inputKey]: val }));
+                                      setActiveWordAutocomplete({ idx, field: 'closeMeanings', query: val.trim() });
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ',') {
+                                        e.preventDefault();
+                                        if (inputValue.trim()) {
+                                          handleAddTag(idx, 'closeMeanings', inputValue.trim());
+                                        }
+                                      } else if (e.key === 'Backspace' && !inputValue && currentTags.length > 0) {
+                                        e.preventDefault();
+                                        handleRemoveTag(idx, 'closeMeanings', currentTags[currentTags.length - 1]);
+                                      } else if (e.key === 'Escape') {
+                                        setActiveWordAutocomplete({ idx: null, field: null, query: '' });
+                                      }
+                                    }}
+                                    placeholder={currentTags.length === 0 ? "e.g. lease, hire, rent (gõ để chọn gợi ý)..." : "+ Thêm từ khác..."}
+                                    className="flex-1 min-w-[120px] h-7 bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 outline-none"
+                                  />
+                                </div>
+
+                                {/* Dropdown gợi ý từ vựng khi gõ Nét nghĩa tương đương */}
+                                {activeWordAutocomplete.idx === idx &&
+                                  activeWordAutocomplete.field === 'closeMeanings' &&
+                                  getWordSuggestions(activeWordAutocomplete.query).length > 0 && (
+                                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-amber-200/90 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                                      <div className="px-3 py-1 text-[10px] font-bold text-amber-800 bg-amber-50/70 uppercase tracking-wider flex items-center justify-between border-b border-amber-100">
+                                        <span className="flex items-center gap-1">
+                                          <span className="material-symbols-outlined text-[13px] text-amber-600">
+                                            lightbulb
+                                          </span>
+                                          <span>Gợi ý từ sổ từ của bạn</span>
+                                        </span>
+                                        <span className="text-[10px] font-normal text-amber-600">
+                                          {getWordSuggestions(activeWordAutocomplete.query).length} từ khớp
+                                        </span>
+                                      </div>
+                                      <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                                        {getWordSuggestions(activeWordAutocomplete.query).map((sug) => (
+                                          <button
+                                            key={sug.id || sug.word}
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              handleSelectWordSuggestion(idx, 'closeMeanings', sug.word);
+                                            }}
+                                            className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-amber-50/80 transition-colors cursor-pointer group"
+                                          >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              <span className="font-bold text-xs text-slate-800 group-hover:text-amber-800 transition-colors">
+                                                {sug.word}
+                                              </span>
+                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100/70 text-amber-800 border border-amber-200/80 uppercase">
+                                                {sug.pos || sug.forms?.[0]?.pos || 'v'}
+                                              </span>
+                                              <span className="text-[11px] text-slate-500 truncate max-w-[200px] sm:max-w-[280px]">
+                                                {(sug.meaning || sug.meanings?.[0] || sug.forms?.[0]?.meaning || '').split(';')[0]}
+                                              </span>
+                                            </div>
+                                            <span className="material-symbols-outlined text-[15px] text-amber-500 group-hover:text-amber-700 transition-colors shrink-0">
+                                              add_circle
+                                            </span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMeaningField(idx, 'close_meaning')}
+                                className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer shrink-0 mt-0.5"
+                                title="Đóng / Xóa mục nét nghĩa tương đương này"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">close</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Hàng 3: Input cho Từ đồng nghĩa hoàn toàn (nếu được kích hoạt) */}
+                        {itemObj.showSynonyms && (() => {
+                          const currentTags = (itemObj.synonyms || '')
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          const inputKey = `${idx}-synonyms`;
+                          const inputValue = tagInputValues[inputKey] || '';
+
+                          return (
+                            <div className="flex items-start gap-2 pl-2 sm:pl-3 pt-2 border-t border-slate-200/70 animate-in fade-in slide-in-from-top-1 duration-150">
+                              <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-teal-50 text-teal-800 border border-teal-200/80 shrink-0 flex items-center gap-1.5 shadow-2xs mt-1">
+                                <span className="material-symbols-outlined text-[14px] text-teal-600">
+                                  sync_alt
+                                </span>
+                                <span>Từ đồng nghĩa</span>
+                              </span>
+                              <div className="relative flex-1" data-word-autocomplete>
+                                <div className="min-h-9 px-2.5 py-1 bg-white rounded-xl border border-teal-300/90 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/10 outline-none transition-all flex flex-wrap items-center gap-1.5 shadow-2xs">
+                                  {/* Các thẻ viền xanh ngọc bao bọc từng từ đã chọn */}
+                                  {currentTags.map((tag, tIdx) => (
+                                    <span
+                                      key={tIdx}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-white text-slate-800 border border-teal-300 shadow-2xs animate-in zoom-in-95 duration-150 shrink-0 group/tag"
+                                    >
+                                      <span className="material-symbols-outlined text-[13px] text-teal-600">
+                                        sync_alt
+                                      </span>
+                                      <span>{tag}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveTag(idx, 'synonyms', tag)}
+                                        className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                                        title={`Xóa "${tag}"`}
+                                      >
+                                        <span className="material-symbols-outlined text-[12px]">close</span>
+                                      </button>
+                                    </span>
+                                  ))}
+
+                                  {/* Ô nhập từ để tìm gợi ý */}
+                                  <input
+                                    type="text"
+                                    value={inputValue}
+                                    onFocus={(e) => {
+                                      if (e.target.value.trim()) {
+                                        setActiveWordAutocomplete({ idx, field: 'synonyms', query: e.target.value.trim() });
+                                      }
+                                    }}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setTagInputValues((prev) => ({ ...prev, [inputKey]: val }));
+                                      setActiveWordAutocomplete({ idx, field: 'synonyms', query: val.trim() });
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' || e.key === ',') {
+                                        e.preventDefault();
+                                        if (inputValue.trim()) {
+                                          handleAddTag(idx, 'synonyms', inputValue.trim());
+                                        }
+                                      } else if (e.key === 'Backspace' && !inputValue && currentTags.length > 0) {
+                                        e.preventDefault();
+                                        handleRemoveTag(idx, 'synonyms', currentTags[currentTags.length - 1]);
+                                      } else if (e.key === 'Escape') {
+                                        setActiveWordAutocomplete({ idx: null, field: null, query: '' });
+                                      }
+                                    }}
+                                    placeholder={currentTags.length === 0 ? "e.g. charter, rental (gõ để chọn gợi ý)..." : "+ Thêm từ khác..."}
+                                    className="flex-1 min-w-[120px] h-7 bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 outline-none"
+                                  />
+                                </div>
+
+                                {/* Dropdown gợi ý từ vựng khi gõ Từ đồng nghĩa */}
+                                {activeWordAutocomplete.idx === idx &&
+                                  activeWordAutocomplete.field === 'synonyms' &&
+                                  getWordSuggestions(activeWordAutocomplete.query).length > 0 && (
+                                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-teal-200/90 rounded-2xl shadow-xl z-50 overflow-hidden py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                                      <div className="px-3 py-1 text-[10px] font-bold text-teal-800 bg-teal-50/70 uppercase tracking-wider flex items-center justify-between border-b border-teal-100">
+                                        <span className="flex items-center gap-1">
+                                          <span className="material-symbols-outlined text-[13px] text-teal-600">
+                                            lightbulb
+                                          </span>
+                                          <span>Gợi ý từ sổ từ của bạn</span>
+                                        </span>
+                                        <span className="text-[10px] font-normal text-teal-600">
+                                          {getWordSuggestions(activeWordAutocomplete.query).length} từ khớp
+                                        </span>
+                                      </div>
+                                      <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                                        {getWordSuggestions(activeWordAutocomplete.query).map((sug) => (
+                                          <button
+                                            key={sug.id || sug.word}
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              handleSelectWordSuggestion(idx, 'synonyms', sug.word);
+                                            }}
+                                            className="w-full text-left px-3 py-2 flex items-center justify-between hover:bg-teal-50/80 transition-colors cursor-pointer group"
+                                          >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              <span className="font-bold text-xs text-slate-800 group-hover:text-teal-800 transition-colors">
+                                                {sug.word}
+                                              </span>
+                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100/70 text-teal-800 border border-teal-200/80 uppercase">
+                                                {sug.pos || sug.forms?.[0]?.pos || 'v'}
+                                              </span>
+                                              <span className="text-[11px] text-slate-500 truncate max-w-[200px] sm:max-w-[280px]">
+                                                {(sug.meaning || sug.meanings?.[0] || sug.forms?.[0]?.meaning || '').split(';')[0]}
+                                              </span>
+                                            </div>
+                                            <span className="material-symbols-outlined text-[15px] text-teal-500 group-hover:text-teal-700 transition-colors shrink-0">
+                                              add_circle
+                                            </span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMeaningField(idx, 'synonym')}
+                                className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors cursor-pointer shrink-0 mt-0.5"
+                                title="Đóng / Xóa mục từ đồng nghĩa này"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">close</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               {/* Field 5: Reading Note List Dropdown */}
@@ -2023,20 +2801,6 @@ export default function AddVocabModal({
                   </div>
                 )}
 
-                {/* Common Synonyms Input */}
-                <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-500 shrink-0 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[15px] text-slate-400">sync_alt</span>
-                    <span>Từ đồng nghĩa chung (Synonyms):</span>
-                  </span>
-                  <input
-                    type="text"
-                    value={synonyms}
-                    onChange={(e) => setSynonyms(e.target.value)}
-                    placeholder="e.g. hire, rent, charter..."
-                    className="flex-1 h-8 px-3 bg-slate-50/70 hover:bg-white focus:bg-white rounded-lg text-xs font-medium text-slate-800 border border-slate-200 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 transition-all outline-none"
-                  />
-                </div>
 
                 {/* --- KHỐI PATTERN (Hiển thị cho VERB, ADJECTIVE, ADVERB - Ẩn đối với NOUN) --- */}
                 {pos !== 'n' && (

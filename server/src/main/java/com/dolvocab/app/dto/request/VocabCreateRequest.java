@@ -26,6 +26,16 @@ public class VocabCreateRequest {
     @JsonAlias({"meaning", "generalMeaning", "wordMeaning"})
     private String meaning;
 
+    private String closeMeanings;
+    private String synonyms;
+    private String meaningDetailsJson;
+
+    @Builder.Default
+    private List<String> meanings = new ArrayList<>();
+
+    @Builder.Default
+    private List<MeaningDetailItemRequest> meaningDetails = new ArrayList<>();
+
     // Word Family
     private Long wordFamilyId;
     private String rootWord;
@@ -68,6 +78,8 @@ public class VocabCreateRequest {
         private String phrase;
         private String synonym;
         private String synonyms;
+        @JsonAlias({"closeMeanings", "nearSynonyms", "closeMeaningWords"})
+        private String closeMeanings;
 
         @JsonAlias({"meaning", "vietnameseMeaning"})
         private String meaning;
@@ -89,9 +101,23 @@ public class VocabCreateRequest {
         private String pattern;
         private String collocation;
         private String synonyms;
+        @JsonAlias({"closeMeanings", "nearSynonyms", "closeMeaningWords"})
+        private String closeMeanings;
         private String vietnameseMeaning;
         private String usageNote;
         @Builder.Default
         private List<String> examples = new ArrayList<>();
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MeaningDetailItemRequest {
+        private String text;
+        private String meaning;
+        private String synonyms;
+        @JsonAlias({"closeMeanings", "nearSynonyms", "closeMeaningWords"})
+        private String closeMeanings;
     }
 }

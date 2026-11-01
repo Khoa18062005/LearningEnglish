@@ -5,6 +5,7 @@ import AuthBanner from '../components/AuthBanner';
 export default function LoginPage({
   onNavigateRegister,
   onLoginSuccess,
+  onNavigateHome,
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -262,6 +263,7 @@ export default function LoginPage({
           <div className="w-full max-w-[620px] h-full flex">
             <AuthBanner
               title="LinearVocab LMS"
+              onNavigateHome={onNavigateHome}
               description={
                 <>
                   Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,

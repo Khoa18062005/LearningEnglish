@@ -274,7 +274,7 @@ export default function WordFamiliesPage({
       </section>
 
       {/* Search Toolbar */}
-      <section className="px-6 lg:px-8 py-3 bg-white border-y border-slate-line/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <section className="px-6 lg:px-8 pt-1.5 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
             search
@@ -284,7 +284,7 @@ export default function WordFamiliesPage({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm theo gốc từ hoặc từ con (e.g. account, able)..."
-            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 transition-all text-text-high-contrast placeholder:text-slate-400"
+            className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200/90 rounded-xl text-xs outline-none focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 transition-all text-text-high-contrast placeholder:text-slate-400 shadow-xs"
           />
           {searchTerm && (
             <button

@@ -27,9 +27,19 @@ export default function AddReadingListModal({
         setNote(initialData.note || '');
         setShowPassageField(Boolean(initialData.passage));
       } else {
-        const nextNum = existingLists.length + 1;
-        const formattedNum = nextNum < 10 ? `0${nextNum}` : `${nextNum}`;
-        setCode(`LIST ${formattedNum}`);
+        // Tự động tìm mã LIST XX tiếp theo chưa từng được sử dụng
+        const existingCodes = new Set(
+          existingLists
+            .map((l) => (l.code || l.shortTitle || '').trim().toUpperCase())
+            .filter(Boolean)
+        );
+        let candidateNum = 1;
+        let formatted = candidateNum < 10 ? `LIST 0${candidateNum}` : `LIST ${candidateNum}`;
+        while (existingCodes.has(formatted.toUpperCase())) {
+          candidateNum++;
+          formatted = candidateNum < 10 ? `LIST 0${candidateNum}` : `LIST ${candidateNum}`;
+        }
+        setCode(formatted);
         setTitle('');
         setSourceReference('');
         setPassage('');
@@ -39,7 +49,7 @@ export default function AddReadingListModal({
       setErrorMessage('');
       setIsSubmitting(false);
     }
-  }, [isOpen, existingLists.length, initialData]);
+  }, [isOpen, initialData]);
 
   // Keyboard shortcut listener (ESC to close, Cmd/Ctrl+Enter to save)
   useEffect(() => {
@@ -57,13 +67,36 @@ export default function AddReadingListModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, code, title, sourceReference, passage, note]);
 
+  // Kiểm tra trùng mã danh sách theo thời gian thực (không phân biệt hoa thường)
+  const trimmedCode = (code || '').trim().toUpperCase();
+  const isCodeDuplicate = Boolean(
+    trimmedCode &&
+      existingLists.some((list) => {
+        if (initialData && String(list.id) === String(initialData.id)) {
+          return false;
+        }
+        const otherCode = (list.code || list.shortTitle || '').trim().toUpperCase();
+        return otherCode === trimmedCode;
+      })
+  );
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
 
+    if (!code.trim()) {
+      setErrorMessage('Vui lòng nhập mã danh sách (ví dụ: LIST 01, CAM 18).');
+      return;
+    }
+
+    if (isCodeDuplicate) {
+      setErrorMessage(`Mã danh sách "${code.trim()}" đã được sử dụng. Vui lòng chọn một mã khác!`);
+      return;
+    }
+
     if (!title.trim()) {
-      setErrorMessage('Vui lòng nhập tiêu đề hoặc tên danh sách bài đọc.');
+      setErrorMessage('Vui lòng nhập tiêu đề hoặc tên danh sách từ vựng.');
       return;
     }
 
@@ -83,7 +116,7 @@ export default function AddReadingListModal({
       onClose();
     } catch (err) {
       console.error('Lỗi khi lưu danh sách bài đọc:', err);
-      setErrorMessage(initialData ? 'Có lỗi xảy ra khi cập nhật danh sách bài đọc. Vui lòng thử lại.' : 'Có lỗi xảy ra khi tạo danh sách bài đọc. Vui lòng thử lại.');
+      setErrorMessage(initialData ? 'Có lỗi xảy ra khi cập nhật danh sách từ vựng. Vui lòng thử lại.' : 'Có lỗi xảy ra khi tạo danh sách từ vựng. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -103,16 +136,11 @@ export default function AddReadingListModal({
               <span className="material-symbols-outlined text-[24px]">article</span>
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
-                  {initialData ? 'Chỉnh Sửa Danh Sách Bài Đọc' : 'Tạo Danh Sách Bài Đọc Mới'}
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark text-[10px] font-extrabold uppercase tracking-wider border border-border-crimson-tint/60">
-                  Reading Note
-                </span>
-              </div>
+              <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
+                {initialData ? 'Chỉnh Sửa Danh Sách Từ Vựng' : 'Tạo Danh Sách Từ Vựng Mới'}
+              </h2>
               <p className="text-xs text-text-muted mt-0.5">
-                Quản lý và gom nhóm từ vựng theo bài đọc Cambridge, sách báo hoặc chủ đề riêng.
+                Quản lý và gom nhóm từ vựng theo bài đọc, bài nghe, tạp chí hoặc chủ đề riêng.
               </p>
             </div>
           </div>
@@ -145,29 +173,63 @@ export default function AddReadingListModal({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
             {/* List Code (e.g. LIST 01) */}
             <div className="sm:col-span-4 flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-text-high-contrast flex items-center gap-1">
-                <span>Mã danh sách</span>
-                <span className="text-[10px] text-text-muted font-normal">(Viết tắt)</span>
+              <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <span>Mã danh sách</span>
+                  <span className="text-[10px] text-text-muted font-normal">(Viết tắt)</span>
+                </div>
+                {trimmedCode && (
+                  isCodeDuplicate ? (
+                    <span className="text-[10px] text-red-600 font-bold flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[12px]">cancel</span>
+                      Trùng mã
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                      Hợp lệ
+                    </span>
+                  )
+                )}
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => {
+                    setCode(e.target.value);
+                    if (errorMessage) setErrorMessage('');
+                  }}
                   placeholder="VD: LIST 01"
-                  className="w-full h-11 px-3.5 bg-white rounded-xl text-sm font-bold text-crimson-primary border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none"
+                  className={`w-full h-11 px-3.5 pr-8 bg-white rounded-xl text-sm font-bold transition-all outline-none ${
+                    isCodeDuplicate
+                      ? 'text-red-600 border-2 border-red-500 bg-red-50/40 focus:border-red-600 focus:ring-4 focus:ring-red-500/10'
+                      : 'text-crimson-primary border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10'
+                  }`}
                 />
+                {isCodeDuplicate && (
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-red-500 text-[18px]">
+                    error
+                  </span>
+                )}
               </div>
-              <span className="text-[10px] text-text-muted">
-                Hiển thị ngắn gọn trên thanh Sidebar
-              </span>
+              {isCodeDuplicate ? (
+                <span className="text-[10px] text-red-600 font-bold flex items-center gap-1 animate-in fade-in duration-150">
+                  <span className="material-symbols-outlined text-[13px]">warning</span>
+                  Mã này đã có trong danh sách. Vui lòng chọn mã khác!
+                </span>
+              ) : (
+                <span className="text-[10px] text-text-muted">
+                  Hiển thị ngắn gọn trên thanh Sidebar
+                </span>
+              )}
             </div>
 
             {/* List Title */}
             <div className="sm:col-span-8 flex flex-col gap-1.5">
               <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
                 <span>
-                  Tiêu đề danh sách / Bài đọc <span className="text-crimson-primary">*</span>
+                  Tiêu đề danh sách từ vựng <span className="text-crimson-primary">*</span>
                 </span>
                 <span className="text-[10px] text-text-muted font-normal">Bắt buộc</span>
               </label>
@@ -176,11 +238,11 @@ export default function AddReadingListModal({
                 autoFocus
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="VD: Cambridge 18 - Test 1 - Passage 2: Urban Agriculture"
+                placeholder="VD: Cambridge 18 - Test 1, The Economist, Podcast, TED Talks..."
                 className="w-full h-11 px-3.5 bg-white rounded-xl text-sm font-semibold text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none"
               />
               <span className="text-[10px] text-text-muted">
-                Tên đầy đủ của bài đọc hoặc chủ đề từ vựng
+                Tên đầy đủ của bài đọc, bài nghe, tin tức hoặc chủ đề từ vựng
               </span>
             </div>
           </div>
@@ -205,7 +267,7 @@ export default function AddReadingListModal({
           {/* General Notes */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
-              <span>Ghi chú bài đọc / Mục tiêu (Notes)</span>
+              <span>Ghi chú danh sách / Mục tiêu (Notes)</span>
               <span className="text-[10px] text-text-muted font-normal">Tùy chọn</span>
             </label>
             <textarea
@@ -228,7 +290,7 @@ export default function AddReadingListModal({
                 {showPassageField ? 'expand_less' : 'add_circle'}
               </span>
               <span>
-                {showPassageField ? 'Ẩn đoạn văn bài đọc' : 'Thêm nội dung đoạn văn bài đọc (Reading Passage)'}
+                {showPassageField ? 'Ẩn nội dung ngữ cảnh / bài đọc' : 'Thêm nội dung bài đọc / transcript nghe / trích đoạn (Passage & Context)'}
               </span>
             </button>
 
@@ -238,11 +300,11 @@ export default function AddReadingListModal({
                   rows={5}
                   value={passage}
                   onChange={(e) => setPassage(e.target.value)}
-                  placeholder="Dán toàn bộ hoặc trích đoạn nội dung bài đọc tiếng Anh vào đây để đối chiếu ngữ cảnh lúc học từ vựng..."
+                  placeholder="Dán toàn bộ hoặc trích đoạn nội dung bài đọc, transcript nghe, bài báo vào đây để đối chiếu ngữ cảnh lúc học từ vựng..."
                   className="w-full p-3 bg-white rounded-xl text-xs text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none resize-y font-normal leading-relaxed"
                 />
                 <span className="text-[10px] text-text-muted">
-                  Đoạn văn này sẽ được hiển thị trong thẻ xem chi tiết bài đọc.
+                  Nội dung này sẽ được hiển thị trong thẻ xem chi tiết danh sách từ vựng để đối chiếu ngữ cảnh.
                 </span>
               </div>
             )}
@@ -272,7 +334,7 @@ export default function AddReadingListModal({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || !title.trim()}
+              disabled={isSubmitting || !title.trim() || !code.trim() || isCodeDuplicate}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white text-xs font-bold transition-all shadow-sm shadow-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (

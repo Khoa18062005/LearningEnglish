@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import VocabCard from '../components/VocabCard';
+import SortDropdown, { sortVocabularies } from '../../../components/SortDropdown';
 import astronautImg from '../../../assets/Chibi_PhiHanhGia.png';
 import { vocabApi } from '../../../api/vocabApi';
 
@@ -15,8 +16,15 @@ export default function MasterListPage({
   setSelectedPos,
   selectedCategory = null,
   lastMutation = null,
+  onSelectRelatedWord,
+  onOpenRelatedGroup,
+  sortBy = 'newest',
+  setSortBy,
 }) {
   const [items, setItems] = useState([]);
+  const [localSortBy, setLocalSortBy] = useState('newest');
+  const activeSortBy = setSortBy ? sortBy : localSortBy;
+  const handleSortChange = setSortBy || setLocalSortBy;
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,6 +122,8 @@ export default function MasterListPage({
       return true;
     });
 
+    filtered = sortVocabularies(filtered, activeSortBy);
+
     if (cursor) {
       filtered = filtered.filter((v) => (v.id || 0) < cursor);
     }
@@ -131,7 +141,12 @@ export default function MasterListPage({
     }
     setNextCursor(last);
     setHasMore(more);
-  }, [vocabList, selectedPos, selectedCategory, searchTerm]);
+  }, [vocabList, selectedPos, selectedCategory, searchTerm, activeSortBy]);
+
+  // Sắp xếp danh sách hiển thị theo tiêu chí người dùng đã chọn
+  const displayItems = useMemo(() => {
+    return sortVocabularies(items, activeSortBy);
+  }, [items, activeSortBy]);
 
   // Fetch initial batch with Cursor-based pagination (cursor = null)
   const fetchInitialBatch = useCallback(async () => {
@@ -348,21 +363,26 @@ export default function MasterListPage({
             )}
           </div>
 
-          {/* POS Filter Pills - Đồng bộ chiều cao h-11 (44px) */}
-          <div className="flex items-center gap-1 p-1 h-11 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs overflow-x-auto shrink-0">
-            {posOptions.map((opt) => {
-              const isActive = selectedPos === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSelectedPos && setSelectedPos(opt.id)}
-                  className={`h-full px-3.5 flex items-center justify-center rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
+          {/* POS Filter Pills & Nút Sắp Xếp (Bên phải Idioms) - Đồng bộ chiều cao h-11 (44px) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 p-1 h-11 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs overflow-x-auto">
+              {posOptions.map((opt) => {
+                const isActive = selectedPos === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSelectedPos && setSelectedPos(opt.id)}
+                    className={`h-full px-3.5 flex items-center justify-center rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Nút bộ lọc sắp xếp bên phải Idioms */}
+            <SortDropdown sortBy={activeSortBy} onSortChange={handleSortChange} />
           </div>
         </div>
       </section>
@@ -385,15 +405,18 @@ export default function MasterListPage({
               </div>
             ))}
           </div>
-        ) : items.length > 0 ? (
+        ) : displayItems.length > 0 ? (
           <div className="flex flex-col gap-4">
-            {items.map((item) => (
+            {displayItems.map((item) => (
               <VocabCard
                 key={item.id || item.word}
                 vocab={item}
+                vocabList={vocabList}
                 onPronounce={onPronounce}
                 onEdit={onEditVocab}
                 onDelete={handleDeleteItem}
+                onSelectRelatedWord={onSelectRelatedWord}
+                onOpenRelatedGroup={onOpenRelatedGroup}
                 showReadingList={true}
               />
             ))}

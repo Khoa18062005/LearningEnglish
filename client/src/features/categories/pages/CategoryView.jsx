@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import VocabCard from '../../vocabulary/components/VocabCard';
+import SortDropdown, { sortVocabularies } from '../../../components/SortDropdown';
 
 export default function CategoryView({
   category,
@@ -14,7 +15,15 @@ export default function CategoryView({
   setSearchTerm,
   selectedPos = 'all',
   setSelectedPos,
+  onSelectRelatedWord,
+  onOpenRelatedGroup,
+  sortBy = 'newest',
+  setSortBy,
 }) {
+  const [localSortBy, setLocalSortBy] = useState('newest');
+  const activeSortBy = setSortBy ? sortBy : localSortBy;
+  const handleSortChange = setSortBy || setLocalSortBy;
+
   const posOptions = [
     {
       id: 'all',
@@ -108,7 +117,9 @@ export default function CategoryView({
 
       return true;
     });
-  }, [vocabList, category.name, selectedPos, searchTerm]);
+
+    return sortVocabularies(filtered, activeSortBy);
+  }, [vocabList, category.name, selectedPos, searchTerm, activeSortBy]);
 
   // Derived metrics
   const totalCollocationsCount = useMemo(() => {
@@ -338,21 +349,26 @@ export default function CategoryView({
             )}
           </div>
 
-          {/* POS Filter Pills (Sát mép phải) */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap sm:ml-auto shrink-0">
-            {posOptions.map((opt) => {
-              const isActive = selectedPos === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSelectedPos && setSelectedPos(opt.id)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
+          {/* POS Filter Pills & Nút Sắp Xếp (Sát mép phải) */}
+          <div className="flex items-center gap-2 flex-wrap sm:ml-auto shrink-0">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap">
+              {posOptions.map((opt) => {
+                const isActive = selectedPos === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSelectedPos && setSelectedPos(opt.id)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Nút bộ lọc sắp xếp bên phải Idioms */}
+            <SortDropdown sortBy={activeSortBy} onSortChange={handleSortChange} />
           </div>
         </div>
 
@@ -364,9 +380,12 @@ export default function CategoryView({
             <VocabCard
               key={item.id}
               vocab={item}
+              vocabList={vocabList}
               onPronounce={onPronounce}
               onEdit={onEditVocab}
               onDelete={onDeleteVocab}
+              onSelectRelatedWord={onSelectRelatedWord}
+              onOpenRelatedGroup={onOpenRelatedGroup}
               showReadingList={true}
             />
           ))}

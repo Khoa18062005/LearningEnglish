@@ -34,6 +34,9 @@ public class VocabSense {
     @Column(length = 255)
     private String synonyms;
 
+    @Column(name = "close_meanings", length = 255)
+    private String closeMeanings;
+
     @Column(name = "vietnamese_meaning", nullable = false, length = 500)
     private String vietnameseMeaning;
 

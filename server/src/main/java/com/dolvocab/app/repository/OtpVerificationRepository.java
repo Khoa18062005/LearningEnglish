@@ -20,7 +20,8 @@ public interface OtpVerificationRepository extends JpaRepository<OtpVerification
 
     @Modifying
     @Transactional
-    void deleteByEmail(String email);
+    @Query("DELETE FROM OtpVerification o WHERE o.email = :email")
+    void deleteByEmail(@Param("email") String email);
 
     @Modifying
     @Transactional

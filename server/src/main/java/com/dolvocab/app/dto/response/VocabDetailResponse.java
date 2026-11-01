@@ -21,6 +21,14 @@ public class VocabDetailResponse {
     private String audioUrl;
     private String generalNote;
     private String meaning;
+    private String closeMeanings;
+    private String synonyms;
+
+    @Builder.Default
+    private List<String> meanings = new ArrayList<>();
+
+    @Builder.Default
+    private List<MeaningDetailResponse> meaningDetails = new ArrayList<>();
 
     // Word family information
     private Long wordFamilyId;
@@ -78,6 +86,7 @@ public class VocabDetailResponse {
         private String pattern;
         private String collocation;
         private String synonyms;
+        private String closeMeanings;
         private String vietnameseMeaning;
         private String usageNote;
         private Integer displayOrder;
@@ -98,8 +107,19 @@ public class VocabDetailResponse {
         private String collocation;
         private String phrase;
         private String synonym;
+        private String closeMeanings;
         private String meaning;
         private String example;
         private String note;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MeaningDetailResponse {
+        private String text;
+        private String synonyms;
+        private String closeMeanings;
     }
 }

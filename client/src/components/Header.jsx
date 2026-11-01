@@ -56,6 +56,8 @@ export default function Header({
             ? 'Hồ sơ người dùng & Sơ đồ năng lực'
             : currentView === 'word-families'
             ? 'Word Families (Gia đình từ)'
+            : currentView === 'list-vocabulary'
+            ? 'List Vocabulary (Danh sách từ vựng)'
             : currentView === 'reading-list'
             ? 'Reading List'
             : currentView === 'category'

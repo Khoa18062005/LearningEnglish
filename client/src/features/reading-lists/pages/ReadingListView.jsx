@@ -1,20 +1,31 @@
 import React from 'react';
 import VocabCard from '../../vocabulary/components/VocabCard';
+import SortDropdown, { sortVocabularies } from '../../../components/SortDropdown';
 
 export default function ReadingListView({
   readingList,
   vocabList,
+  existingLists = [],
   onOpenAddModal,
   onPronounce,
   onEditVocab,
   onDeleteVocab,
   onDeleteReadingList,
   onUpdateReadingList,
+  onBackToListVocabulary,
   searchTerm = '',
   setSearchTerm,
   selectedPos = 'all',
   setSelectedPos,
+  onSelectRelatedWord,
+  onOpenRelatedGroup,
+  sortBy = 'newest',
+  setSortBy,
 }) {
+  const [localSortBy, setLocalSortBy] = React.useState('newest');
+  const activeSortBy = setSortBy ? sortBy : localSortBy;
+  const handleSortChange = setSortBy || setLocalSortBy;
+
   const posOptions = [
     {
       id: 'all',
@@ -92,10 +103,34 @@ export default function ReadingListView({
     setIsEditing(false);
   };
 
+  // Kiểm tra trùng mã danh sách khi sửa inline
+  const isInlineCodeDuplicate = React.useMemo(() => {
+    const trimmed = (editCode || '').trim().toUpperCase();
+    if (!trimmed) return false;
+    return existingLists.some(
+      (l) =>
+        String(l.id) !== String(readingList?.id) &&
+        (l.code || l.shortTitle || '').trim().toUpperCase() === trimmed
+    );
+  }, [editCode, existingLists, readingList?.id]);
+
   const handleSaveEdit = React.useCallback(async () => {
     const trimmedTitle = (editTitle || '').trim();
     if (!trimmedTitle) {
-      alert('Vui lòng nhập tiêu đề danh mục bài đọc!');
+      alert('Vui lòng nhập tiêu đề danh mục từ vựng!');
+      return;
+    }
+
+    const trimmedCode = (editCode || '').trim().toUpperCase();
+    if (
+      trimmedCode &&
+      existingLists.some(
+        (l) =>
+          String(l.id) !== String(readingList?.id) &&
+          (l.code || l.shortTitle || '').trim().toUpperCase() === trimmedCode
+      )
+    ) {
+      alert(`Mã danh sách "${editCode.trim()}" đã được sử dụng bởi danh sách khác. Vui lòng chọn một mã khác!`);
       return;
     }
 
@@ -111,7 +146,7 @@ export default function ReadingListView({
       await onUpdateReadingList(readingList.id, payload);
     }
     setIsEditing(false);
-  }, [editCode, editTitle, editSource, editNote, readingList, onUpdateReadingList]);
+  }, [editCode, editTitle, editSource, editNote, readingList, existingLists, onUpdateReadingList]);
 
   const handleToggleEdit = () => {
     if (isEditing) {
@@ -141,49 +176,66 @@ export default function ReadingListView({
 
   if (!readingList) return null;
 
-  // 1. Toàn bộ từ vựng thuộc về danh sách bài đọc này (chưa áp bộ lọc POS / tìm kiếm)
+  // 1. Toàn bộ từ vựng thuộc về danh sách bài đọc này (so khớp chặt chẽ theo ID duy nhất)
+  const targetId = String(readingList.id);
   const seenAllKeys = new Set();
   const allReadingListWords = vocabList.filter((item) => {
+    if (!item) return false;
     const key = item.id ? `id-${item.id}` : `word-${item.word?.toLowerCase()}`;
     if (seenAllKeys.has(key)) return false;
-    seenAllKeys.add(key);
 
-    return (
-      item.readingListId === readingList.id ||
-      item.readingListName === readingList.shortTitle ||
-      item.readingListName === readingList.code ||
-      item.readingListName === readingList.title ||
-      item.readingListName === readingList.fullTitle ||
-      (item.noteLists && item.noteLists.some((nl) => nl.id === readingList.id))
-    );
-  });
-
-  // 2. Danh sách từ vựng sau khi áp dụng bộ lọc loại từ (POS) và tìm kiếm
-  const listWords = allReadingListWords.filter((item) => {
-    // Filter by POS if selected
-    if (selectedPos && selectedPos !== 'all') {
-      const hasPos = item.pos === selectedPos || item.forms?.some((f) => f.pos === selectedPos);
-      if (!hasPos) return false;
+    // So khớp theo ID duy nhất để đảm bảo các list trùng tiêu đề không bị đồng bộ nhầm từ vựng
+    let isMatch = false;
+    if (item.readingListId != null && item.readingListId !== '') {
+      isMatch = String(item.readingListId) === targetId;
+    } else if (item.noteListId != null && item.noteListId !== '') {
+      isMatch = String(item.noteListId) === targetId;
+    } else if (Array.isArray(item.noteLists) && item.noteLists.length > 0) {
+      isMatch = item.noteLists.some((nl) => nl && String(nl.id) === targetId);
+    } else if (Array.isArray(item.noteListIds) && item.noteListIds.length > 0) {
+      isMatch = item.noteListIds.some((id) => id != null && String(id) === targetId);
+    } else if (item.readingListName && readingList.code) {
+      // Chỉ fallback so khớp theo Mã code duy nhất (VD: LIST 01 vs LIST 02) khi item hoàn toàn không có ID
+      isMatch = item.readingListName === readingList.code;
     }
 
-    // Filter by search query if present
-    if (searchTerm && searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      const matchWord = item.word?.toLowerCase().includes(q);
-      const matchMeaning = item.meaning?.toLowerCase().includes(q);
-      const matchFamily = item.wordFamily?.some((wf) => wf.toLowerCase().includes(q));
-      const matchForms = item.forms?.some(
-        (f) =>
-          f.meaning?.toLowerCase().includes(q) ||
-          f.pattern?.toLowerCase().includes(q) ||
-          f.collocation?.toLowerCase().includes(q) ||
-          f.example?.toLowerCase().includes(q)
-      );
-      if (!matchWord && !matchMeaning && !matchFamily && !matchForms) return false;
+    if (isMatch) {
+      seenAllKeys.add(key);
+      return true;
     }
-
-    return true;
+    return false;
   });
+
+  // 2. Danh sách từ vựng sau khi áp dụng bộ lọc loại từ (POS), tìm kiếm và sắp xếp
+  const listWords = React.useMemo(() => {
+    const filtered = allReadingListWords.filter((item) => {
+      // Filter by POS if selected
+      if (selectedPos && selectedPos !== 'all') {
+        const hasPos = item.pos === selectedPos || item.forms?.some((f) => f.pos === selectedPos);
+        if (!hasPos) return false;
+      }
+
+      // Filter by search query if present
+      if (searchTerm && searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const matchWord = item.word?.toLowerCase().includes(q);
+        const matchMeaning = item.meaning?.toLowerCase().includes(q);
+        const matchFamily = item.wordFamily?.some((wf) => wf.toLowerCase().includes(q));
+        const matchForms = item.forms?.some(
+          (f) =>
+            f.meaning?.toLowerCase().includes(q) ||
+            f.pattern?.toLowerCase().includes(q) ||
+            f.collocation?.toLowerCase().includes(q) ||
+            f.example?.toLowerCase().includes(q)
+        );
+        if (!matchWord && !matchMeaning && !matchFamily && !matchForms) return false;
+      }
+
+      return true;
+    });
+
+    return sortVocabularies(filtered, activeSortBy);
+  }, [allReadingListWords, selectedPos, searchTerm, activeSortBy]);
 
 
   const totalCollocationsCount = listWords.reduce(
@@ -233,8 +285,12 @@ export default function ReadingListView({
                         }
                       }}
                       placeholder="MÃ"
-                      className="w-20 px-2 py-1 rounded-md bg-yellow-400/35 text-yellow-100 placeholder-yellow-200/50 text-xs font-black uppercase tracking-wider border border-yellow-300/80 backdrop-blur-xs text-center focus:outline-none focus:ring-1 focus:ring-yellow-200 focus:bg-yellow-400/45 shadow-[0_0_14px_rgba(250,204,21,0.35)] transition-all"
-                      title="Mã danh mục (nhấn Enter hoặc cây bút để lưu)"
+                      className={`w-24 px-2 py-1 rounded-md text-xs font-black uppercase tracking-wider backdrop-blur-xs text-center focus:outline-none transition-all ${
+                        isInlineCodeDuplicate
+                          ? 'bg-red-500/90 text-white border-2 border-white shadow-[0_0_14px_rgba(239,68,68,0.6)] animate-pulse'
+                          : 'bg-yellow-400/35 text-yellow-100 placeholder-yellow-200/50 border border-yellow-300/80 focus:ring-1 focus:ring-yellow-200 focus:bg-yellow-400/45 shadow-[0_0_14px_rgba(250,204,21,0.35)]'
+                      }`}
+                      title={isInlineCodeDuplicate ? 'Cảnh báo: Mã này đã bị trùng!' : 'Mã danh mục (nhấn Enter hoặc cây bút để lưu)'}
                     />
                   ) : (
                     <span className="px-2.5 py-1 rounded-md bg-yellow-400/35 text-yellow-100 text-xs font-black uppercase tracking-wider border border-yellow-300/70 backdrop-blur-xs shrink-0 select-none shadow-[0_0_14px_rgba(250,204,21,0.35)]">
@@ -366,7 +422,7 @@ export default function ReadingListView({
                   <div className="flex flex-col min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 truncate">Total Words</span>
                     <span className="font-headline text-lg font-black text-white leading-none mt-0.5">
-                      {allReadingListWords.length || readingList.count || 0}
+                      {allReadingListWords.length}
                     </span>
                   </div>
                 </div>
@@ -528,21 +584,26 @@ export default function ReadingListView({
             )}
           </div>
 
-          {/* POS Filter Pills (Sát mép phải) */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap sm:ml-auto shrink-0">
-            {posOptions.map((opt) => {
-              const isActive = selectedPos === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSelectedPos && setSelectedPos(opt.id)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
+          {/* POS Filter Pills & Nút Sắp Xếp (Sát mép phải) */}
+          <div className="flex items-center gap-2 flex-wrap sm:ml-auto shrink-0">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 shadow-xs flex-wrap">
+              {posOptions.map((opt) => {
+                const isActive = selectedPos === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSelectedPos && setSelectedPos(opt.id)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors duration-150 cursor-pointer ${isActive ? opt.activeClass : `border-transparent ${opt.inactiveClass}`}`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Nút bộ lọc sắp xếp bên phải Idioms */}
+            <SortDropdown sortBy={activeSortBy} onSortChange={handleSortChange} />
           </div>
         </div>
 
@@ -552,9 +613,12 @@ export default function ReadingListView({
             <VocabCard
               key={item.id}
               vocab={item}
+              vocabList={vocabList}
               onPronounce={onPronounce}
               onEdit={onEditVocab}
               onDelete={onDeleteVocab}
+              onSelectRelatedWord={onSelectRelatedWord}
+              onOpenRelatedGroup={onOpenRelatedGroup}
               showReadingList={false}
             />
           ))}

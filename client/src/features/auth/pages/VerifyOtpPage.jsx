@@ -4,19 +4,34 @@ import AuthBanner from '../components/AuthBanner';
 
 export default function VerifyOtpPage({
   registrationData,
-  onNavigateRegister,
   onRegisterSuccess,
+  onNavigateHome,
 }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timeLeft, setTimeLeft] = useState(180); // 3 phút = 180 giây
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successNotice, setSuccessNotice] = useState('Mã xác thực 6 số đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư!');
 
   const inputRefs = useRef([]);
-
   const email = registrationData?.email || '';
+  const fullName = registrationData?.fullName || '';
+
+  // Khóa nút điều hướng trình duyệt (nút Back/Forward) không cho quay lại trang đăng ký cũ
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = (e) => {
+      e.preventDefault();
+      window.history.pushState(null, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   // Đếm ngược 3 phút
   useEffect(() => {
@@ -117,13 +132,13 @@ export default function VerifyOtpPage({
   // Gửi lại mã OTP mới và reset thời gian 3 phút
   const handleResendOtp = async () => {
     if (!email) {
-      setErrorMessage('Không tìm thấy thông tin email. Vui lòng quay lại trang đăng ký.');
+      setErrorMessage('Không tìm thấy thông tin email. Vui lòng thử lại.');
       return;
     }
 
     setResending(true);
     setErrorMessage('');
-    setSuccessNotice('');
+    setResendNotice(false);
 
     try {
       await authApi.sendRegistrationOtp(email);
@@ -131,7 +146,8 @@ export default function VerifyOtpPage({
       // Reset OTP inputs & reset timer về đúng 180 giây (3 phút)
       setOtp(['', '', '', '', '', '']);
       setTimeLeft(180);
-      setSuccessNotice('Đã gửi mã OTP mới! Thời gian hiệu lực 3 phút đã được làm mới.');
+      setResendNotice(true);
+      setTimeout(() => setResendNotice(false), 4000);
 
       if (inputRefs.current[0]) {
         inputRefs.current[0].focus();
@@ -204,18 +220,6 @@ export default function VerifyOtpPage({
         {/* Left Form Column */}
         <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
           <div className="max-w-[460px] w-full lg:-translate-x-7 xl:-translate-x-9">
-            
-            {/* Back Button */}
-            <button
-              type="button"
-              onClick={onNavigateRegister}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-muted hover:text-crimson-primary mb-6 transition-colors group cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-0.5 transition-transform">
-                arrow_back
-              </span>
-              <span>Quay lại chỉnh sửa thông tin</span>
-            </button>
 
             {/* Header Section */}
             <div className="text-center mb-6">
@@ -227,24 +231,19 @@ export default function VerifyOtpPage({
               <h1 className="text-2xl sm:text-3xl font-extrabold text-text-high-contrast tracking-tight font-sans">
                 Xác thực mã OTP
               </h1>
-              <p className="mt-2 text-xs sm:text-sm text-text-muted leading-relaxed">
+              {fullName && (
+                <p className="mt-2.5 text-sm sm:text-base font-semibold text-text-body">
+                  Xin chào <span className="font-bold text-crimson-primary">{fullName}</span>,
+                </p>
+              )}
+              <p className="mt-1 text-xs sm:text-sm text-text-muted leading-relaxed">
                 Chúng tôi đã gửi mã xác thực 6 số đến địa chỉ email:
                 <br />
-                <span className="font-bold text-text-high-contrast text-sm mt-0.5 inline-block">
+                <span className="font-bold text-crimson-primary text-sm sm:text-base mt-1 inline-block">
                   {email || 'email_cua_ban@example.com'}
                 </span>
               </p>
             </div>
-
-            {/* Success Notification Box */}
-            {successNotice && !errorMessage && (
-              <div className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-800 animate-in fade-in duration-200">
-                <span className="material-symbols-outlined text-[18px] shrink-0 text-emerald-600">
-                  check_circle
-                </span>
-                <div className="font-semibold leading-relaxed">{successNotice}</div>
-              </div>
-            )}
 
             {/* Error Message Box */}
             {errorMessage && (
@@ -252,7 +251,7 @@ export default function VerifyOtpPage({
                 <span className="material-symbols-outlined text-[18px] shrink-0 text-crimson-primary">
                   error
                 </span>
-                <div className="font-semibold leading-relaxed">{errorMessage}</div>
+                <div className="font-semibold leading-relaxed flex-1">{errorMessage}</div>
               </div>
             )}
 
@@ -275,10 +274,10 @@ export default function VerifyOtpPage({
                       value={digit}
                       onChange={(e) => handleChange(idx, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(idx, e)}
-                      className={`w-11 h-13 sm:w-13 sm:h-15 text-center text-xl sm:text-2xl font-black rounded-xl border bg-white text-text-high-contrast focus:outline-none transition-all shadow-xs ${
+                      className={`w-12 h-12 sm:w-16 sm:h-16 aspect-square text-center text-2xl sm:text-3xl font-black rounded-2xl border bg-white focus:outline-none transition-all shadow-sm ${
                         digit
-                          ? 'border-crimson-primary ring-2 ring-crimson-primary/20 bg-rose-50/10'
-                          : 'border-slate-200 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/20'
+                          ? 'border-crimson-primary ring-4 ring-crimson-primary/15 bg-rose-50/20 text-crimson-primary'
+                          : 'border-slate-200 hover:border-slate-300 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/15 text-text-high-contrast'
                       }`}
                     />
                   ))}
@@ -331,6 +330,12 @@ export default function VerifyOtpPage({
                     )}
                     <span>Gửi lại mã mới</span>
                   </button>
+                  {resendNotice && (
+                    <div className="text-[11px] font-semibold text-emerald-600 mt-1.5 animate-in fade-in duration-200 flex items-center justify-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      <span>Đã gửi mã OTP mới tới email của bạn!</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </form>
@@ -348,6 +353,7 @@ export default function VerifyOtpPage({
             <AuthBanner
               showLogo={true}
               title="LinearVocab LMS"
+              onNavigateHome={onNavigateHome}
               description={
                 <>
                   Bảo vệ tài khoản an toàn với xác thực OTP 2 lớp.
