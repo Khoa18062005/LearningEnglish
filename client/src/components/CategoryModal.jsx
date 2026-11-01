@@ -47,7 +47,7 @@ export default function CategoryModal({
 
     const cleanName = name.trim();
     if (!cleanName) {
-      setErrorMessage('Vui lòng nhập tên danh mục.');
+      setErrorMessage('Vui lòng nhập tên chủ đề từ vựng.');
       return;
     }
 
@@ -58,7 +58,7 @@ export default function CategoryModal({
     });
 
     if (isDuplicate) {
-      setErrorMessage(`Danh mục "${cleanName}" đã tồn tại! Vui lòng chọn tên khác.`);
+      setErrorMessage(`Chủ đề "${cleanName}" đã tồn tại! Vui lòng chọn tên khác.`);
       return;
     }
 
@@ -74,8 +74,8 @@ export default function CategoryModal({
 
       await onSave(payload, initialCategory?.id);
     } catch (err) {
-      console.error('Lỗi khi lưu danh mục:', err);
-      setErrorMessage(err.message || 'Có lỗi xảy ra khi lưu danh mục. Vui lòng thử lại.');
+      console.error('Lỗi khi lưu chủ đề:', err);
+      setErrorMessage(err.message || 'Có lỗi xảy ra khi lưu chủ đề từ vựng. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -122,16 +122,11 @@ export default function CategoryModal({
               <span className="material-symbols-outlined text-[24px]">label</span>
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
-                  {isEditing ? `Chỉnh Sửa Danh Mục: ${initialCategory?.name}` : 'Tạo Danh Mục Mới'}
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark text-[10px] font-extrabold uppercase tracking-wider border border-border-crimson-tint/60">
-                  CATEGORY
-                </span>
-              </div>
+              <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
+                Topic Vocabulary
+              </h2>
               <p className="text-xs text-text-muted mt-0.5 whitespace-normal sm:whitespace-nowrap">
-                {isEditing ? 'Cập nhật tên, mã màu sắc hoặc mô tả cho danh mục.' : 'Phân loại các từ vựng theo chủ đề, chứng chỉ hoặc mục đích học.'}
+                {isEditing ? 'Cập nhật tên, mã màu sắc hoặc mô tả cho chủ đề từ vựng.' : 'Hệ thống hóa từ vựng theo chủ đề chuyên sâu, lĩnh vực đời sống hoặc học thuật.'}
               </p>
             </div>
           </div>
@@ -164,17 +159,17 @@ export default function CategoryModal({
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
               <span>
-                Tên danh mục <span className="text-crimson-primary">*</span>
+                Tên chủ đề từ vựng <span className="text-crimson-primary">*</span>
               </span>
               <span className="text-[11px] font-normal text-text-muted">
-                e.g. IELTS Acad, Business English, Oxford 3000
+                e.g. Con người, Môi trường, Công nghệ, Business, Education
               </span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Nhập tên danh mục..."
+              placeholder="Nhập tên chủ đề từ vựng..."
               className="w-full h-11 px-3.5 bg-white rounded-xl text-sm font-semibold text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none"
               autoFocus
               required
@@ -237,7 +232,7 @@ export default function CategoryModal({
                   }}
                 >
                   <span className="material-symbols-outlined text-[15px]">label</span>
-                  <span>{name.trim() || 'Tên danh mục'}</span>
+                  <span>{name.trim() || 'Tên chủ đề'}</span>
                 </span>
               </div>
             </div>
@@ -246,14 +241,14 @@ export default function CategoryModal({
           {/* Field 3: Description */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
-              <span>Mô tả danh mục</span>
+              <span>Mô tả chủ đề</span>
               <span className="text-[11px] font-normal text-text-muted">Tùy chọn</span>
             </label>
             <textarea
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ghi chú về nhóm từ vựng hoặc phạm vi áp dụng..."
+              placeholder="Ghi chú về nhóm từ vựng thuộc chủ đề này hoặc phạm vi áp dụng..."
               className="w-full px-3.5 py-2.5 bg-white rounded-xl text-xs font-normal text-text-body border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none resize-none"
             />
           </div>
@@ -283,7 +278,7 @@ export default function CategoryModal({
                   <span className="material-symbols-outlined text-[16px]">
                     {isEditing ? 'check' : 'add'}
                   </span>
-                  <span>{isEditing ? 'Cập nhật danh mục' : 'Tạo danh mục'}</span>
+                  <span>{isEditing ? 'Cập nhật chủ đề' : 'Tạo chủ đề'}</span>
                 </>
               )}
             </button>

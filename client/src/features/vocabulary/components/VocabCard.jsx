@@ -433,30 +433,20 @@ export default function VocabCard({
           </div>
         </div>
 
-        {/* Bottom: POS Badge, Reading List & Categories */}
+        {/* Bottom: POS Badge & Reading List */}
         <div className="flex flex-col gap-2 pt-2">
           <div className="flex items-center gap-2 flex-wrap">
             {getPosBadge()}
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {showReadingList && vocab.readingListName && (
+          {showReadingList && vocab.readingListName && (
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-crimson-subtle text-crimson-primary border border-border-crimson-tint text-[10px] font-bold">
                 <span className="material-symbols-outlined text-[12px]">folder</span>
                 <span>{vocab.readingListName}</span>
               </span>
-            )}
-
-            {vocab.categories &&
-              vocab.categories.map((cat, cIdx) => (
-                <span
-                  key={cIdx}
-                  className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-semibold border border-slate-200/60"
-                >
-                  {cat}
-                </span>
-              ))}
-          </div>
+            </div>
+          )}
         </div>
 
       </div>

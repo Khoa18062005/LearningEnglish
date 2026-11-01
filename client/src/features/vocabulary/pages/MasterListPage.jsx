@@ -449,7 +449,7 @@ export default function MasterListPage({
             </p>
             <p className="text-xs text-text-muted max-w-md mt-1 mb-4 leading-relaxed">
               {searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
-                ? 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc từ loại/danh mục.'
+                ? 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc từ loại/chủ đề (Topic Vocabulary).'
                 : 'Kho từ vựng của bạn đang trống. Hãy thêm các từ vựng mới để bắt đầu học tập và quản trị theo phương pháp Linearthinking.'}
             </p>
             <button

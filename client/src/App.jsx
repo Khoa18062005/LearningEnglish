@@ -6,6 +6,7 @@ import ReadingListView from './features/reading-lists/pages/ReadingListView';
 import ListVocabularyPage from './features/reading-lists/pages/ListVocabularyPage';
 import WordFamiliesPage from './features/vocabulary/pages/WordFamiliesPage';
 import CategoryView from './features/categories/pages/CategoryView';
+import TopicVocabularyPage from './features/categories/pages/TopicVocabularyPage';
 import AddVocabModal from './features/vocabulary/components/AddVocabModal';
 import VocabDetailModal from './features/vocabulary/components/VocabDetailModal';
 import RelatedVocabGroupModal from './features/vocabulary/components/RelatedVocabGroupModal';
@@ -90,6 +91,9 @@ export default function App() {
       if (tab === 'list-vocabulary' || tab === 'list vocabulary' || tab === 'lists' || tab === 'reading-lists') {
         return { view: 'list-vocabulary', listId: null, category: null };
       }
+      if (tab === 'topic-vocabulary' || tab === 'topic vocabulary' || tab === 'topics' || tab === 'categories') {
+        return { view: 'topic-vocabulary', listId: null, category: null };
+      }
 
       // Fallback từ sessionStorage nếu người dùng F5 trên URL /vocab
       try {
@@ -112,6 +116,9 @@ export default function App() {
         }
         if (savedView === 'list-vocabulary') {
           return { view: 'list-vocabulary', listId: null, category: null };
+        }
+        if (savedView === 'topic-vocabulary') {
+          return { view: 'topic-vocabulary', listId: null, category: null };
         }
       } catch (e) {}
 
@@ -367,7 +374,7 @@ export default function App() {
   // Điều hướng trang
   const navigateTo = (view) => {
     setCurrentView(view);
-    if (view === 'master' || view === 'vocab' || view === 'profile' || view === 'list-vocabulary') {
+    if (view === 'master' || view === 'vocab' || view === 'profile' || view === 'list-vocabulary' || view === 'topic-vocabulary') {
       setSelectedReadingListId(null);
       setSelectedCategory(null);
     }
@@ -414,6 +421,14 @@ export default function App() {
       params.set('tab', 'list-vocabulary');
       try {
         sessionStorage.setItem('last_vocab_view', 'list-vocabulary');
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch (e) {}
+    } else if (currentView === 'topic-vocabulary') {
+      targetPath = '/vocab';
+      params.set('tab', 'topic-vocabulary');
+      try {
+        sessionStorage.setItem('last_vocab_view', 'topic-vocabulary');
         sessionStorage.removeItem('last_vocab_list_id');
         sessionStorage.removeItem('last_vocab_category');
       } catch (e) {}
@@ -894,13 +909,13 @@ export default function App() {
     setEditingCategory(null);
   };
 
-  // Delete Category
+  // Delete Category (Topic Vocabulary)
   const handleDeleteCategory = (cat) => {
     showNotification({
-      title: 'Xóa danh mục',
-      message: `Bạn có chắc chắn muốn xóa danh mục "${cat.name}"? Các từ vựng sẽ không bị xóa mà chỉ được gỡ bỏ khỏi danh mục này.`,
+      title: 'Xóa chủ đề từ vựng',
+      message: `Bạn có chắc chắn muốn xóa chủ đề "${cat.name}" khỏi hệ thống Topic Vocabulary? Các từ vựng sẽ không bị xóa mà chỉ được gỡ bỏ khỏi chủ đề này.`,
       type: 'danger',
-      confirmText: 'Xóa danh mục',
+      confirmText: 'Xóa chủ đề',
       onConfirm: async () => {
         try {
           if (isBackendConnected) {
@@ -1295,6 +1310,11 @@ export default function App() {
                 onOpenRelatedGroup={handleOpenRelatedGroup}
                 onEditCategory={handleEditCategory}
                 onDeleteCategory={handleDeleteCategory}
+                onBackToTopicVocabulary={() => {
+                  setCurrentView('topic-vocabulary');
+                  setSelectedCategory(null);
+                  setSelectedReadingListId(null);
+                }}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 selectedPos={selectedPos}
@@ -1305,15 +1325,15 @@ export default function App() {
             ) : loading ? (
               <div className="p-16 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
                 <span className="material-symbols-outlined text-4xl text-crimson-primary animate-spin">progress_activity</span>
-                <p className="font-bold text-base text-text-high-contrast">Đang tải danh mục...</p>
+                <p className="font-bold text-base text-text-high-contrast">Đang tải chủ đề...</p>
                 <p className="text-xs text-text-muted">Hệ thống đang đồng bộ dữ liệu từ máy chủ...</p>
               </div>
             ) : (
               <div className="p-12 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
-                <span className="material-symbols-outlined text-4xl text-text-disabled">label</span>
-                <p className="font-bold text-base text-text-high-contrast">Chưa chọn danh mục</p>
+                <span className="material-symbols-outlined text-4xl text-text-disabled">category</span>
+                <p className="font-bold text-base text-text-high-contrast">Chưa chọn chủ đề từ vựng</p>
                 <p className="text-xs text-text-muted">
-                  Vui lòng chọn một danh mục từ menu bên trái hoặc tạo một danh mục mới.
+                  Vui lòng chọn một chủ đề từ menu bên trái hoặc tạo một chủ đề mới.
                 </p>
                 <div className="flex items-center gap-2 mt-2">
                   <button
@@ -1321,7 +1341,18 @@ export default function App() {
                     onClick={handleOpenAddCategoryModal}
                     className="px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs"
                   >
-                    + Tạo danh mục mới
+                    + Tạo chủ đề mới
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentView('topic-vocabulary');
+                      setSelectedReadingListId(null);
+                      setSelectedCategory(null);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-red-50 text-crimson-primary text-xs font-bold hover:bg-red-100"
+                  >
+                    Xem Topic Vocabulary
                   </button>
                   <button
                     type="button"
@@ -1333,6 +1364,24 @@ export default function App() {
                 </div>
               </div>
             )
+          )}
+
+          {currentView === 'topic-vocabulary' && (
+            <div className="px-6 lg:px-8 pt-5 pb-8 max-w-[1600px] mx-auto w-full">
+              <TopicVocabularyPage
+                categories={categories}
+                vocabList={vocabList}
+                onSelectCategory={(catName) => {
+                  setSelectedCategory(catName);
+                  setSelectedReadingListId(null);
+                  setCurrentView('category');
+                }}
+                onOpenAddCategoryModal={handleOpenAddCategoryModal}
+                onOpenAddModal={handleOpenAddModal}
+                onEditCategory={handleEditCategory}
+                onDeleteCategory={handleDeleteCategory}
+              />
+            </div>
           )}
 
           {currentView === 'word-families' && (

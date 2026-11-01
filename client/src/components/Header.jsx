@@ -60,8 +60,10 @@ export default function Header({
             ? 'List Vocabulary (Danh sách từ vựng)'
             : currentView === 'reading-list'
             ? 'Reading List'
+            : currentView === 'topic-vocabulary'
+            ? 'Topic Vocabulary'
             : currentView === 'category'
-            ? 'Danh mục'
+            ? 'Topic Vocabulary'
             : 'Kho từ vựng trung tâm'}
         </span>
       </div>

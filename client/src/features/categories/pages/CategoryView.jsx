@@ -11,6 +11,7 @@ export default function CategoryView({
   onDeleteVocab,
   onEditCategory,
   onDeleteCategory,
+  onBackToTopicVocabulary,
   searchTerm = '',
   setSearchTerm,
   selectedPos = 'all',
@@ -145,7 +146,6 @@ export default function CategoryView({
   return (
     <div className="flex flex-col w-full pb-16">
       <div className="px-6 lg:px-8 pt-5 pb-1 max-w-[1600px] mx-auto w-full flex flex-col gap-5">
-        
         {/* ======================================================== */}
         {/* TOP HERO BANNER CARD (GIỐNG THẺ LIST ĐỎ GRADIENT EDTECH) */}
         {/* ======================================================== */}
@@ -172,9 +172,9 @@ export default function CategoryView({
               {/* Title & Description */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3 flex-wrap">
-                  {/* Badge CATEGORY vàng nổi bật chuẩn thẻ List */}
+                  {/* Badge TOPIC VOCABULARY vàng nổi bật */}
                   <span className="px-2.5 py-1 rounded-md bg-yellow-400/35 text-yellow-100 text-xs font-black uppercase tracking-wider border border-yellow-300/70 backdrop-blur-xs shrink-0 select-none shadow-[0_0_14px_rgba(250,204,21,0.35)]">
-                    CATEGORY
+                    TOPIC VOCABULARY
                   </span>
 
                   <h1 className="font-headline text-xl lg:text-2xl font-black text-white tracking-tight leading-none drop-shadow-xs">
@@ -186,7 +186,7 @@ export default function CategoryView({
                       <button
                         type="button"
                         onClick={() => onDeleteCategory(category)}
-                        title="Xóa danh mục này"
+                        title="Xóa chủ đề này"
                         className="w-7 h-7 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -197,7 +197,7 @@ export default function CategoryView({
                       <button
                         type="button"
                         onClick={() => onEditCategory(category)}
-                        title="Chỉnh sửa danh mục này"
+                        title="Chỉnh sửa chủ đề này"
                         className="w-7 h-7 rounded-lg flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -207,7 +207,7 @@ export default function CategoryView({
                 </div>
 
                 <p className="text-xs text-white/90 leading-relaxed font-normal mt-0.5">
-                  {category.description || 'Bộ từ vựng thuộc danh mục phân loại theo phương pháp LinearThinking, phân tích ngữ cảnh, mẫu câu và collocations tương ứng.'}
+                  {category.description || 'Bộ từ vựng thuộc chủ đề phân loại theo phương pháp LinearThinking, phân tích ngữ cảnh, mẫu câu và collocations tương ứng.'}
                 </p>
               </div>
 
@@ -290,7 +290,7 @@ export default function CategoryView({
             <div className="flex flex-col justify-between gap-2.5 shrink-0 w-full sm:w-auto lg:w-[210px]">
               <button
                 type="button"
-                onClick={() => alert(`Khởi động chế độ Luyện Flashcard cho danh mục "${category.name}"!`)}
+                onClick={() => alert(`Khởi động chế độ Luyện Flashcard cho chủ đề "${category.name}"!`)}
                 className="group relative overflow-hidden inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-white/60 hover:border-white shadow-xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] cursor-pointer"
               >
                 <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-slate-300/40 to-transparent transition-transform duration-700 ease-in-out pointer-events-none" />
@@ -300,7 +300,7 @@ export default function CategoryView({
 
               <button
                 type="button"
-                onClick={() => alert(`Khởi động bài kiểm tra Quiz cho danh mục "${category.name}"!`)}
+                onClick={() => alert(`Khởi động bài kiểm tra Quiz cho chủ đề "${category.name}"!`)}
                 className="group relative overflow-hidden inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-white/60 hover:border-white shadow-xs hover:shadow-md transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] cursor-pointer"
               >
                 <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-slate-300/40 to-transparent transition-transform duration-700 ease-in-out pointer-events-none" />
@@ -393,11 +393,11 @@ export default function CategoryView({
           {categoryWords.length === 0 && (
             <div className="p-14 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
-                <span className="material-symbols-outlined text-[28px]">article</span>
+                <span className="material-symbols-outlined text-[28px]">category</span>
               </div>
               <div>
                 <p className="font-bold text-sm text-text-high-contrast">
-                  Chưa có từ vựng nào trong danh mục này
+                  Chưa có từ vựng nào trong chủ đề này
                 </p>
                 <p className="text-xs text-text-muted mt-1 leading-relaxed">
                   Bấm nút &ldquo;Thêm từ vựng mới&rdquo; phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.

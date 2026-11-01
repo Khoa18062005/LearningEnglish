@@ -757,8 +757,8 @@ export default function AddVocabModal({
       ]);
       if (defaultReadingList) {
         setSelectedReadingList(defaultReadingList);
-      } else if (readingLists.length > 0) {
-        setSelectedReadingList(readingLists[0].id);
+      } else {
+        setSelectedReadingList('');
       }
     }
   }, [isOpen, initialVocab, readingLists, defaultCategory, defaultReadingList]);
@@ -1413,7 +1413,7 @@ export default function AddVocabModal({
                 </span>
                 <div>
                   <h3 className="font-headline font-bold text-sm text-text-high-contrast leading-tight">
-                    Thông tin từ gốc &amp; Danh mục phân loại
+                    Thông tin từ gốc &amp; Chủ đề phân loại (Topic Vocabulary)
                   </h3>
                   <p className="text-[11px] text-slate-400">
                     Cấu hình từ vựng tiếng Anh, từ loại, nét nghĩa chung và gán vào bài đọc tương ứng.
@@ -2072,12 +2072,14 @@ export default function AddVocabModal({
                 <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
                   <span>Gán vào thẻ List bài đọc</span>
                   {(() => {
-                    const matched = readingLists.find((r) => r.id === selectedReadingList);
+                    const matched = readingLists.find((r) => String(r.id) === String(selectedReadingList));
                     return matched?.code ? (
                       <span className="text-[11px] font-semibold text-crimson-primary">
                         {matched.code}
                       </span>
-                    ) : null;
+                    ) : (
+                      <span className="text-[11px] font-normal text-slate-400">Không bắt buộc</span>
+                    );
                   })()}
                 </label>
 
@@ -2093,9 +2095,13 @@ export default function AddVocabModal({
                 >
                   <div className="flex items-center gap-1.5 overflow-hidden flex-1">
                     {(() => {
-                      const matched = readingLists.find((r) => r.id === selectedReadingList);
+                      const matched = readingLists.find((r) => String(r.id) === String(selectedReadingList));
                       if (!matched) {
-                        return <span className="text-slate-400 text-xs truncate">-- Chọn list bài đọc --</span>;
+                        return (
+                          <span className="text-slate-400 text-xs truncate italic">
+                            -- Không gán vào list bài đọc (Để trống) --
+                          </span>
+                        );
                       }
                       return (
                         <>
@@ -2109,13 +2115,29 @@ export default function AddVocabModal({
                       );
                     })()}
                   </div>
-                  <span
-                    className={`material-symbols-outlined text-slate-400 text-[20px] transition-transform duration-200 shrink-0 ${
-                      isReadingListDropdownOpen ? 'rotate-180 text-crimson-primary' : ''
-                    }`}
-                  >
-                    expand_more
-                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {selectedReadingList && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedReadingList('');
+                        }}
+                        title="Bỏ chọn list bài đọc (Để trống)"
+                        className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer mr-0.5"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">close</span>
+                      </span>
+                    )}
+                    <span
+                      className={`material-symbols-outlined text-slate-400 text-[20px] transition-transform duration-200 shrink-0 ${
+                        isReadingListDropdownOpen ? 'rotate-180 text-crimson-primary' : ''
+                      }`}
+                    >
+                      expand_more
+                    </span>
+                  </div>
                 </button>
 
                 {/* Dropdown Popover */}
@@ -2137,6 +2159,40 @@ export default function AddVocabModal({
                       )}
                     </div>
                     <div className="divide-y divide-slate-50">
+                      {/* Tùy chọn để trống (Không gán vào list bài đọc nào) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedReadingList('');
+                          setIsReadingListDropdownOpen(false);
+                        }}
+                        className={`w-full px-3.5 py-2.5 flex items-center justify-between gap-3 text-left transition-colors text-xs select-none border-b border-slate-100 ${
+                          !selectedReadingList
+                            ? 'bg-surface-crimson-subtle/80 text-crimson-primary font-bold'
+                            : 'hover:bg-slate-50 text-slate-500'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 overflow-hidden flex-1">
+                          <span
+                            className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+                              !selectedReadingList
+                                ? 'bg-crimson-primary text-white'
+                                : 'border border-slate-300'
+                            }`}
+                          >
+                            {!selectedReadingList && (
+                              <span className="material-symbols-outlined text-[12px]">check</span>
+                            )}
+                          </span>
+                          <span className="italic text-xs">
+                            -- Không gán vào list bài đọc (Để trống) --
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          Không thuộc list
+                        </span>
+                      </button>
+
                       {readingLists.length === 0 ? (
                         <div className="p-3 text-center text-xs text-text-muted">
                           <p>Chưa có danh sách bài đọc nào.</p>
@@ -2155,7 +2211,7 @@ export default function AddVocabModal({
                         </div>
                       ) : (
                         readingLists.map((rl) => {
-                          const isSelected = rl.id === selectedReadingList;
+                          const isSelected = String(rl.id) === String(selectedReadingList);
                           const code = rl.code || rl.shortTitle || 'LIST';
                           const title = rl.title || rl.fullTitle || '';
                           return (
@@ -2210,9 +2266,9 @@ export default function AddVocabModal({
               {/* Field 6: Categories Dropdown */}
               <div className="md:col-span-6 flex flex-col gap-1.5 relative" ref={categoryDropdownRef}>
                 <label className="text-xs font-bold text-text-high-contrast flex items-center justify-between">
-                  <span>Danh mục áp dụng (Categories)</span>
+                  <span>Chủ đề áp dụng (Topic Vocabulary)</span>
                   <span className="text-[11px] font-normal text-text-muted">
-                    {selectedCategories.length > 0 ? `Đã chọn (${selectedCategories.length})` : 'Chọn danh mục'}
+                    {selectedCategories.length > 0 ? `Đã chọn (${selectedCategories.length})` : 'Chọn chủ đề'}
                   </span>
                 </label>
 
@@ -2228,7 +2284,7 @@ export default function AddVocabModal({
                 >
                   <div className="flex items-center gap-1.5 flex-wrap flex-1 overflow-hidden">
                     {selectedCategories.length === 0 ? (
-                      <span className="text-slate-400 text-xs">-- Chọn danh mục áp dụng --</span>
+                      <span className="text-slate-400 text-xs">-- Chọn chủ đề áp dụng --</span>
                     ) : (
                       selectedCategories.map((catName) => (
                         <span
@@ -2253,7 +2309,7 @@ export default function AddVocabModal({
                 {isCategoryDropdownOpen && (
                   <div className="absolute top-full left-0 right-0 mt-1.5 z-40 bg-white rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.12)] border border-slate-200/90 py-1.5 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-slate-500">Danh sách danh mục</span>
+                      <span className="font-semibold text-slate-500">Danh sách chủ đề (Topics)</span>
                       <div className="flex items-center gap-2">
                         {onOpenAddCategoryModal && (
                           <button
@@ -2287,7 +2343,7 @@ export default function AddVocabModal({
                     <div className="divide-y divide-slate-50">
                       {categories.length === 0 ? (
                         <div className="p-3 text-center text-xs text-text-muted">
-                          <p>Chưa có danh mục nào.</p>
+                          <p>Chưa có chủ đề nào.</p>
                           {onOpenAddCategoryModal && (
                             <button
                               type="button"
