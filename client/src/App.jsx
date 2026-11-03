@@ -1266,6 +1266,7 @@ export default function App() {
               vocabList={vocabList || []}
               readingLists={readingLists || []}
               categories={categories || []}
+              wordFamilies={wordFamilies || []}
               onNavigateVocab={() => {
                 setCurrentView('master');
                 setSelectedReadingListId(null);

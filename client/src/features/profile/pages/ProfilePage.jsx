@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import UserProfileCard from '../components/UserProfileCard';
 import CompetencyRadarChart from '../components/CompetencyRadarChart';
+import VocabActivityHeatmap from '../components/VocabActivityHeatmap';
 import CompetencyDetailModal from '../components/CompetencyDetailModal';
 import AssessmentQuizModal from '../components/AssessmentQuizModal';
 import EditProfileModal from '../components/EditProfileModal';
@@ -21,6 +22,7 @@ export default function ProfilePage({
   vocabList = [],
   readingLists = [],
   categories = [],
+  wordFamilies = [],
   onNavigateVocab,
   onOpenAddModal,
 }) {
@@ -113,7 +115,7 @@ export default function ProfilePage({
       {/* ======================================================== */}
       {/* TOP RED HERO CARD (Profile Banner + Mascot + 4 Stat Cards) */}
       {/* ======================================================== */}
-      <section className="px-6 lg:px-8 pt-5 pb-3">
+      <section className="px-6 lg:px-8 pt-5">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 px-6 py-5 sm:px-8 sm:py-5 text-white transition-all">
           {/* Decorative glowing halos in background */}
           <div className="absolute -left-12 -top-12 w-80 h-80 bg-white/15 rounded-full blur-2xl pointer-events-none" />
@@ -239,104 +241,34 @@ export default function ProfilePage({
       {/* ======================================================== */}
       {/* MAIN TWO-COLUMN LAYOUT: Left (Info) | Right (Radar)      */}
       {/* ======================================================== */}
-      <section className="px-6 lg:px-8 py-2">
+      <section className="px-6 lg:px-8 pt-5">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          {/* CỘT BÊN TRÁI: THÔNG TIN CÁ NHÂN (Các thông tin dùng để đăng ký tài khoản) */}
-          <div className="lg:col-span-4 xl:col-span-4 flex flex-col gap-5">
+          {/* HÀNG 1 - CỘT TRÁI: THÔNG TIN CÁ NHÂN */}
+          <div className="lg:col-span-4 xl:col-span-4 flex flex-col">
             <UserProfileCard
               currentUser={currentUser}
               onOpenEditModal={() => setIsEditProfileModalOpen(true)}
             />
-
-            {/* Thống kê học tập bổ trợ */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4 flex flex-col gap-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[17px] text-crimson-primary">monitoring</span>
-                  <span>Tiến độ tích lũy từ vựng</span>
-                </span>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                  Linear System
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[10px] text-slate-400 block font-medium">Từ đã lưu</span>
-                  <span className="text-base font-black text-slate-900 mt-0.5 block">{totalVocab}</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-blue-50/60 border border-blue-100">
-                  <span className="text-[10px] text-blue-500 block font-medium">Patterns</span>
-                  <span className="text-base font-black text-blue-700 mt-0.5 block">{totalPatterns}</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-pink-50/60 border border-pink-100">
-                  <span className="text-[10px] text-pink-500 block font-medium">Collocation</span>
-                  <span className="text-base font-black text-pink-700 mt-0.5 block">{totalCollocations}</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-emerald-600 text-[18px]">workspace_premium</span>
-                  <span className="font-bold text-emerald-800 text-[11px]">Cấp độ tương đương:</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-black text-[11px] shadow-xs">
-                  IELTS 6.5 - 7.0 (B2+)
-                </span>
-              </div>
-            </div>
           </div>
 
-          {/* CỘT BÊN PHẢI TRÊN CÙNG: BẢNG SƠ ĐỒ NĂNG LỰC (RADAR CHART) */}
-          <div className="lg:col-span-8 xl:col-span-8 flex flex-col gap-5">
+          {/* HÀNG 1 - CỘT PHẢI: BẢNG SƠ ĐỒ NĂNG LỰC (RADAR CHART) */}
+          <div className="lg:col-span-8 xl:col-span-8 flex flex-col">
             <CompetencyRadarChart
+              vocabList={vocabList}
+              readingLists={readingLists}
+              categories={categories}
+              wordFamilies={wordFamilies}
               onOpenAssessmentModal={() => setIsAssessmentModalOpen(true)}
               onOpenDetailModal={() => setIsDetailModalOpen(true)}
             />
+          </div>
 
-            {/* Lộ trình gợi ý & Nhận xét sư phạm */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-4.5 flex flex-col gap-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-amber-500 text-[19px]">lightbulb</span>
-                  <h3 className="font-bold text-xs text-slate-800">
-                    Phân tích & Lộ trình đề xuất theo phương pháp Linearthinking
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsDetailModalOpen(true)}
-                  className="text-xs font-bold text-crimson-primary hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  <span>Xem báo cáo đầy đủ</span>
-                  <span className="material-symbols-outlined text-[15px]">chevron_right</span>
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                {/* Điểm mạnh */}
-                <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100/80 flex flex-col gap-1">
-                  <span className="font-bold text-emerald-800 flex items-center gap-1.5 text-xs">
-                    <span className="material-symbols-outlined text-[15px] text-emerald-600">check_circle</span>
-                    <span>Thế mạnh nổi bật</span>
-                  </span>
-                  <p className="text-slate-600 leading-relaxed text-[11px] mt-0.5">
-                    <strong>Cấu trúc & Pattern câu (92/100)</strong> và <strong>Đọc hiểu Linearthinking (90/100)</strong> đạt mức độ xuất sắc. Khả năng liên kết ý và phân tích câu phức rất tốt.
-                  </p>
-                </div>
-
-                {/* Điểm cần phát triển */}
-                <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100/80 flex flex-col gap-1">
-                  <span className="font-bold text-amber-800 flex items-center gap-1.5 text-xs">
-                    <span className="material-symbols-outlined text-[15px] text-amber-600">trending_up</span>
-                    <span>Mục tiêu cần nâng cao</span>
-                  </span>
-                  <p className="text-slate-600 leading-relaxed text-[11px] mt-0.5">
-                    <strong>Họ từ vựng (Word Families - 70/100)</strong> và <strong>Ứng dụng Viết (72/100)</strong> có biên độ tăng trưởng lớn. Nên tăng cường luyện bài tập biến đổi từ loại và đặt câu ứng dụng.
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* HÀNG 2: BIỂU ĐỒ HOẠT ĐỘNG TÍCH LŨY TỪ VỰNG THEO NGÀY (GITHUB HEATMAP STYLE) */}
+          <div className="lg:col-span-12">
+            <VocabActivityHeatmap
+              vocabList={vocabList}
+              currentUser={currentUser}
+            />
           </div>
         </div>
       </section>

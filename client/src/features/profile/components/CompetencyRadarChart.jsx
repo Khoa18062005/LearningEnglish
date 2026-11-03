@@ -1,112 +1,217 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 /**
- * CompetencyRadarChart: Sơ đồ năng lực (Biểu đồ radar đa chiều)
+ * CompetencyRadarChart: Sơ đồ cơ cấu kho từ vựng 9 chiều (Nonagon Radar Matrix)
  * Thiết kế chuẩn UI học thuật DOL English & Linearthinking.
  * 
- * So với hình 2 (mẫu cũ):
- * - Giao diện hiện đại, sắc nét với SVG Vector thuần (không bể ảnh trên màn Retina/4K).
- * - Phối màu chuẩn DOL Red & White phối cùng Sapphire Blue sang trọng.
- * - Hỗ trợ tương tác hover xem điểm số chi tiết từng trục năng lực.
- * - Có nút "Đánh giá năng lực đầu vào" và link "Chi tiết >" như hình 2 mẫu.
- * - Hai bộ chỉ số: Điểm vận dụng (Xanh dương) & Điểm thông hiểu (Đỏ).
+ * 9 Trục thể hiện 9 trường thông tin:
+ * 1. Danh từ (Nouns)
+ * 2. Động từ (Verbs)
+ * 3. Tính từ (Adjectives)
+ * 4. Trạng từ (Adverbs)
+ * 5. Collocation & Cụm từ
+ * 6. Idioms & Phrasal Verbs
+ * 7. Word Family (Gia đình từ)
+ * 8. Reading List (Danh sách bài đọc)
+ * 9. Topic (Chủ đề từ vựng)
  */
 export default function CompetencyRadarChart({
+  vocabList = [],
+  readingLists = [],
+  categories = [],
+  wordFamilies = [],
   onOpenAssessmentModal,
   onOpenDetailModal,
 }) {
-  const [showApplication, setShowApplication] = useState(true);
-  const [showComprehension, setShowComprehension] = useState(true);
-  const [hoveredCompetency, setHoveredCompetency] = useState(null);
-  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
+  const [hoveredDimension, setHoveredDimension] = useState(null);
 
-  // 8 Trục năng lực cốt lõi theo phương pháp Linearthinking & Học từ vựng chuẩn hóa
-  const competencies = [
+  // 1. Số lượng Danh từ (Nouns)
+  const nounCount = useMemo(() => {
+    return (vocabList || []).filter((v) => {
+      const pos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+      if (pos === 'n' || pos === 'noun') return true;
+      return (v.forms || []).some(
+        (f) => (f.pos || '').toLowerCase() === 'n' || (f.pos || '').toLowerCase() === 'noun'
+      );
+    }).length;
+  }, [vocabList]);
+
+  // 2. Số lượng Động từ (Verbs)
+  const verbCount = useMemo(() => {
+    return (vocabList || []).filter((v) => {
+      const pos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+      if (pos === 'v' || pos === 'verb') return true;
+      return (v.forms || []).some(
+        (f) => (f.pos || '').toLowerCase() === 'v' || (f.pos || '').toLowerCase() === 'verb'
+      );
+    }).length;
+  }, [vocabList]);
+
+  // 3. Số lượng Tính từ (Adjectives)
+  const adjCount = useMemo(() => {
+    return (vocabList || []).filter((v) => {
+      const pos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+      if (pos === 'adj' || pos === 'adjective') return true;
+      return (v.forms || []).some(
+        (f) => (f.pos || '').toLowerCase() === 'adj' || (f.pos || '').toLowerCase() === 'adjective'
+      );
+    }).length;
+  }, [vocabList]);
+
+  // 4. Số lượng Trạng từ (Adverbs)
+  const advCount = useMemo(() => {
+    return (vocabList || []).filter((v) => {
+      const pos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+      if (pos === 'adv' || pos === 'adverb') return true;
+      return (v.forms || []).some(
+        (f) => (f.pos || '').toLowerCase() === 'adv' || (f.pos || '').toLowerCase() === 'adverb'
+      );
+    }).length;
+  }, [vocabList]);
+
+  // 5. Số lượng Collocation (Cụm từ)
+  const collocationCount = useMemo(() => {
+    return (vocabList || []).reduce((acc, v) => {
+      const count = (v.forms || []).filter(
+        (f) => Boolean(f.collocation && f.collocation.trim() && f.type !== 'phrasal_verb')
+      ).length;
+      return acc + count;
+    }, 0);
+  }, [vocabList]);
+
+  // 6. Số lượng Idioms & Phrasal Verbs (Thành ngữ)
+  const idiomCount = useMemo(() => {
+    return (vocabList || []).reduce((acc, v) => {
+      const posLower = (v.pos || '').toLowerCase();
+      const isDirect = posLower === 'idiom' || posLower === 'phrasal_verb' || posLower === 'phrasal verb';
+      const formCount = (v.forms || []).filter(
+        (f) =>
+          f.type === 'phrasal_verb' ||
+          (f.pos || '').toLowerCase() === 'phrasal_verb' ||
+          (f.pos || '').toLowerCase() === 'idiom' ||
+          Boolean(f.phrase)
+      ).length;
+      return acc + (isDirect ? 1 : 0) + formCount;
+    }, 0);
+  }, [vocabList]);
+
+  // 7. Số lượng Word Family (Gia đình từ)
+  const wordFamilyCount = useMemo(() => {
+    const listLen = (wordFamilies || []).length;
+    if (listLen > 0) return listLen;
+    const roots = new Set();
+    (vocabList || []).forEach((v) => {
+      if (v.wordFamilyId) roots.add(String(v.wordFamilyId));
+      else if (v.rootWord && v.rootWord.trim()) roots.add(v.rootWord.trim().toLowerCase());
+    });
+    return roots.size;
+  }, [wordFamilies, vocabList]);
+
+  // 8. Số lượng Reading List (Danh sách bài đọc)
+  const listCount = (readingLists || []).length;
+
+  // 9. Số lượng Topic (Chủ đề từ vựng)
+  const topicCount = (categories || []).length;
+
+  // 9 Trục thông tin theo cấu trúc hình học đối xứng thuận chiều kim đồng hồ
+  const dimensions = useMemo(() => [
     {
-      id: 'vocab',
-      name: 'Từ vựng cốt lõi',
-      en: 'Core Vocab',
-      comprehension: 88, // Điểm thông hiểu
-      application: 78,   // Điểm vận dụng
-      comment: 'Vốn từ vựng học thuật phong phú, hiểu rõ bản chất ngữ nghĩa.',
+      id: 'noun',
+      name: 'Danh từ',
+      en: 'Nouns (n)',
+      count: nounCount,
+      target: 60,
+      comment: 'Danh từ là nòng cốt cấu trúc câu. Cần tiếp tục tích lũy theo các chủ đề chuyên sâu.',
+    },
+    {
+      id: 'verb',
+      name: 'Động từ',
+      en: 'Verbs (v)',
+      count: verbCount,
+      target: 45,
+      comment: 'Động từ mang hành động và ý niệm chính. Nên kết hợp ghi nhớ cùng các Pattern câu.',
+    },
+    {
+      id: 'adj',
+      name: 'Tính từ',
+      en: 'Adjectives (adj)',
+      count: adjCount,
+      target: 35,
+      comment: 'Tính từ tăng độ phong phú và biểu cảm khi miêu tả đặc điểm trong bài thi IELTS/TOEIC.',
+    },
+    {
+      id: 'adv',
+      name: 'Trạng từ',
+      en: 'Adverbs (adv)',
+      count: advCount,
+      target: 20,
+      comment: 'Trạng từ bổ nghĩa sắc thái tinh tế cho động từ và tính từ trong câu học thuật.',
     },
     {
       id: 'collocation',
-      name: 'Collocation & Cụm từ',
+      name: 'Collocation',
       en: 'Collocations',
-      comprehension: 85,
-      application: 80,
-      comment: 'Kết hợp từ tự nhiên chuẩn bản xứ, phản xạ tốt.',
+      count: collocationCount,
+      target: 40,
+      comment: 'Cụm từ đi liền tự nhiên giúp tránh lỗi dịch word-by-word và nâng band điểm Lexical Resource.',
     },
     {
-      id: 'pattern',
-      name: 'Cấu trúc & Pattern',
-      en: 'Patterns',
-      comprehension: 92,
-      application: 84,
-      comment: 'Nắm chắc mẫu câu ứng dụng theo phương pháp Linearthinking.',
-    },
-    {
-      id: 'reading',
-      name: 'Đọc hiểu Linear',
-      en: 'Reading Comprehension',
-      comprehension: 90,
-      application: 82,
-      comment: 'Tư duy xâu chuỗi thông tin nhanh, bắt keyword chuẩn xác.',
+      id: 'idiom',
+      name: 'Idioms & Phrasal',
+      en: 'Idioms & Phrasal',
+      count: idiomCount,
+      target: 20,
+      comment: 'Thành ngữ và phrasal verbs tạo phản xạ tự nhiên trong giao tiếp và Speaking/Writing.',
     },
     {
       id: 'word_family',
-      name: 'Họ từ vựng',
+      name: 'Word Family',
       en: 'Word Families',
-      comprehension: 84,
-      application: 70,
-      comment: 'Biến đổi từ loại (N/V/Adj/Adv) linh hoạt trong ngữ cảnh.',
+      count: wordFamilyCount,
+      target: 25,
+      comment: 'Gia đình từ giúp nhân rộng vốn từ nhanh chóng bằng cách học gốc từ và hậu tố (Suffix).',
     },
     {
-      id: 'paraphrase',
-      name: 'Tư duy Paraphrase',
-      en: 'Paraphrasing',
-      comprehension: 82,
-      application: 75,
-      comment: 'Khả năng diễn đạt đa dạng ý niệm bằng nhiều cách thức.',
+      id: 'list',
+      name: 'List vocabulary',
+      en: 'List Vocabulary',
+      count: listCount,
+      target: 12,
+      comment: 'Các danh sách bài học từ vựng lưu trữ ngữ cảnh giúp học và ghi nhớ từ bền bỉ.',
     },
     {
-      id: 'writing',
-      name: 'Ứng dụng Viết',
-      en: 'Writing Usage',
-      comprehension: 78,
-      application: 72,
-      comment: 'Vận dụng từ vựng vào bài viết học thuật mượt mà.',
+      id: 'topic',
+      name: 'Topic',
+      en: 'Topics / Categories',
+      count: topicCount,
+      target: 12,
+      comment: 'Chủ đề từ vựng phân loại hệ thống theo các lĩnh vực: Môi trường, Kinh tế, Công nghệ...',
     },
-    {
-      id: 'phonetics',
-      name: 'Phát âm & Phản xạ',
-      en: 'Phonetics & Reflex',
-      comprehension: 86,
-      application: 80,
-      comment: 'Nắm vững bảng phiên âm quốc tế IPA và trọng âm.',
-    },
-  ];
+  ], [nounCount, verbCount, adjCount, advCount, collocationCount, idiomCount, wordFamilyCount, listCount, topicCount]);
 
-  // Radar chart mathematical dimensions
-  const totalAxes = competencies.length;
-  const size = 400;
-  const center = size / 2;
-  const radius = 115;
-  const levels = [20, 40, 60, 80, 100];
+  // Thông số toán học cho biểu đồ Nonagon (9 trục) - Kích thước cực đại, bội số 50
+  const totalAxes = dimensions.length; // 9
+  const width = 720;
+  const height = 540;
+  const centerX = width / 2; // 360
+  const centerY = height / 2; // 270
+  const radius = 210;
+  const labelRadius = 242;
+  const maxScale = 250;
+  const levels = [50, 100, 150, 200, 250];
 
-  // Helper to convert polar coordinates to Cartesian
-  const getCoordinates = (value, index) => {
+  // Hàm chuyển đổi tọa độ Cực (Polar) sang Descartes (Cartesian)
+  const getCoordinates = (value, index, customRadius = radius) => {
     const angle = (Math.PI * 2 / totalAxes) * index - Math.PI / 2;
-    const r = (value / 100) * radius;
-    const x = center + r * Math.cos(angle);
-    const y = center + r * Math.sin(angle);
+    const r = (value / maxScale) * customRadius;
+    const x = centerX + r * Math.cos(angle);
+    const y = centerY + r * Math.sin(angle);
     return { x, y, angle };
   };
 
-  // Build polygon points for grid rings
+  // Tạo các vòng đa giác lưới nền 9 cạnh
   const getPolygonPoints = (levelValue) => {
-    return competencies
+    return dimensions
       .map((_, i) => {
         const { x, y } = getCoordinates(levelValue, i);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
@@ -114,29 +219,17 @@ export default function CompetencyRadarChart({
       .join(' ');
   };
 
-  // Build points for dataset polygons
-  const applicationPoints = competencies
-    .map((c, i) => {
-      const { x, y } = getCoordinates(c.application, i);
+  // Tọa độ cho Vòng năng lực màu đỏ (Chuẩn mức 200/250 = 80%)
+  const benchmarkValue = 200;
+  const ringPoints = dimensions
+    .map((_, i) => {
+      const { x, y } = getCoordinates(benchmarkValue, i);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(' ');
 
-  const comprehensionPoints = competencies
-    .map((c, i) => {
-      const { x, y } = getCoordinates(c.comprehension, i);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-
-  // Compute averages
-  const avgApplication = Math.round(
-    competencies.reduce((acc, c) => acc + c.application, 0) / totalAxes
-  );
-  const avgComprehension = Math.round(
-    competencies.reduce((acc, c) => acc + c.comprehension, 0) / totalAxes
-  );
-  const overallScore = Math.round((avgApplication + avgComprehension) / 2);
+  // Tổng hợp thống kê
+  const totalCorpus = nounCount + verbCount + adjCount + advCount + collocationCount + idiomCount;
 
   return (
     <div className="h-full bg-white rounded-2xl border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] p-5 flex flex-col justify-between relative overflow-hidden group/chart hover:shadow-md transition-all duration-200">
@@ -144,46 +237,12 @@ export default function CompetencyRadarChart({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2 relative">
           <h2 className="font-headline text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>Sơ đồ năng lực</span>
+            <span>Biểu đồ thống kê</span>
           </h2>
-
-          {/* Info Icon with Tooltip */}
-          <div className="relative">
-            <button
-              type="button"
-              onMouseEnter={() => setShowInfoTooltip(true)}
-              onMouseLeave={() => setShowInfoTooltip(false)}
-              onClick={() => setShowInfoTooltip(!showInfoTooltip)}
-              className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer flex items-center"
-              title="Thông tin sơ đồ"
-            >
-              <span className="material-symbols-outlined text-[17px]">info</span>
-            </button>
-
-            {showInfoTooltip && (
-              <div className="absolute left-0 top-6 z-50 w-64 p-3 rounded-xl bg-slate-900/95 text-white text-[11px] leading-relaxed shadow-xl backdrop-blur-sm border border-slate-700 animate-in fade-in duration-150">
-                <p className="font-semibold text-amber-300 mb-1">Phương pháp Linearthinking</p>
-                Sơ đồ phản ánh toàn diện 8 khía cạnh năng lực ngôn ngữ theo thang điểm 0 - 100, gồm <strong>Điểm thông hiểu</strong> (hiểu bản chất) và <strong>Điểm vận dụng</strong> (thực hành thực tế).
-              </div>
-            )}
-          </div>
-
-          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 hidden sm:inline-block">
-            DOL Matrix
-          </span>
         </div>
 
-        {/* Right Action Buttons (Như hình 2 nhưng hiện đại hơn) */}
+        {/* Right Action Buttons */}
         <div className="flex items-center gap-2.5 self-end sm:self-auto">
-          <button
-            type="button"
-            onClick={onOpenAssessmentModal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-slate-700 bg-slate-50 hover:bg-red-50 hover:text-crimson-primary border border-slate-200/90 hover:border-red-200 shadow-xs active:scale-95 transition-all cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[15px] text-amber-500">auto_fix_high</span>
-            <span>Đánh giá năng lực đầu vào</span>
-          </button>
-
           <button
             type="button"
             onClick={onOpenDetailModal}
@@ -198,103 +257,92 @@ export default function CompetencyRadarChart({
       </div>
 
       {/* Main Radar Chart Visualization Area */}
-      <div className="relative flex-1 flex flex-col items-center justify-center my-2 min-h-[300px]">
-        {/* Hover Tooltip Popup Card */}
-        {hoveredCompetency && (
-          <div className="absolute top-2 right-2 z-30 p-2.5 rounded-xl bg-slate-900/90 text-white text-xs shadow-xl backdrop-blur-md border border-slate-700/80 max-w-[220px] pointer-events-none animate-in fade-in zoom-in-95 duration-150">
-            <div className="font-bold text-amber-300 text-xs flex items-center justify-between">
-              <span>{hoveredCompetency.name}</span>
-            </div>
-            <div className="mt-1 flex flex-col gap-0.5 text-[11px]">
-              <div className="flex justify-between items-center text-red-300">
-                <span>Điểm thông hiểu:</span>
-                <span className="font-extrabold">{hoveredCompetency.comprehension}/100</span>
-              </div>
-              <div className="flex justify-between items-center text-blue-300">
-                <span>Điểm vận dụng:</span>
-                <span className="font-extrabold">{hoveredCompetency.application}/100</span>
-              </div>
-            </div>
-            <p className="mt-1.5 pt-1.5 border-t border-slate-700/80 text-[10px] text-slate-300 leading-snug">
-              {hoveredCompetency.comment}
-            </p>
-          </div>
-        )}
-
-        {/* SVG Radar Chart */}
-        <div className="relative w-full max-w-[420px] aspect-[420/380] flex items-center justify-center">
+      <div className="relative flex-1 flex flex-col items-center justify-center py-1 min-h-0 w-full">
+        {/* SVG Radar Chart (Nonagon 9 Đỉnh) - Kích thước cực đại, sắc nét, phủ trọn không gian thẻ */}
+        <div className="relative w-full max-w-[760px] aspect-[720/540] max-h-[530px] flex items-center justify-center">
           <svg
-            viewBox={`0 0 ${size} ${size}`}
-            className="w-full h-full overflow-visible select-none drop-shadow-xs"
+            viewBox={`0 0 ${width} ${height}`}
+            className="w-full h-full max-h-full object-contain overflow-visible select-none drop-shadow-xs"
           >
             <defs>
-              {/* Blue Gradient for Điểm vận dụng */}
-              <linearGradient id="blueRadarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#2563EB" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.15" />
-              </linearGradient>
-
-              {/* Red Gradient for Điểm thông hiểu */}
+              {/* Red / Crimson Gradient cho Vòng năng lực duy nhất */}
               <linearGradient id="redRadarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#E31E24" stopOpacity="0.45" />
-                <stop offset="100%" stopColor="#FB7185" stopOpacity="0.18" />
+                <stop offset="0%" stopColor="#E31E24" stopOpacity="0.38" />
+                <stop offset="100%" stopColor="#FDA4AF" stopOpacity="0.10" />
               </linearGradient>
 
-              {/* Glowing filters */}
-              <filter id="glowBlue" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
+              {/* Glowing filter cho Vòng năng lực đỏ */}
               <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>
             </defs>
 
-            {/* Concentric Polygonal Background Grids */}
-            {levels.map((lvl, idx) => {
+            {/* 1. Lớp nền đa giác xen kẽ (vẽ từ ngoài vào trong: 250 -> 50) */}
+            {levels.slice().reverse().map((lvl, idx) => {
               const points = getPolygonPoints(lvl);
               const isEven = idx % 2 === 0;
               return (
                 <polygon
-                  key={lvl}
+                  key={`bg-${lvl}`}
                   points={points}
                   fill={isEven ? '#F8FAFC' : '#FFFFFF'}
-                  stroke="#E2E8F0"
-                  strokeWidth="1"
-                  strokeDasharray={idx === levels.length - 1 ? 'none' : '2 3'}
+                />
+              );
+            })}
+
+            {/* 2. Các hình đa giác nhỏ bên trong ứng với từng bội số 50 (50, 100, 150, 200, 250 - Chuẩn khung lưới Liên Quân Mobile) */}
+            {levels.map((lvl) => {
+              const points = getPolygonPoints(lvl);
+              return (
+                <polygon
+                  key={`wireframe-${lvl}`}
+                  points={points}
+                  fill="none"
+                  stroke="#CBD5E1"
+                  strokeWidth={lvl === maxScale ? '1.5' : '1.2'}
                   className="transition-colors"
                 />
               );
             })}
 
-            {/* Radial Spokes (Trục nối từ tâm ra đỉnh) */}
-            {competencies.map((_, i) => {
-              const { x, y } = getCoordinates(100, i);
+            {/* 3. 9 Trục nan quạt (Spokes) nối từ tâm ra 9 đỉnh */}
+            {dimensions.map((_, i) => {
+              const { x, y } = getCoordinates(maxScale, i);
               return (
                 <line
-                  key={i}
-                  x1={center}
-                  y1={center}
+                  key={`spoke-${i}`}
+                  x1={centerX}
+                  y1={centerY}
                   x2={x}
                   y2={y}
-                  stroke="#E2E8F0"
-                  strokeWidth="1"
+                  stroke="#CBD5E1"
+                  strokeWidth="1.2"
                 />
               );
             })}
 
-            {/* Level Scale Numbers on Vertical Axis (20, 40, 60, 80, 100) */}
+            {/* Vạch chia mức thang đo (50, 100, 150, 200, 250) - Trục xoay nghiêng từ tâm sang phải -70° (không phải tịnh tiến), chữ đứng thẳng */}
             {levels.map((lvl) => {
-              const r = (lvl / 100) * radius;
+              const r = (lvl / maxScale) * radius;
+              // Trục thẳng đứng (-90°) được xoay nghiêng sang phải 20° quanh tâm -> tạo thành tia góc -70°
+              const rotatedAngleRad = (-70 * Math.PI) / 180;
+              const x = centerX + r * Math.cos(rotatedAngleRad);
+              const y = centerY + r * Math.sin(rotatedAngleRad) + 3.5;
+
               return (
                 <g key={`lvl-${lvl}`}>
                   <text
-                    x={center + 3}
-                    y={center - r + 3}
-                    fontSize="9"
-                    fontWeight="600"
-                    fill="#94A3B8"
+                    x={x}
+                    y={y}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fontWeight="700"
+                    fill="#64748B"
+                    stroke="#FFFFFF"
+                    strokeWidth="3"
+                    paintOrder="stroke fill"
+                    strokeLinejoin="round"
                     className="select-none pointer-events-none"
                   >
                     {lvl}
@@ -303,169 +351,163 @@ export default function CompetencyRadarChart({
               );
             })}
 
-            {/* =================================================== */}
-            {/* 1. BLUE POLYGON: Điểm vận dụng                       */}
-            {/* =================================================== */}
-            {showApplication && (
-              <g className="transition-opacity duration-300">
-                <polygon
-                  points={applicationPoints}
-                  fill="url(#blueRadarGradient)"
-                  stroke="#2563EB"
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                  filter="url(#glowBlue)"
-                  className="transition-all duration-300"
-                />
+            {/* DUY NHẤT 1 VÒNG NĂNG LỰC MÀU ĐỎ (DOL Red #E31E24) */}
+            <g className="transition-opacity duration-300">
+              <polygon
+                points={ringPoints}
+                fill="url(#redRadarGradient)"
+                stroke="#E31E24"
+                strokeWidth="2.8"
+                strokeLinejoin="round"
+                filter="url(#glowRed)"
+                className="transition-all duration-300"
+              />
 
-                {/* Vertices */}
-                {competencies.map((c, i) => {
-                  const { x, y } = getCoordinates(c.application, i);
-                  const isHovered = hoveredCompetency?.id === c.id;
-                  return (
+              {/* Các đỉnh vòng năng lực màu đỏ */}
+              {dimensions.map((d, i) => {
+                const { x, y } = getCoordinates(benchmarkValue, i);
+                const isHovered = hoveredDimension?.id === d.id;
+                return (
+                  <g
+                    key={`ring-node-${i}`}
+                    className="cursor-pointer"
+                    onMouseEnter={() => setHoveredDimension(d)}
+                    onMouseLeave={() => setHoveredDimension(null)}
+                  >
+                    {/* Vùng cảm ứng chuột mở rộng (Hit Area) ngăn chặn hoàn toàn flickering */}
+                    <circle cx={x} cy={y} r={18} fill="transparent" />
+
+                    {/* Vầng sáng viền khi hover */}
+                    {isHovered && (
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r={12}
+                        fill="#FDA4AF"
+                        fillOpacity={0.35}
+                        className="pointer-events-none"
+                      />
+                    )}
+
+                    {/* Chấm tròn đỉnh chính */}
                     <circle
-                      key={`app-node-${i}`}
                       cx={x}
                       cy={y}
-                      r={isHovered ? 6 : 4}
-                      fill="#FFFFFF"
-                      stroke="#2563EB"
-                      strokeWidth={isHovered ? 3 : 2}
-                      className="cursor-pointer transition-all duration-150 hover:scale-125"
-                      onMouseEnter={() => setHoveredCompetency(c)}
-                      onMouseLeave={() => setHoveredCompetency(null)}
-                    />
-                  );
-                })}
-              </g>
-            )}
-
-            {/* =================================================== */}
-            {/* 2. RED POLYGON: Điểm thông hiểu                      */}
-            {/* =================================================== */}
-            {showComprehension && (
-              <g className="transition-opacity duration-300">
-                <polygon
-                  points={comprehensionPoints}
-                  fill="url(#redRadarGradient)"
-                  stroke="#E31E24"
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                  filter="url(#glowRed)"
-                  className="transition-all duration-300"
-                />
-
-                {/* Vertices */}
-                {competencies.map((c, i) => {
-                  const { x, y } = getCoordinates(c.comprehension, i);
-                  const isHovered = hoveredCompetency?.id === c.id;
-                  return (
-                    <circle
-                      key={`comp-node-${i}`}
-                      cx={x}
-                      cy={y}
-                      r={isHovered ? 6 : 4}
+                      r={isHovered ? 7.5 : 5}
                       fill="#FFFFFF"
                       stroke="#E31E24"
-                      strokeWidth={isHovered ? 3 : 2}
-                      className="cursor-pointer transition-all duration-150 hover:scale-125"
-                      onMouseEnter={() => setHoveredCompetency(c)}
-                      onMouseLeave={() => setHoveredCompetency(null)}
+                      strokeWidth={isHovered ? 3.5 : 2.5}
+                      className="pointer-events-none transition-all duration-150"
                     />
-                  );
-                })}
-              </g>
-            )}
+                  </g>
+                );
+              })}
+            </g>
 
-            {/* Center Hub Indicator */}
-            <circle cx={center} cy={center} r={3} fill="#94A3B8" />
+            {/* Điểm tâm trung tâm */}
+            <circle cx={centerX} cy={centerY} r={4} fill="#E31E24" opacity="0.6" />
 
-            {/* Outer Labels Around the Perimeter */}
-            {competencies.map((c, i) => {
-              const { x, y, angle } = getCoordinates(126, i);
-              const isHovered = hoveredCompetency?.id === c.id;
+            {/* 9 Nhãn chữ hiển thị Tên trường (Không kèm số thứ tự) quanh viền */}
+            {dimensions.map((d, i) => {
+              const { x, y, angle } = getCoordinates(maxScale, i, labelRadius);
+              const isHovered = hoveredDimension?.id === d.id;
 
-              // Determine text-anchor based on cos of angle
+              // Căn chỉnh chữ theo góc tọa độ
               const cos = Math.cos(angle);
               let textAnchor = 'middle';
-              if (cos > 0.3) textAnchor = 'start';
-              else if (cos < -0.3) textAnchor = 'end';
+              if (cos > 0.25) textAnchor = 'start';
+              else if (cos < -0.25) textAnchor = 'end';
 
-              // Vertical offset adjustment
+              // Độ dịch chuyển chiều dọc
               const sin = Math.sin(angle);
-              const dy = sin > 0.5 ? 12 : sin < -0.5 ? -4 : 4;
+              const dy = sin > 0.6 ? 16 : sin < -0.6 ? -6 : 4;
 
               return (
                 <g
-                  key={`label-${c.id}`}
+                  key={`label-${d.id}`}
                   className="cursor-pointer group/axis"
-                  onMouseEnter={() => setHoveredCompetency(c)}
-                  onMouseLeave={() => setHoveredCompetency(null)}
+                  onMouseEnter={() => setHoveredDimension(d)}
+                  onMouseLeave={() => setHoveredDimension(null)}
                 >
                   <text
                     x={x}
                     y={y + dy}
                     textAnchor={textAnchor}
-                    fontSize={isHovered ? '11' : '10'}
-                    fontWeight={isHovered ? '800' : '600'}
-                    fill={isHovered ? '#ba0013' : '#334155'}
-                    className="transition-all duration-150"
+                    fontSize="12.5"
+                    fontWeight={isHovered ? '800' : '650'}
+                    fill={isHovered ? '#BA0013' : '#334155'}
+                    className="transition-colors duration-150 select-none"
                   >
-                    {c.name}
+                    {d.name}
                   </text>
                 </g>
               );
             })}
+
+            {/* Floating Number Badge on Hovered Node (chỉ hiện con số khi hover) */}
+            {hoveredDimension && (() => {
+              const hoveredIndex = dimensions.findIndex((dim) => dim.id === hoveredDimension.id);
+              if (hoveredIndex === -1) return null;
+              const { x, y } = getCoordinates(benchmarkValue, hoveredIndex);
+              const countVal = hoveredDimension.count ?? 0;
+              const countStr = String(countVal);
+              const badgeWidth = Math.max(34, countStr.length * 10 + 20);
+              const badgeHeight = 25;
+              const badgeY = y - 35;
+
+              return (
+                <g key="hover-number-badge" className="pointer-events-none select-none">
+                  {/* Shadow */}
+                  <rect
+                    x={x - badgeWidth / 2}
+                    y={badgeY + 2}
+                    width={badgeWidth}
+                    height={badgeHeight}
+                    rx={6}
+                    fill="#000000"
+                    opacity={0.15}
+                  />
+                  {/* Badge pill */}
+                  <rect
+                    x={x - badgeWidth / 2}
+                    y={badgeY}
+                    width={badgeWidth}
+                    height={badgeHeight}
+                    rx={6}
+                    fill="#E31E24"
+                    stroke="#FFFFFF"
+                    strokeWidth={1.5}
+                  />
+                  {/* Triangle pointer pointing down to node */}
+                  <polygon
+                    points={`${x - 4},${badgeY + badgeHeight} ${x + 4},${badgeY + badgeHeight} ${x},${badgeY + badgeHeight + 5}`}
+                    fill="#E31E24"
+                  />
+                  {/* The number */}
+                  <text
+                    x={x}
+                    y={badgeY + 17}
+                    textAnchor="middle"
+                    fontSize="13"
+                    fontWeight="900"
+                    fill="#FFFFFF"
+                  >
+                    {countStr}
+                  </text>
+                </g>
+              );
+            })()}
           </svg>
         </div>
       </div>
 
-      {/* Bottom Interactive Legend & Summary Pill */}
-      <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        {/* Toggleable Legend Pills */}
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Blue: Điểm vận dụng */}
-          <button
-            type="button"
-            onClick={() => setShowApplication(!showApplication)}
-            className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-              showApplication
-                ? 'bg-blue-50/80 border-blue-200 text-blue-700 font-bold'
-                : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
-            }`}
-            title="Nhấn để bật/tắt hiển thị Điểm vận dụng"
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs" />
-            <span>Điểm vận dụng</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-white text-blue-800 font-black shadow-xs">
-              {avgApplication}đ
-            </span>
-          </button>
-
-          {/* Red: Điểm thông hiểu */}
-          <button
-            type="button"
-            onClick={() => setShowComprehension(!showComprehension)}
-            className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-              showComprehension
-                ? 'bg-red-50/80 border-red-200 text-crimson-primary font-bold'
-                : 'bg-slate-50 border-slate-200 text-slate-400 opacity-60'
-            }`}
-            title="Nhấn để bật/tắt hiển thị Điểm thông hiểu"
-          >
-            <span className="w-2.5 h-2.5 rounded-full bg-crimson-primary shadow-xs" />
-            <span>Điểm thông hiểu</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-white text-crimson-primary font-black shadow-xs">
-              {avgComprehension}đ
-            </span>
-          </button>
-        </div>
-
-        {/* Overall Competency Metric */}
-        <div className="inline-flex items-center gap-2 self-end sm:self-auto">
-          <span className="text-[11px] text-slate-500">Chỉ số toàn diện:</span>
-          <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-extrabold text-xs shadow-xs">
-            {overallScore}/100 • B2+ (IELTS 6.5+)
+      {/* Bottom Summary Pill */}
+      <div className="pt-3 border-t border-slate-100 flex items-center justify-end text-xs">
+        {/* Tổng dung lượng kho - Màu đỏ */}
+        <div className="inline-flex items-center gap-2">
+          <span className="text-[11px] text-slate-500 font-medium">Tổng kho từ vựng:</span>
+          <span className="px-2.5 py-0.5 rounded-lg bg-red-50 text-crimson-primary border border-red-200 font-extrabold text-xs shadow-xs">
+            {totalCorpus} từ vựng & cụm từ
           </span>
         </div>
       </div>
