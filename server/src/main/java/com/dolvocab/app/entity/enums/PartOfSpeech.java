@@ -7,6 +7,7 @@ public enum PartOfSpeech {
     ADV("Trạng từ"),
     PHRASAL_VERB("Cụm động từ"),
     IDIOM("Thành ngữ"),
+    COLLOCATION("Cụm từ phối hợp"),
     PREP("Giới từ");
 
     private final String description;

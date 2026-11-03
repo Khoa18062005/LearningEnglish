@@ -350,7 +350,10 @@ public class VocabularyServiceImpl implements VocabularyService {
                 }
             } else {
                 // Flat form item (pattern or collocation)
-                String pattern = item.getPattern();
+                boolean isCollocation = formPos == PartOfSpeech.COLLOCATION
+                        || "collocation".equalsIgnoreCase(item.getType())
+                        || "collocation".equalsIgnoreCase(item.getPos());
+                String pattern = isCollocation ? "" : item.getPattern();
                 String collocation = (item.getCollocation() != null && !item.getCollocation().trim().isEmpty())
                         ? item.getCollocation()
                         : item.getPhrase();
@@ -450,9 +453,12 @@ public class VocabularyServiceImpl implements VocabularyService {
 
             for (VocabSense sense : form.getSenses()) {
                 boolean isFormPhrasal = form.getPartOfSpeech() == PartOfSpeech.PHRASAL_VERB;
+                boolean isFormCollocation = form.getPartOfSpeech() == PartOfSpeech.COLLOCATION;
                 String type;
                 if (isFormPhrasal) {
                     type = "phrasal_verb";
+                } else if (isFormCollocation) {
+                    type = "collocation";
                 } else {
                     type = (sense.getCollocation() != null && !sense.getCollocation().trim().isEmpty())
                             ? "collocation" : "pattern";
@@ -475,7 +481,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                         .pos(formPos)
                         .posLabel(formPosLabel)
                         .countability(formCountability)
-                        .pattern(isFormPhrasal ? "" : (sense.getPattern() != null ? sense.getPattern() : ""))
+                        .pattern((isFormPhrasal || isFormCollocation) ? "" : (sense.getPattern() != null ? sense.getPattern() : ""))
                         .collocation(isFormPhrasal ? "" : (sense.getCollocation() != null ? sense.getCollocation() : ""))
                         .phrase(phrase)
                         .synonym(sense.getSynonyms() != null ? sense.getSynonyms() : "")
@@ -487,7 +493,7 @@ public class VocabularyServiceImpl implements VocabularyService {
 
                 domainSenses.add(VocabDetailResponse.VocabSenseResponse.builder()
                         .id(sense.getId())
-                        .pattern(sense.getPattern())
+                        .pattern(isFormCollocation ? "" : sense.getPattern())
                         .collocation(sense.getCollocation())
                         .synonyms(sense.getSynonyms())
                         .closeMeanings(sense.getCloseMeanings())
@@ -568,6 +574,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case "adv", "adverb" -> PartOfSpeech.ADV;
             case "phrasal_verb", "phrasal-verb", "phrasal verb", "phrv", "phv" -> PartOfSpeech.PHRASAL_VERB;
             case "idiom", "idioms" -> PartOfSpeech.IDIOM;
+            case "collocation", "collocations", "coll" -> PartOfSpeech.COLLOCATION;
             case "prep" -> PartOfSpeech.PREP;
             default -> {
                 try {
@@ -599,6 +606,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case ADV -> "adv";
             case PHRASAL_VERB -> "phrasal_verb";
             case IDIOM -> "idiom";
+            case COLLOCATION -> "collocation";
             default -> pos.name().toLowerCase();
         };
     }
@@ -612,6 +620,7 @@ public class VocabularyServiceImpl implements VocabularyService {
             case ADV -> "Adverb";
             case PHRASAL_VERB -> "Phrasal Verb";
             case IDIOM -> "Idioms";
+            case COLLOCATION -> "Collocation";
             default -> pos.getDescription();
         };
     }

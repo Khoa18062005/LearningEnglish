@@ -34,41 +34,55 @@ export default function CategoryView({
     },
     {
       id: 'n',
-      label: 'Danh từ (N)',
+      label: 'Noun',
       activeClass: 'bg-white text-pos-noun-text shadow-xs border-blue-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-noun-text hover:bg-pos-noun-bg/60',
     },
     {
       id: 'v',
-      label: 'Động từ (V)',
+      label: 'Verb',
       activeClass: 'bg-white text-pos-verb-text shadow-xs border-red-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-verb-text hover:bg-pos-verb-bg/60',
     },
     {
       id: 'adj',
-      label: 'Tính từ (Adj)',
+      label: 'Adjective',
       activeClass: 'bg-white text-pos-adj-text shadow-xs border-emerald-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-adj-text hover:bg-pos-adj-bg/60',
     },
     {
       id: 'adv',
-      label: 'Trạng từ (Adv)',
+      label: 'Adverb',
       activeClass: 'bg-white text-pos-adv-text shadow-xs border-purple-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-adv-text hover:bg-pos-adv-bg/60',
     },
     {
       id: 'phrasal_verb',
-      label: 'Cụm ĐT (Phrasal Verb)',
+      label: 'Phrasal Verb',
       activeClass: 'bg-white text-teal-700 shadow-xs border-teal-200/90',
       inactiveClass: 'text-slate-600 hover:text-teal-700 hover:bg-teal-50',
     },
     {
       id: 'idiom',
-      label: 'Cụm từ (Idioms)',
+      label: 'Idioms',
       activeClass: 'bg-white text-amber-800 shadow-xs border-amber-200/90',
       inactiveClass: 'text-slate-600 hover:text-amber-800 hover:bg-amber-50',
     },
+    {
+      id: 'collocation',
+      label: 'Collocation',
+      activeClass: 'bg-white text-indigo-700 shadow-xs border-indigo-200/90',
+      inactiveClass: 'text-slate-600 hover:text-indigo-700 hover:bg-indigo-50',
+    },
   ];
+
+  // Lắng nghe sự kiện cập nhật star/bookmark để cập nhật danh sách ngay lập tức
+  const [prefVersion, setPrefVersion] = useState(0);
+  useEffect(() => {
+    const handlePrefChange = () => setPrefVersion((v) => v + 1);
+    window.addEventListener('vocab_preference_changed', handlePrefChange);
+    return () => window.removeEventListener('vocab_preference_changed', handlePrefChange);
+  }, []);
 
   if (!category) return null;
 
@@ -120,7 +134,7 @@ export default function CategoryView({
     });
 
     return sortVocabularies(filtered, activeSortBy);
-  }, [vocabList, category.name, selectedPos, searchTerm, activeSortBy]);
+  }, [vocabList, category.name, selectedPos, searchTerm, activeSortBy, prefVersion]);
 
   // Derived metrics
   const totalCollocationsCount = useMemo(() => {
@@ -392,25 +406,56 @@ export default function CategoryView({
 
           {categoryWords.length === 0 && (
             <div className="p-14 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary">
-                <span className="material-symbols-outlined text-[28px]">category</span>
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                activeSortBy === 'starred'
+                  ? 'bg-amber-50 text-amber-500'
+                  : activeSortBy === 'bookmarked'
+                  ? 'bg-surface-crimson-subtle text-crimson-primary'
+                  : 'bg-surface-crimson-subtle text-crimson-primary'
+              }`}>
+                <span className="material-symbols-outlined text-[28px]">
+                  {activeSortBy === 'starred'
+                    ? 'star'
+                    : activeSortBy === 'bookmarked'
+                    ? 'bookmark'
+                    : 'category'}
+                </span>
               </div>
               <div>
                 <p className="font-bold text-sm text-text-high-contrast">
-                  Chưa có từ vựng nào trong chủ đề này
+                  {activeSortBy === 'starred'
+                    ? 'Chưa có từ vựng nào được đánh dấu sao trong chủ đề này'
+                    : activeSortBy === 'bookmarked'
+                    ? 'Chưa có từ vựng nào được lưu (Bookmark) trong chủ đề này'
+                    : 'Chưa có từ vựng nào trong chủ đề này'}
                 </p>
                 <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                  Bấm nút &ldquo;Thêm từ vựng mới&rdquo; phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.
+                  {activeSortBy === 'starred'
+                    ? 'Nhấn vào biểu tượng ngôi sao (☆) ở góc phải của thẻ từ để đánh dấu các từ vựng trọng tâm trong chủ đề này.'
+                    : activeSortBy === 'bookmarked'
+                    ? 'Nhấn vào biểu tượng bookmark (🔖) ở góc phải của thẻ từ để lưu từ cần ôn lại trong chủ đề này.'
+                    : 'Bấm nút "Thêm từ vựng mới" phía trên để lưu từ vựng kèm ngữ cảnh câu đọc.'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={onOpenAddModal}
-                className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Thêm từ vựng mới</span>
-              </button>
+              {activeSortBy === 'starred' || activeSortBy === 'bookmarked' ? (
+                <button
+                  type="button"
+                  onClick={() => handleSortChange('newest')}
+                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-text-body text-xs font-bold transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                  <span>Quay lại tất cả từ vựng trong chủ đề</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onOpenAddModal}
+                  className="mt-1 flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>Thêm từ vựng mới</span>
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -67,39 +67,45 @@ export default function MasterListPage({
     },
     {
       id: 'n',
-      label: 'Danh từ (N)',
+      label: 'Noun',
       activeClass: 'bg-white text-pos-noun-text shadow-xs border-blue-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-noun-text hover:bg-pos-noun-bg/60',
     },
     {
       id: 'v',
-      label: 'Động từ (V)',
+      label: 'Verb',
       activeClass: 'bg-white text-pos-verb-text shadow-xs border-red-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-verb-text hover:bg-pos-verb-bg/60',
     },
     {
       id: 'adj',
-      label: 'Tính từ (Adj)',
+      label: 'Adjective',
       activeClass: 'bg-white text-pos-adj-text shadow-xs border-emerald-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-adj-text hover:bg-pos-adj-bg/60',
     },
     {
       id: 'adv',
-      label: 'Trạng từ (Adv)',
+      label: 'Adverb',
       activeClass: 'bg-white text-pos-adv-text shadow-xs border-purple-200/90',
       inactiveClass: 'text-slate-600 hover:text-pos-adv-text hover:bg-pos-adv-bg/60',
     },
     {
       id: 'phrasal_verb',
-      label: 'Cụm ĐT (Phrasal Verb)',
+      label: 'Phrasal Verb',
       activeClass: 'bg-white text-teal-700 shadow-xs border-teal-200/90',
       inactiveClass: 'text-slate-600 hover:text-teal-700 hover:bg-teal-50',
     },
     {
       id: 'idiom',
-      label: 'Cụm từ (Idioms)',
+      label: 'Idioms',
       activeClass: 'bg-white text-amber-800 shadow-xs border-amber-200/90',
       inactiveClass: 'text-slate-600 hover:text-amber-800 hover:bg-amber-50',
+    },
+    {
+      id: 'collocation',
+      label: 'Collocation',
+      activeClass: 'bg-white text-indigo-700 shadow-xs border-indigo-200/90',
+      inactiveClass: 'text-slate-600 hover:text-indigo-700 hover:bg-indigo-50',
     },
   ];
 
@@ -143,10 +149,41 @@ export default function MasterListPage({
     setHasMore(more);
   }, [vocabList, selectedPos, selectedCategory, searchTerm, activeSortBy]);
 
+  // Lắng nghe sự kiện thay đổi star / bookmark từ bất kỳ thẻ nào để re-render lọc tức thì
+  const [prefVersion, setPrefVersion] = useState(0);
+  useEffect(() => {
+    const handlePrefChange = () => setPrefVersion((v) => v + 1);
+    window.addEventListener('vocab_preference_changed', handlePrefChange);
+    return () => window.removeEventListener('vocab_preference_changed', handlePrefChange);
+  }, []);
+
+  const isSpecialFolder = activeSortBy === 'starred' || activeSortBy === 'bookmarked';
+
   // Sắp xếp danh sách hiển thị theo tiêu chí người dùng đã chọn
+  // Khi chọn thư mục thông minh "Đã đánh dấu sao" hoặc "Đã lưu", quét toàn bộ kho từ vựng (vocabList)
   const displayItems = useMemo(() => {
+    if (isSpecialFolder) {
+      const sourceList = (vocabList && vocabList.length > 0) ? vocabList : items;
+      let filtered = sourceList.filter((item) => {
+        if (!item) return false;
+        if (selectedPos && selectedPos !== 'all') {
+          const hasPos = item.pos === selectedPos || item.forms?.some((f) => f.pos === selectedPos);
+          if (!hasPos) return false;
+        }
+        if (selectedCategory && !item.categories?.includes(selectedCategory)) return false;
+        if (searchTerm && searchTerm.trim()) {
+          const q = searchTerm.toLowerCase();
+          const matchWord = item.word?.toLowerCase().includes(q);
+          const matchMeaning = item.meaning?.toLowerCase().includes(q);
+          const matchFamily = item.wordFamily?.some((wf) => wf.toLowerCase().includes(q));
+          if (!matchWord && !matchMeaning && !matchFamily) return false;
+        }
+        return true;
+      });
+      return sortVocabularies(filtered, activeSortBy);
+    }
     return sortVocabularies(items, activeSortBy);
-  }, [items, activeSortBy]);
+  }, [items, vocabList, activeSortBy, selectedPos, selectedCategory, searchTerm, isSpecialFolder, prefVersion]);
 
   // Fetch initial batch with Cursor-based pagination (cursor = null)
   const fetchInitialBatch = useCallback(async () => {
@@ -421,49 +458,82 @@ export default function MasterListPage({
               />
             ))}
 
-            {/* Bottom Sentinel Trigger cho Lazy Loading (Infinite Scroll) */}
-            <div ref={sentinelRef} className="py-4 flex items-center justify-center">
-              {isLoadingMore && (
-                <div className="flex items-center gap-2 text-xs font-semibold text-crimson-primary bg-white px-4 py-2 rounded-full border border-red-100 shadow-xs animate-pulse">
-                  <span className="w-4 h-4 border-2 border-crimson-primary border-t-transparent rounded-full animate-spin" />
-                  <span>Đang tải thêm từ vựng...</span>
-                </div>
-              )}
-              {!hasMore && items.length > 0 && (
-                <span className="text-[11px] text-text-muted italic">
-                  Đã tải hết toàn bộ {items.length} từ vựng
-                </span>
-              )}
-            </div>
+            {/* Bottom Sentinel Trigger cho Lazy Loading (Infinite Scroll) - Ẩn khi đang xem Thư mục Đã đánh dấu sao / Đã lưu */}
+            {!isSpecialFolder && (
+              <div ref={sentinelRef} className="py-4 flex items-center justify-center">
+                {isLoadingMore && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-crimson-primary bg-white px-4 py-2 rounded-full border border-red-100 shadow-xs animate-pulse">
+                    <span className="w-4 h-4 border-2 border-crimson-primary border-t-transparent rounded-full animate-spin" />
+                    <span>Đang tải thêm từ vựng...</span>
+                  </div>
+                )}
+                {!hasMore && items.length > 0 && (
+                  <span className="text-[11px] text-text-muted italic">
+                    Đã tải hết toàn bộ {items.length} từ vựng
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           // Empty State khi không có từ nào
           <div className="py-20 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs p-8">
-            <div className="w-14 h-14 rounded-2xl bg-surface-crimson-subtle flex items-center justify-center text-crimson-primary mb-3">
-              <span className="material-symbols-outlined text-[32px]">menu_book</span>
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${
+              activeSortBy === 'starred'
+                ? 'bg-amber-50 text-amber-500'
+                : activeSortBy === 'bookmarked'
+                ? 'bg-surface-crimson-subtle text-crimson-primary'
+                : 'bg-surface-crimson-subtle text-crimson-primary'
+            }`}>
+              <span className="material-symbols-outlined text-[32px]">
+                {activeSortBy === 'starred'
+                  ? 'star'
+                  : activeSortBy === 'bookmarked'
+                  ? 'bookmark'
+                  : 'menu_book'}
+              </span>
             </div>
             <p className="font-bold text-base text-text-high-contrast">
-              {searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
+              {activeSortBy === 'starred'
+                ? 'Chưa có từ vựng nào được đánh dấu sao'
+                : activeSortBy === 'bookmarked'
+                ? 'Chưa có từ vựng nào được lưu (Bookmark)'
+                : searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
                 ? 'Không tìm thấy từ vựng nào phù hợp'
                 : 'Chưa có từ vựng nào trong kho'}
             </p>
             <p className="text-xs text-text-muted max-w-md mt-1 mb-4 leading-relaxed">
-              {searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
+              {activeSortBy === 'starred'
+                ? 'Nhấn vào biểu tượng ngôi sao (☆) ở góc phải của bất kỳ thẻ từ vựng nào để đánh dấu các từ quan trọng bạn muốn ưu tiên học.'
+                : activeSortBy === 'bookmarked'
+                ? 'Nhấn vào biểu tượng bookmark (🔖) ở góc phải của bất kỳ thẻ từ vựng nào để lưu vào danh sách cần ôn tập.'
+                : searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
                 ? 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc từ loại/chủ đề (Topic Vocabulary).'
                 : 'Kho từ vựng của bạn đang trống. Hãy thêm các từ vựng mới để bắt đầu học tập và quản trị theo phương pháp Linearthinking.'}
             </p>
-            <button
-              type="button"
-              onClick={onOpenAddModal}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              <span>
-                {searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
-                  ? 'Thêm Từ Mới'
-                  : 'Thêm Từ Đầu Tiên'}
-              </span>
-            </button>
+            {activeSortBy === 'starred' || activeSortBy === 'bookmarked' ? (
+              <button
+                type="button"
+                onClick={() => handleSortChange('newest')}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 shadow-xs cursor-pointer active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                <span>Quay lại tất cả từ vựng</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenAddModal}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs cursor-pointer active:scale-95 transition-all"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>
+                  {searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
+                    ? 'Thêm Từ Mới'
+                    : 'Thêm Từ Đầu Tiên'}
+                </span>
+              </button>
+            )}
           </div>
         )}
       </section>

@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { resolveVocabRelations } from '../../../utils/vocabRelations';
+import {
+  isVocabStarred,
+  isVocabBookmarked,
+  toggleVocabStarred,
+  toggleVocabBookmarked,
+} from '../../../utils/userVocabPreferences';
 
 export default function VocabCard({
   vocab,
@@ -12,10 +18,84 @@ export default function VocabCard({
   onOpenRelatedGroup,
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(() => isVocabStarred(vocab));
+  const [isBookmarked, setIsBookmarked] = useState(() => isVocabBookmarked(vocab));
+
+  // Sync state when vocab changes
+  useEffect(() => {
+    setIsFavorite(isVocabStarred(vocab));
+    setIsBookmarked(isVocabBookmarked(vocab));
+  }, [vocab]);
+
+  // Sync state when star/bookmark preferences are updated elsewhere
+  useEffect(() => {
+    const handlePrefChange = (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+      const idMatch = vocab?.id && detail?.id && String(vocab.id) === String(detail.id);
+      const wordMatch =
+        vocab?.word &&
+        detail?.word &&
+        (vocab.word || '').trim().toLowerCase() === (detail.word || '').trim().toLowerCase();
+      if (idMatch || wordMatch) {
+        if (detail.type === 'star') {
+          setIsFavorite(detail.value);
+        } else if (detail.type === 'bookmark') {
+          setIsBookmarked(detail.value);
+        }
+      }
+    };
+    window.addEventListener('vocab_preference_changed', handlePrefChange);
+    return () => window.removeEventListener('vocab_preference_changed', handlePrefChange);
+  }, [vocab]);
   const posLower = (vocab?.pos || vocab?.forms?.[0]?.pos || '').toLowerCase();
-  const isPhrasePos = posLower === 'idiom' || posLower === 'idioms' || posLower === 'phrasal_verb' || posLower === 'phrasal verb';
+  const isCollocation = posLower === 'collocation' || posLower === 'collocations';
+  const isPhrasePos = posLower === 'idiom' || posLower === 'idioms' || posLower === 'phrasal_verb' || posLower === 'phrasal verb' || isCollocation;
+
+  const collocationForm = isCollocation ? (vocab.forms?.[0] || {}) : null;
+  const anchorWord = isCollocation ? (vocab?.anchorWord || collocationForm?.anchorWord || '') : '';
+  const collocationKeywords = useMemo(() => {
+    if (!isCollocation) return [];
+    const raw = collocationForm?.keywords || collocationForm?.collocation || '';
+    if (!raw || raw.toLowerCase() === (vocab.word || '').toLowerCase()) return [];
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  }, [isCollocation, collocationForm, vocab.word]);
+
+  // Toàn bộ từ gốc liên kết của Collocation (anchorWord và các keywords)
+  const allCollocationRootWords = useMemo(() => {
+    if (!isCollocation) return [];
+    const list = [];
+    const cleanWord = (vocab.word || '').trim().toLowerCase();
+    if (anchorWord && anchorWord.trim().toLowerCase() !== cleanWord) {
+      list.push(anchorWord.trim());
+    }
+    (collocationKeywords || []).forEach((k) => {
+      const cleanK = (k || '').trim();
+      if (cleanK && cleanK.toLowerCase() !== cleanWord && !list.some((w) => w.toLowerCase() === cleanK.toLowerCase())) {
+        list.push(cleanK);
+      }
+    });
+    return list;
+  }, [isCollocation, anchorWord, collocationKeywords, vocab.word]);
+
+  // Tìm các Collocation trong kho từ vựng có liên quan đến từ này (dưới dạng anchorWord hoặc nằm trong cụm từ / keywords)
+  const relatedCollocationVocabs = useMemo(() => {
+    if (isCollocation) return [];
+    const cleanWord = (vocab?.word || '').trim().toLowerCase();
+    if (!cleanWord) return [];
+
+    return (vocabList || []).filter((v) => {
+      const vPos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+      if (vPos !== 'collocation' && vPos !== 'collocations') return false;
+
+      const f = v.forms?.[0] || {};
+      const fAnchor = (v.anchorWord || f.anchorWord || '').toLowerCase();
+      const fKeywords = (f.keywords || f.collocation || '').toLowerCase();
+      const tokensInWord = (v.word || '').toLowerCase().replace(/[^a-zA-Z\s'-]/g, ' ').split(/\s+/);
+
+      return fAnchor === cleanWord || fKeywords.includes(cleanWord) || tokensInWord.includes(cleanWord);
+    });
+  }, [vocab?.word, vocabList, isCollocation]);
 
   const [phonetic, setPhonetic] = useState(
     isPhrasePos ? '' : (vocab?.phonetic || (vocab?.word ? `/${vocab.word}/` : ''))
@@ -414,6 +494,13 @@ export default function VocabCard({
             Idioms / Cụm từ
           </span>
         );
+      case 'collocation':
+      case 'collocations':
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 text-indigo-800 font-bold text-xs border border-indigo-300">
+            Collocation
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
@@ -437,9 +524,9 @@ export default function VocabCard({
         
         {/* Top: Word & Speaker button */}
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex flex-col gap-1">
-              <h3 className="font-headline text-2xl lg:text-[26px] font-extrabold text-slate-900 tracking-tight leading-none">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-1 flex-1 min-w-0">
+              <h3 className="font-headline text-2xl lg:text-[26px] font-extrabold text-slate-900 tracking-tight leading-snug break-words">
                 {vocab.word}
               </h3>
               {!isPhrasePos && (phonetic || vocab.phonetic) && (
@@ -453,7 +540,7 @@ export default function VocabCard({
               <button
                 type="button"
                 onClick={() => onPronounce(vocab.word, audioUrl || vocab.audioUrl)}
-                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-surface-crimson-subtle text-slate-500 hover:text-crimson-primary flex items-center justify-center transition-colors shadow-2xs"
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-surface-crimson-subtle text-slate-500 hover:text-crimson-primary flex items-center justify-center transition-colors shadow-2xs shrink-0 mt-0.5"
                 title="Phát âm từ vựng"
               >
                 <span className="material-symbols-outlined text-[19px]">volume_up</span>
@@ -708,10 +795,13 @@ export default function VocabCard({
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
-              onClick={() => setIsFavorite(!isFavorite)}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+              onClick={() => {
+                const next = toggleVocabStarred(vocab);
+                setIsFavorite(next);
+              }}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                 isFavorite
-                  ? 'text-amber-500 hover:text-amber-600 bg-amber-50'
+                  ? 'text-amber-500 hover:text-amber-600 bg-amber-50 shadow-2xs'
                   : 'text-slate-400 hover:text-amber-500 hover:bg-slate-50'
               }`}
               title={isFavorite ? 'Bỏ đánh dấu sao' : 'Đánh dấu sao (quan trọng)'}
@@ -723,10 +813,13 @@ export default function VocabCard({
 
             <button
               type="button"
-              onClick={() => setIsBookmarked(!isBookmarked)}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+              onClick={() => {
+                const next = toggleVocabBookmarked(vocab);
+                setIsBookmarked(next);
+              }}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                 isBookmarked
-                  ? 'text-crimson-primary hover:text-crimson-dark bg-surface-crimson-subtle'
+                  ? 'text-crimson-primary hover:text-crimson-dark bg-surface-crimson-subtle shadow-2xs'
                   : 'text-slate-400 hover:text-crimson-primary hover:bg-slate-50'
               }`}
               title={isBookmarked ? 'Bỏ lưu danh sách học' : 'Lưu vào danh sách cần ôn'}
@@ -759,6 +852,37 @@ export default function VocabCard({
             )}
           </div>
         </div>
+
+        {/* HÀNG 1.5: TỪ GỐC LIÊN KẾT CỦA COLLOCATION (BÊN DƯỚI ĐƯỜNG KẺ BORDER-B) */}
+        {isCollocation && allCollocationRootWords.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="px-2.5 py-0.5 rounded-md font-bold text-[11px] bg-indigo-50 text-indigo-800 border border-indigo-200/90 flex items-center gap-1 shadow-2xs shrink-0">
+              <span className="material-symbols-outlined text-[13px] text-indigo-600">
+                link
+              </span>
+              <span>Từ gốc liên kết</span>
+            </span>
+            {allCollocationRootWords.map((word, wIdx) => (
+              <button
+                key={wIdx}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onSelectRelatedWord) {
+                    onSelectRelatedWord(word, vocab.word);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-indigo-300 hover:bg-indigo-50/60 hover:border-indigo-400 hover:text-indigo-900 shadow-2xs active:scale-95 transition-all cursor-pointer group/word"
+                title={`Bấm để mở nhanh thẻ từ vựng gốc: "${word}"`}
+              >
+                <span>{word}</span>
+                <span className="material-symbols-outlined text-[13px] text-indigo-500 opacity-70 group-hover/word:opacity-100 group-hover/word:text-indigo-700 group-hover/word:translate-x-0.5 transition-all">
+                  open_in_new
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* HÀNG 2: MẪU PATTERN CẤU TRÚC (Pattern thẳng hàng Nghĩa, bên dưới là Ví dụ / Ghi chú) */}
         {patterns.length > 0 && (
@@ -847,6 +971,50 @@ export default function VocabCard({
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* HÀNG 3.2: CỤM COLLOCATION ĐỘC LẬP TỪ KHO LIÊN KẾT TỚI TỪ NÀY */}
+        {relatedCollocationVocabs.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px] text-indigo-600">link</span>
+                <span>Cụm Collocation liên kết trong kho ({relatedCollocationVocabs.length}):</span>
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {relatedCollocationVocabs.map((rc) => {
+                const rcPattern = rc.forms?.[0]?.pattern;
+                const rcMeaning = rc.meaning || rc.meanings?.[0] || rc.forms?.[0]?.meaning || '';
+                return (
+                  <div
+                    key={rc.id || rc.word}
+                    onClick={() => onSelectRelatedWord && onSelectRelatedWord(rc.word, vocab.word)}
+                    className="p-3 rounded-xl bg-indigo-50/40 hover:bg-indigo-50/80 border border-indigo-100 hover:border-indigo-300 flex items-center justify-between gap-3 cursor-pointer transition-all group/rc shadow-2xs"
+                    title={`Bấm để mở thẻ Collocation: "${rc.word}"`}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold uppercase tracking-wider border border-indigo-200">
+                        Collocation
+                      </span>
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 group-hover/rc:text-indigo-900 transition-colors">
+                        {rc.word}
+                      </span>
+                      {rcMeaning && (
+                        <>
+                          <span className="text-slate-300 font-bold">—</span>
+                          <span className="text-xs text-slate-600 truncate max-w-xs">{rcMeaning}</span>
+                        </>
+                      )}
+                    </div>
+                    <span className="material-symbols-outlined text-[16px] text-indigo-500 opacity-60 group-hover/rc:opacity-100 group-hover/rc:translate-x-0.5 transition-all">
+                      open_in_new
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

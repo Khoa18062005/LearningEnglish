@@ -63,7 +63,23 @@ const POS_OPTIONS = [
     badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
     dotColor: 'bg-amber-600',
   },
+  {
+    id: 'collocation',
+    label: 'Collocation (Cụm từ phối hợp)',
+    shortLabel: 'Collocation',
+    desc: 'Dạng kết hợp & Từ khóa',
+    colorActive: 'bg-white text-indigo-700 shadow-xs ring-2 ring-indigo-500/25 border-indigo-400 font-bold',
+    colorInactive: 'bg-slate-50/70 hover:bg-white text-indigo-700 border-slate-200/90 hover:border-indigo-200 font-semibold',
+    badgeColor: 'bg-indigo-50 text-indigo-800 border-indigo-300',
+    dotColor: 'bg-indigo-600',
+  },
 ];
+
+const PREPOSITIONS = new Set([
+  'from', 'to', 'in', 'on', 'at', 'with', 'by', 'for', 'about', 'into',
+  'through', 'over', 'after', 'against', 'between', 'out', 'off', 'up', 'down', 'upon', 'toward', 'towards'
+]);
+const STOP_ARTICLES = new Set(['a', 'an', 'the']);
 
 export default function AddVocabModal({
   isOpen,
@@ -355,7 +371,7 @@ export default function AddVocabModal({
   };
 
   const [pos, setPos] = useState('v');
-  const hasPhonetic = pos !== 'idiom' && pos !== 'phrasal_verb';
+  const hasPhonetic = pos !== 'idiom' && pos !== 'phrasal_verb' && pos !== 'collocation';
   const [phonetic, setPhonetic] = useState('');
   const [audioUrl, setAudioUrl] = useState('');
   const [isFetchingDict, setIsFetchingDict] = useState(false);
@@ -499,6 +515,192 @@ export default function AddVocabModal({
       note: '',
     },
   ]);
+
+  // Collocation states
+  const [anchorWord, setAnchorWord] = useState('');
+  const [collocationKeywords, setCollocationKeywords] = useState([]);
+  const [customKeywordInput, setCustomKeywordInput] = useState('');
+  const [collocationNote, setCollocationNote] = useState('');
+
+  // 1. Quét kho từ vựng hiện tại (vocabList) theo thời gian thực để tìm các từ và nhận diện từ loại (POS)
+  const scannedVocabDetails = useMemo(() => {
+    if (!word || pos !== 'collocation') return [];
+
+    const rawTokens = word
+      .toLowerCase()
+      .replace(/[^a-zA-Z\s'-]/g, ' ')
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length > 1);
+
+    const results = [];
+    const seen = new Set();
+
+    rawTokens.forEach((token) => {
+      if (seen.has(token)) return;
+      seen.add(token);
+
+      const isPrep = PREPOSITIONS.has(token);
+      const isArticle = STOP_ARTICLES.has(token);
+
+      // Thử khớp chính xác với từ trong kho
+      let match = (vocabList || []).find(
+        (v) => (v.word || '').trim().toLowerCase() === token
+      );
+
+      // Thử khớp biến thể nếu chưa tìm thấy (số nhiều, -ed, -ing)
+      if (!match) {
+        if (token.endsWith('ing') && token.length > 5) {
+          const r1 = token.slice(0, -3);
+          const r2 = r1 + 'e';
+          match = (vocabList || []).find((v) => {
+            const w = (v.word || '').trim().toLowerCase();
+            return w === r1 || w === r2;
+          });
+        } else if (token.endsWith('ed') && token.length > 4) {
+          const r1 = token.slice(0, -2);
+          const r2 = token.slice(0, -1);
+          match = (vocabList || []).find((v) => {
+            const w = (v.word || '').trim().toLowerCase();
+            return w === r1 || w === r2;
+          });
+        } else if (token.endsWith('s') && token.length > 3) {
+          const r1 = token.slice(0, -1);
+          const r2 = token.endsWith('es') ? token.slice(0, -2) : null;
+          match = (vocabList || []).find((v) => {
+            const w = (v.word || '').trim().toLowerCase();
+            return w === r1 || (r2 && w === r2);
+          });
+        }
+      }
+
+      if (match) {
+        const matchPos = (match.pos || match.forms?.[0]?.pos || 'v').toLowerCase();
+        const posOption = POS_OPTIONS.find((p) => p.id === matchPos);
+        results.push({
+          token,
+          matchedWord: match.word,
+          vocabId: match.id,
+          inStore: true,
+          pos: matchPos,
+          posLabel: posOption?.shortLabel || match.posLabel || (matchPos === 'v' ? 'Verb' : matchPos === 'n' ? 'Noun' : matchPos),
+          badgeColor: posOption?.badgeColor || 'bg-slate-100 text-slate-700 border-slate-200',
+          meaning: match.meaning || match.meanings?.[0] || '',
+          isPreposition: isPrep,
+        });
+      } else if (!isPrep && !isArticle) {
+        results.push({
+          token,
+          matchedWord: token,
+          vocabId: null,
+          inStore: false,
+          pos: null,
+          posLabel: null,
+          badgeColor: '',
+          meaning: '',
+          isPreposition: false,
+        });
+      }
+    });
+
+    return results;
+  }, [word, pos, vocabList]);
+
+  const removedKeywordsRef = useRef(new Set());
+
+  // Reset removed keywords when word is cleared
+  useEffect(() => {
+    if (!word) {
+      removedKeywordsRef.current.clear();
+    }
+  }, [word]);
+
+  // Tự động gán từ neo (Anchor) từ các từ đã tìm thấy trong kho
+  useEffect(() => {
+    if (pos !== 'collocation') return;
+    const inStoreWords = scannedVocabDetails.filter((w) => w.inStore);
+    if (inStoreWords.length === 0) return;
+
+    if (!anchorWord || !inStoreWords.some((w) => w.matchedWord.toLowerCase() === anchorWord.toLowerCase())) {
+      const best = inStoreWords.find((w) => w.pos === 'v') || inStoreWords[0];
+      setAnchorWord(best.matchedWord);
+    }
+  }, [scannedVocabDetails, pos, anchorWord]);
+
+  // Đồng bộ các từ đã phát hiện vào danh sách từ khóa liên kết (Target Words)
+  useEffect(() => {
+    if (pos !== 'collocation') return;
+    const inStoreWords = scannedVocabDetails
+      .filter((w) => w.inStore && !removedKeywordsRef.current.has(w.matchedWord.toLowerCase()))
+      .map((w) => w.matchedWord);
+    if (inStoreWords.length > 0) {
+      setCollocationKeywords((prev) => {
+        const combined = Array.from(new Set([...prev, ...inStoreWords]));
+        return combined;
+      });
+    }
+  }, [scannedVocabDetails, pos]);
+
+  const handleAddKeyword = (kwToAdd) => {
+    const clean = (kwToAdd || '').trim();
+    if (!clean) return;
+    removedKeywordsRef.current.delete(clean.toLowerCase());
+    setCollocationKeywords((prev) => {
+      if (prev.some((k) => k.toLowerCase() === clean.toLowerCase())) return prev;
+      return [...prev, clean];
+    });
+    if (!anchorWord) {
+      setAnchorWord(clean);
+    }
+  };
+
+  const handleAddCustomKeyword = () => {
+    const clean = customKeywordInput.trim();
+    if (!clean) return;
+    handleAddKeyword(clean);
+    setCustomKeywordInput('');
+  };
+
+  const handleRemoveKeyword = (kwToRemove) => {
+    removedKeywordsRef.current.add(kwToRemove.toLowerCase());
+    setCollocationKeywords((prev) =>
+      prev.filter((k) => k.toLowerCase() !== kwToRemove.toLowerCase())
+    );
+    if (anchorWord && anchorWord.toLowerCase() === kwToRemove.toLowerCase()) {
+      setAnchorWord('');
+    }
+  };
+
+  const getKeywordDetails = useCallback(
+    (kw) => {
+      if (!kw) return null;
+      const kwLower = kw.trim().toLowerCase();
+      const foundInScanned = scannedVocabDetails.find(
+        (w) => w.token.toLowerCase() === kwLower || w.matchedWord.toLowerCase() === kwLower
+      );
+      if (foundInScanned && foundInScanned.inStore) {
+        return foundInScanned;
+      }
+      const match = (vocabList || []).find(
+        (v) => (v.word || '').trim().toLowerCase() === kwLower
+      );
+      if (match) {
+        const matchPos = (match.pos || match.forms?.[0]?.pos || 'v').toLowerCase();
+        const posOption = POS_OPTIONS.find((p) => p.id === matchPos);
+        return {
+          token: kw,
+          matchedWord: match.word,
+          inStore: true,
+          pos: matchPos,
+          posLabel: posOption?.shortLabel || match.posLabel || (matchPos === 'v' ? 'Verb' : matchPos === 'n' ? 'Noun' : matchPos),
+          badgeColor: posOption?.badgeColor || 'bg-slate-100 text-slate-700 border-slate-200',
+          meaning: match.meaning || match.meanings?.[0] || '',
+        };
+      }
+      return null;
+    },
+    [scannedVocabDetails, vocabList]
+  );
 
   // Populate form if editing, or reset if creating new
   useEffect(() => {
@@ -706,7 +908,7 @@ export default function AddVocabModal({
       const currentPos = initialVocab.pos || initialVocab.forms?.[0]?.pos || 'v';
       setPos(currentPos);
       setCountability(initialVocab.countability || initialVocab.forms?.[0]?.countability || '[C]');
-      if (currentPos === 'idiom' || currentPos === 'phrasal_verb') {
+      if (currentPos === 'idiom' || currentPos === 'phrasal_verb' || currentPos === 'collocation') {
         setPhonetic('');
         setAudioUrl('');
       } else {
@@ -809,6 +1011,27 @@ export default function AddVocabModal({
           },
         ]);
       }
+
+      if (currentPos === 'collocation') {
+        const firstForm = (initialVocab.forms || [])[0] || {};
+        setCollocationNote(firstForm.note || '');
+        setAnchorWord(initialVocab.anchorWord || firstForm.anchorWord || '');
+        const rawKw = firstForm.keywords || firstForm.collocation || '';
+        if (rawKw && rawKw.toLowerCase() !== (initialVocab.word || '').toLowerCase()) {
+          setCollocationKeywords(
+            typeof rawKw === 'string'
+              ? rawKw.split(',').map((s) => s.trim()).filter(Boolean)
+              : Array.isArray(rawKw) ? rawKw : []
+          );
+        } else {
+          setCollocationKeywords([]);
+        }
+      } else {
+        setAnchorWord('');
+        setCollocationKeywords([]);
+        setCustomKeywordInput('');
+        setCollocationNote('');
+      }
     } else {
       // Reset for creating new word
       lastFetchedWordRef.current = '';
@@ -829,6 +1052,13 @@ export default function AddVocabModal({
       setAudioUrl('');
       setPos('v');
       setCountability('[C]');
+      setCollocationPattern('[V + N]');
+      setCustomCollocationPattern('');
+      setIsManualPattern(false);
+      setAnchorWord('');
+      setCollocationKeywords([]);
+      setCustomKeywordInput('');
+      setCollocationNote('');
       setSelectedWordFamilyId(null);
       setSelectedRootWord('');
       setWordFamilySearchInput('');
@@ -1020,7 +1250,7 @@ export default function AddVocabModal({
     if (newPos === 'n' && !countability) {
       setCountability('[C]');
     }
-    if (newPos === 'idiom' || newPos === 'phrasal_verb') {
+    if (newPos === 'idiom' || newPos === 'phrasal_verb' || newPos === 'collocation') {
       setPhonetic('');
       setAudioUrl('');
       lastFetchedWordRef.current = '';
@@ -1227,6 +1457,25 @@ export default function AddVocabModal({
         example: '',
         note: '',
       });
+    } else if (pos === 'collocation') {
+      // 1.5 Collocation: Target Keywords (no pattern)
+      const keywordsStr = (collocationKeywords || []).join(', ');
+      compiledForms.push({
+        type: 'collocation',
+        pos: 'collocation',
+        posLabel: 'Collocation',
+        countability: null,
+        pattern: '',
+        collocation: keywordsStr || word.trim(),
+        phrase: word.trim(),
+        anchorWord: anchorWord ? anchorWord.trim() : null,
+        synonym: effectiveSynonym,
+        closeMeanings: effectiveCloseMeaning,
+        meaning: compiledMeaning,
+        example: (meanings[0]?.example || '').trim(),
+        note: (collocationNote || meanings[0]?.note || '').trim(),
+        keywords: keywordsStr,
+      });
     } else if (pos === 'phrasal_verb') {
       // 2. Phrasal Verb: Synonyms + Group of Phrasal Verbs
       phrasalVerbs.forEach((pv) => {
@@ -1414,6 +1663,7 @@ export default function AddVocabModal({
         : null,
       categories:
         selectedCategories || [],
+      anchorWord: anchorWord ? anchorWord.trim() : null,
       forms: compiledForms,
     };
 
@@ -1550,8 +1800,8 @@ export default function AddVocabModal({
                   Từ loại (Part of Speech) <span className="text-crimson-primary">*</span>
                 </label>
 
-                {/* 6 POS Options Pills */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-0.5">
+                {/* 7 POS Options Pills */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 pt-0.5">
                   {POS_OPTIONS.map((opt) => {
                     const isActive = pos === opt.id;
                     return (
@@ -1586,6 +1836,8 @@ export default function AddVocabModal({
                       ? 'e.g. on cloud nine, a hot potato'
                       : pos === 'phrasal_verb'
                       ? 'e.g. take, look, get (động từ gốc)'
+                      : pos === 'collocation'
+                      ? 'e.g. expand the knowledge, make a decision'
                       : 'e.g. lease, fluctuate, accountant'}
                   </span>
                 </label>
@@ -1606,6 +1858,8 @@ export default function AddVocabModal({
                         ? 'Nhập thành ngữ hoặc cụm từ...'
                         : pos === 'phrasal_verb'
                         ? 'Nhập động từ gốc (e.g. take, look, get)...'
+                        : pos === 'collocation'
+                        ? 'Nhập cụm collocation (e.g. expand the knowledge)...'
                         : 'Nhập từ vựng tiếng Anh...'
                     }
                     className={`w-full h-11 pl-3.5 pr-8 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-sm font-semibold text-text-high-contrast border transition-all outline-none ${
@@ -2813,6 +3067,7 @@ export default function AddVocabModal({
                     {pos === 'adv' && 'Cấu trúc Trạng từ: Pattern & Collocations'}
                     {pos === 'phrasal_verb' && 'Cấu trúc Phrasal Verb: Từ đồng nghĩa & Nhóm từ'}
                     {pos === 'idiom' && 'Cấu trúc Idioms (Thành ngữ / Cụm từ)'}
+                    {pos === 'collocation' && 'Cấu trúc Collocation'}
                   </h3>
                   <p className="text-[11px] text-slate-400">
                     {pos === 'v' && 'Động từ xuất hiện mục Pattern cấu trúc ngữ pháp và Collocations cố định.'}
@@ -2821,6 +3076,7 @@ export default function AddVocabModal({
                     {pos === 'adv' && 'Trạng từ xuất hiện mục Pattern cấu trúc và Collocations.'}
                     {pos === 'phrasal_verb' && 'Cụm động từ: gồm từ đồng nghĩa và danh sách các cụm từ thuộc nhóm (ví dụ: take up, take off, take over... thuộc chữ take).'}
                     {pos === 'idiom' && 'Thành ngữ / Cụm từ không cần cấu trúc thêm Pattern hay Collocation.'}
+                    {pos === 'collocation' && 'Cụm từ phối hợp: gắn các từ khóa liên quan trong cụm để liên kết đối chiếu khi học.'}
                   </p>
                 </div>
               </div>
@@ -3010,8 +3266,206 @@ export default function AddVocabModal({
               </div>
             )}
 
-            {/* CASES 3, 4, 5, 6: V, N, ADJ, ADV */}
-            {pos !== 'idiom' && pos !== 'phrasal_verb' && (
+            {/* CASE 3: COLLOCATION (Từ khóa liên kết & Ngữ cảnh) */}
+            {pos === 'collocation' && (
+              <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col gap-4 animate-in fade-in duration-150">
+                
+                {/* Header Info Banner */}
+                <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 border border-indigo-200/80 shadow-2xs">
+                    <span className="material-symbols-outlined text-[20px]">link</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <h4 className="text-xs font-bold text-slate-900">
+                      Cấu trúc Collocation
+                    </h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Lưu trữ cụm từ độc lập. Các từ khóa gốc trong cụm sẽ được đề xuất ngay dưới đây để liên kết 2 chiều khi học.
+                    </p>
+                  </div>
+                </div>
+
+                {/* TỪ KHÓA GỐC LIÊN QUAN (TARGET WORDS) */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">
+                      Từ khóa gốc liên quan (Target Words):
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Tự động liên kết khi tra cứu từ đơn
+                    </span>
+                  </div>
+
+                  {/* Khung chứa các từ khóa đã chọn & Ô nhập từ khóa tự do */}
+                  <div className="min-h-10 p-2 rounded-xl bg-slate-50/70 border border-slate-200/90 flex flex-wrap items-center gap-1.5 focus-within:border-indigo-400 focus-within:bg-white transition-all">
+                    {collocationKeywords.map((kw) => {
+                      const details = getKeywordDetails(kw);
+                      const isAnchor = (anchorWord || '').toLowerCase() === kw.toLowerCase();
+                      return (
+                        <span
+                          key={kw}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border shadow-2xs transition-all ${
+                            isAnchor
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white text-indigo-900 border-indigo-200'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setAnchorWord(isAnchor ? '' : kw)}
+                            className="cursor-pointer flex items-center"
+                            title={isAnchor ? 'Từ gốc chính' : 'Nhấn để đặt làm từ gốc chính'}
+                          >
+                            <span className="material-symbols-outlined text-[13px]">
+                              {isAnchor ? 'star' : 'star_outline'}
+                            </span>
+                          </button>
+                          <span>{kw}</span>
+                          {details?.posLabel && (
+                            <span
+                              className={`text-[9px] px-1 py-0.2 rounded font-bold uppercase ${
+                                isAnchor
+                                  ? 'bg-white/20 text-white'
+                                  : details.badgeColor || 'bg-indigo-100 text-indigo-800'
+                              }`}
+                            >
+                              {details.posLabel}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveKeyword(kw)}
+                            className={`w-4 h-4 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
+                              isAnchor ? 'hover:bg-indigo-700 text-white' : 'hover:bg-slate-100 text-slate-400 hover:text-red-500'
+                            }`}
+                            title={`Xóa từ khóa "${kw}"`}
+                          >
+                            <span className="material-symbols-outlined text-[12px]">close</span>
+                          </button>
+                        </span>
+                      );
+                    })}
+
+                    {/* Input to type extra custom keyword */}
+                    <input
+                      type="text"
+                      value={customKeywordInput}
+                      onChange={(e) => setCustomKeywordInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomKeyword();
+                        }
+                      }}
+                      placeholder={collocationKeywords.length === 0 ? "Gõ từ khóa & Enter..." : "+ Thêm từ khác..."}
+                      className="flex-1 min-w-[130px] h-7 bg-transparent text-xs font-medium text-slate-800 placeholder-slate-400 outline-none"
+                    />
+
+                    {customKeywordInput.trim() && (
+                      <button
+                        type="button"
+                        onClick={handleAddCustomKeyword}
+                        className="h-7 px-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold cursor-pointer transition-colors"
+                      >
+                        Thêm
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ĐỀ XUẤT TỪ CỤM TỪ (SUGGESTIONS FROM PHRASE) */}
+                  {scannedVocabDetails.length > 0 ? (
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                        <span>Đề xuất từ cụm từ:</span>
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          (Nhấn để chọn / bỏ chọn liên kết)
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {scannedVocabDetails.map((item) => {
+                          const isSelected = collocationKeywords.some(
+                            (k) =>
+                              k.toLowerCase() === item.matchedWord.toLowerCase() ||
+                              k.toLowerCase() === item.token.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={item.token}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  handleRemoveKeyword(item.matchedWord);
+                                } else {
+                                  handleAddKeyword(item.matchedWord);
+                                }
+                              }}
+                              className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border cursor-pointer active:scale-95 ${
+                                isSelected
+                                  ? 'bg-indigo-50 text-indigo-800 border-indigo-300 shadow-2xs font-bold'
+                                  : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[13px]">
+                                {isSelected ? 'check' : 'add'}
+                              </span>
+                              <span>{item.matchedWord}</span>
+                              {item.inStore && item.posLabel && (
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${
+                                    isSelected
+                                      ? 'bg-indigo-200/80 text-indigo-900'
+                                      : item.badgeColor || 'bg-slate-100 text-slate-600 border border-slate-200'
+                                  }`}
+                                >
+                                  {item.posLabel}
+                                </span>
+                              )}
+                              {item.inStore && (
+                                <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                                  <span className="material-symbols-outlined text-[12px]">inventory_2</span>
+                                  <span>trong kho</span>
+                                </span>
+                              )}
+                              {item.inStore && item.meaning && (
+                                <span className="text-[10px] text-slate-400 font-normal hidden sm:inline max-w-[130px] truncate">
+                                  - {item.meaning.split(';')[0]}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic pt-0.5">
+                      Khi bạn nhập cụm từ tiếng Anh ở Mục 1, hệ thống sẽ tự động quét kho từ vựng và đề xuất các từ khóa gốc tại đây.
+                    </p>
+                  )}
+                </div>
+
+                {/* GHI CHÚ COLLOCATION (TÙY CHỌN) */}
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">
+                      Ghi chú cấu trúc / Ngữ cảnh sử dụng (Tùy chọn):
+                    </span>
+                    <span className="text-[11px] text-slate-400">Không bắt buộc</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={collocationNote}
+                    onChange={(e) => setCollocationNote(e.target.value)}
+                    placeholder="e.g. Đi với giới từ to/for, dùng trong văn phong học thuật..."
+                    className="h-9 px-3.5 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-xs font-medium text-slate-800 border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all outline-none"
+                  />
+                </div>
+
+              </div>
+            )}
+
+            {/* CASES 4, 5, 6, 7: V, N, ADJ, ADV */}
+            {pos !== 'idiom' && pos !== 'phrasal_verb' && pos !== 'collocation' && (
               <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col gap-5">
                 
                 {/* --- COUNTABILITY BLOCK (Chỉ hiển thị cho NOUN) --- */}

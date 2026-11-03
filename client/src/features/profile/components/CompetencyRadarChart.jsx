@@ -72,10 +72,12 @@ export default function CompetencyRadarChart({
   // 5. Số lượng Collocation (Cụm từ)
   const collocationCount = useMemo(() => {
     return (vocabList || []).reduce((acc, v) => {
+      const posLower = (v.pos || '').toLowerCase();
+      const isDirectCollocation = posLower === 'collocation' || posLower === 'collocations';
       const count = (v.forms || []).filter(
         (f) => Boolean(f.collocation && f.collocation.trim() && f.type !== 'phrasal_verb')
       ).length;
-      return acc + count;
+      return acc + (isDirectCollocation ? Math.max(1, count) : count);
     }, 0);
   }, [vocabList]);
 
