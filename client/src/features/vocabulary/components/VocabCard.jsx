@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { resolveVocabRelations } from '../../../utils/vocabRelations';
+import { fetchPhoneticAndAudio } from '../../../utils/phoneticUtils';
 import {
   isVocabStarred,
   isVocabBookmarked,
@@ -102,7 +103,7 @@ export default function VocabCard({
   );
   const [audioUrl, setAudioUrl] = useState(isPhrasePos ? '' : (vocab?.audioUrl || ''));
 
-  // Auto-resolve real phonetic IPA and audio if missing or dummy (skip for idioms & phrasal verbs)
+  // Auto-resolve real phonetic IPA and audio if missing, dummy, or missing spaces between multi-word phrase
   useEffect(() => {
     if (!vocab?.word) return;
 
@@ -114,30 +115,18 @@ export default function VocabCard({
 
     const currentPhonetic = vocab.phonetic || '';
     const isDummy = !currentPhonetic || currentPhonetic === `/${vocab.word}/` || currentPhonetic === `/${vocab.word.toLowerCase()}/`;
+    const isMultiWord = vocab.word.trim().split(/\s+/).length > 1;
+    const isMissingSpace = isMultiWord && currentPhonetic && !currentPhonetic.trim().includes(' ');
 
-    if (isDummy) {
-      fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(vocab.word.trim())}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            const entry = data[0];
-            let foundPhonetic = entry.phonetic || '';
-            if (!foundPhonetic && entry.phonetics?.length) {
-              const withText = entry.phonetics.find((p) => p.text && p.text.trim());
-              if (withText) foundPhonetic = withText.text;
-            }
-            if (foundPhonetic) setPhonetic(foundPhonetic.trim());
-
-            if (!vocab.audioUrl) {
-              const preferred = entry.phonetics?.find(
-                (p) => p.audio && (p.audio.includes('-us.mp3') || p.audio.includes('-uk.mp3'))
-              );
-              const anyAudio = preferred?.audio || entry.phonetics?.find((p) => p.audio?.endsWith('.mp3'))?.audio;
-              if (anyAudio) setAudioUrl(anyAudio);
-            }
-          }
+    if (isDummy || isMissingSpace) {
+      fetchPhoneticAndAudio(vocab.word.trim())
+        .then(({ phonetic: foundPhonetic, audio: foundAudio }) => {
+          if (foundPhonetic) setPhonetic(foundPhonetic.trim());
+          if (foundAudio && !vocab.audioUrl) setAudioUrl(foundAudio);
         })
-        .catch(() => {});
+        .catch(() => {
+          if (currentPhonetic) setPhonetic(currentPhonetic);
+        });
     } else {
       setPhonetic(currentPhonetic);
     }

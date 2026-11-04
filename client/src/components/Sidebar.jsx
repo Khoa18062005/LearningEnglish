@@ -17,12 +17,97 @@ export default function Sidebar({
   onDeleteCategory,
   onEditReadingList,
   onDeleteReadingList,
+  onReorderReadingLists,
   onNavigateHome,
 }) {
   const activeReadingListRef = useRef(null);
   const activeCategoryRef = useRef(null);
   const [isReadingListOpen, setIsReadingListOpen] = useState(true);
   const [isTopicVocabularyOpen, setIsTopicVocabularyOpen] = useState(true);
+
+  // Drag and drop states for readingLists (Nhấn giữ & kéo thả sắp xếp vị trí)
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [dropPosition, setDropPosition] = useState(null); // 'before' | 'after'
+  const isDraggingRef = useRef(false);
+
+  const handleDragStart = (e, index) => {
+    isDraggingRef.current = true;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (draggedIndex === null || draggedIndex === index) {
+      if (dragOverIndex !== null) {
+        setDragOverIndex(null);
+        setDropPosition(null);
+      }
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offset = e.clientY - rect.top;
+    const position = offset < rect.height / 2 ? 'before' : 'after';
+
+    if (dragOverIndex !== index || dropPosition !== position) {
+      setDragOverIndex(index);
+      setDropPosition(position);
+    }
+  };
+
+  const handleDragLeave = (e, index) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      if (dragOverIndex === index) {
+        setDragOverIndex(null);
+        setDropPosition(null);
+      }
+    }
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (draggedIndex === null || draggedIndex === index) {
+      cleanupDragState();
+      return;
+    }
+
+    const updatedLists = [...readingLists];
+    const [draggedItem] = updatedLists.splice(draggedIndex, 1);
+
+    let targetIndex = index;
+    if (draggedIndex < index) {
+      targetIndex = dropPosition === 'before' ? index - 1 : index;
+    } else {
+      targetIndex = dropPosition === 'before' ? index : index + 1;
+    }
+
+    targetIndex = Math.max(0, Math.min(targetIndex, updatedLists.length));
+    updatedLists.splice(targetIndex, 0, draggedItem);
+
+    if (onReorderReadingLists) {
+      onReorderReadingLists(updatedLists);
+    }
+
+    cleanupDragState();
+  };
+
+  const cleanupDragState = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setDropPosition(null);
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 150);
+  };
 
   const getReadingListWordCount = (list) => {
     if (Array.isArray(vocabList)) {
@@ -231,7 +316,10 @@ export default function Sidebar({
 
                 {/* Sub-items: Danh sách các bài đọc con */}
                 {isReadingListOpen && (
-                  <div className="ml-4 pl-2.5 my-1 border-l-2 border-slate-100 flex flex-col gap-0.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                  <div 
+                    className="ml-4 pl-2.5 my-1 border-l-2 border-slate-100 flex flex-col gap-1 max-h-[240px] overflow-y-auto pr-1 custom-scrollbar"
+                    onDragOver={(e) => e.preventDefault()}
+                  >
                     {readingLists.length === 0 ? (
                       <button
                         type="button"
@@ -242,31 +330,55 @@ export default function Sidebar({
                         <span className="italic text-[11px]">Chưa có danh sách (Bấm để thêm)</span>
                       </button>
                     ) : (
-                      readingLists.map((list) => {
+                      readingLists.map((list, index) => {
                         const isActive =
                           currentView === 'reading-list' &&
                           (selectedReadingListId === list.id || String(selectedReadingListId) === String(list.id));
                         const displayCode = list.code || list.shortTitle || 'LIST';
                         const displayTitle = list.title || '';
+                        const isBeingDragged = draggedIndex === index;
+                        const isTarget = dragOverIndex === index && draggedIndex !== index;
+
                         return (
                           <div
                             ref={isActive ? activeReadingListRef : null}
                             key={list.id}
-                            className={`group relative flex items-center justify-between px-2 py-1.5 rounded-md transition-colors text-left text-xs ${
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, index)}
+                            onDragOver={(e) => handleDragOver(e, index)}
+                            onDragLeave={(e) => handleDragLeave(e, index)}
+                            onDrop={(e) => handleDrop(e, index)}
+                            onDragEnd={cleanupDragState}
+                            onClick={() => {
+                              if (isDraggingRef.current) return;
+                              setSelectedReadingListId(list.id);
+                              setSelectedCategory(null);
+                              setCurrentView('reading-list');
+                            }}
+                            className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-pointer select-none ${
                               isActive
-                                ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold'
+                                ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
                                 : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
-                            }`}
+                            } ${
+                              isBeingDragged
+                                ? 'opacity-30 scale-[0.98] border border-dashed border-crimson-primary bg-red-50/50 shadow-inner'
+                                : ''
+                            } active:scale-[0.99] active:cursor-grabbing hover:shadow-2xs`}
                           >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedReadingListId(list.id);
-                                setSelectedCategory(null);
-                                setCurrentView('reading-list');
-                              }}
-                              className="flex items-center gap-2 truncate flex-1 min-w-0 pr-1 text-left cursor-pointer"
-                            >
+                            {/* Chỉ báo vị trí thả dạng đường kẻ sinh động */}
+                            {isTarget && (
+                              <div
+                                className={`absolute left-0 right-0 h-[2.5px] bg-crimson-primary rounded-full z-20 pointer-events-none shadow-sm ${
+                                  dropPosition === 'before' ? '-top-[2px]' : '-bottom-[2px]'
+                                }`}
+                              >
+                                <div className="absolute -left-1 -top-[3px] w-2 h-2 rounded-full bg-crimson-primary shadow-xs" />
+                                <div className="absolute -right-1 -top-[3px] w-2 h-2 rounded-full bg-crimson-primary shadow-xs" />
+                              </div>
+                            )}
+
+                            {/* Danh sách bài đọc */}
+                            <div className="flex items-center gap-2 truncate flex-1 min-w-0 pr-1 text-left">
                               <span
                                 className={`material-symbols-outlined text-[16px] shrink-0 ${
                                   isActive ? 'text-crimson-primary' : 'text-text-muted'
@@ -274,6 +386,7 @@ export default function Sidebar({
                               >
                                 article
                               </span>
+
                               <div className="flex flex-col truncate">
                                 <span className="text-[12px] font-semibold truncate leading-tight">
                                   {displayCode}
@@ -284,7 +397,7 @@ export default function Sidebar({
                                   </span>
                                 )}
                               </div>
-                            </button>
+                            </div>
 
                             <div className="flex items-center gap-1 shrink-0">
                               {/* Hover action buttons */}
@@ -292,6 +405,7 @@ export default function Sidebar({
                                 {onEditReadingList && (
                                   <button
                                     type="button"
+                                    onMouseDown={(e) => e.stopPropagation()}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onEditReadingList(list);
@@ -305,6 +419,7 @@ export default function Sidebar({
                                 {onDeleteReadingList && (
                                   <button
                                     type="button"
+                                    onMouseDown={(e) => e.stopPropagation()}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       onDeleteReadingList(list.id);

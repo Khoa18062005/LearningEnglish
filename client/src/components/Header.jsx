@@ -10,6 +10,7 @@ export default function Header({
   currentUser = null,
   onOpenAuthModal,
   onLogout,
+  onNavigateProfile,
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);

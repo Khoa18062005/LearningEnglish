@@ -89,7 +89,7 @@ export default function CategoryView({
   // Filter words that belong to this category (de-duplicated)
   const categoryWords = useMemo(() => {
     const seenKeys = new Set();
-    return vocabList.filter((item) => {
+    const filtered = vocabList.filter((item) => {
       const key = item.id ? `id-${item.id}` : `word-${item.word?.toLowerCase()}`;
       if (seenKeys.has(key)) return false;
       seenKeys.add(key);

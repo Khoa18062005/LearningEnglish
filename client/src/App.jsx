@@ -32,6 +32,25 @@ import {
   initialCategories,
 } from './data/mockData';
 
+const applySavedReadingListOrder = (lists) => {
+  if (!Array.isArray(lists) || lists.length === 0) return lists;
+  try {
+    const saved = localStorage.getItem('reading_list_custom_order');
+    if (saved) {
+      const orderIds = JSON.parse(saved);
+      if (Array.isArray(orderIds) && orderIds.length > 0) {
+        const map = new Map(orderIds.map((id, idx) => [String(id), idx]));
+        return [...lists].sort((a, b) => {
+          const oa = map.has(String(a.id)) ? map.get(String(a.id)) : 999999;
+          const ob = map.has(String(b.id)) ? map.get(String(b.id)) : 999999;
+          return oa - ob;
+        });
+      }
+    }
+  } catch {}
+  return lists;
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -43,7 +62,7 @@ export default function App() {
   });
 
   const [vocabList, setVocabList] = useState(initialVocabList);
-  const [readingLists, setReadingLists] = useState(initialReadingLists);
+  const [readingLists, setReadingLists] = useState(() => applySavedReadingListOrder(initialReadingLists));
   const [categories, setCategories] = useState(initialCategories);
   const [wordFamilies, setWordFamilies] = useState([]);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -328,7 +347,7 @@ export default function App() {
         });
       }
       if (Array.isArray(listsData)) {
-        setReadingLists(listsData);
+        setReadingLists(applySavedReadingListOrder(listsData));
       }
       if (Array.isArray(catsData)) {
         setCategories(catsData);
@@ -771,12 +790,30 @@ export default function App() {
           console.error('Lỗi khi xóa Reading List trên Backend:', err);
         }
         setReadingLists((prev) => prev.filter((r) => r.id !== id));
+        try {
+          const saved = localStorage.getItem('reading_list_custom_order');
+          if (saved) {
+            const orderIds = JSON.parse(saved).filter((item) => String(item) !== String(id));
+            localStorage.setItem('reading_list_custom_order', JSON.stringify(orderIds));
+          }
+        } catch {}
         if (selectedReadingListId === id) {
           setSelectedReadingListId(null);
           setCurrentView('master');
         }
       },
     });
+  };
+
+  // Reorder Reading Lists (Drag and drop)
+  const handleReorderReadingLists = (reorderedLists) => {
+    setReadingLists(reorderedLists);
+    try {
+      const orderIds = reorderedLists.map((l) => l.id);
+      localStorage.setItem('reading_list_custom_order', JSON.stringify(orderIds));
+    } catch (e) {
+      console.warn('Lỗi khi lưu thứ tự reading list vào localStorage:', e);
+    }
   };
 
   // Update Reading List (syncs to Spring Boot if available)
@@ -1234,6 +1271,7 @@ export default function App() {
         onDeleteCategory={handleDeleteCategory}
         onEditReadingList={handleEditReadingList}
         onDeleteReadingList={handleDeleteReadingList}
+        onReorderReadingLists={handleReorderReadingLists}
         onNavigateHome={() => navigateTo('home')}
       />
 

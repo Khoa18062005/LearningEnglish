@@ -350,7 +350,7 @@ public class VocabularyServiceImpl implements VocabularyService {
                 }
             } else {
                 // Flat form item (pattern or collocation)
-                boolean isCollocation = formPos == PartOfSpeech.COLLOCATION
+                boolean isCollocation = pos == PartOfSpeech.COLLOCATION
                         || "collocation".equalsIgnoreCase(item.getType())
                         || "collocation".equalsIgnoreCase(item.getPos());
                 String pattern = isCollocation ? "" : item.getPattern();

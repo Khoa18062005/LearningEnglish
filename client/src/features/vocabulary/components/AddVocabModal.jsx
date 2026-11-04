@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import NotificationModal from '../../../components/NotificationModal';
 import { resolveVocabRelations } from '../../../utils/vocabRelations';
+import { fetchPhoneticAndAudio } from '../../../utils/phoneticUtils';
 
 const POS_OPTIONS = [
   {
@@ -378,7 +379,7 @@ export default function AddVocabModal({
 
   const lastFetchedWordRef = useRef('');
 
-  // Auto-fetch phonetic IPA and human audio MP3 with multi-source fallback (skip for idiom and phrasal_verb)
+  // Auto-fetch phonetic IPA and human audio MP3 with multi-source fallback (hỗ trợ tách dấu cách cho cụm từ như "sewing machine")
   const fetchDictionaryData = async (wordToSearch) => {
     if (!hasPhonetic) return;
     const query = (wordToSearch || word).trim();
@@ -386,78 +387,7 @@ export default function AddVocabModal({
 
     setIsFetchingDict(true);
     try {
-      let foundPhonetic = '';
-      let foundAudio = '';
-
-      // 1. Try Free Dictionary API
-      try {
-        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            for (const item of data) {
-              if (item.phonetic && item.phonetic.trim()) {
-                foundPhonetic = item.phonetic.trim();
-                break;
-              }
-              if (item.phonetics && item.phonetics.length > 0) {
-                const withText = item.phonetics.find((p) => p.text && p.text.trim());
-                if (withText) {
-                  foundPhonetic = withText.text.trim();
-                  break;
-                }
-              }
-            }
-
-            for (const item of data) {
-              if (item.phonetics && item.phonetics.length > 0) {
-                const preferred = item.phonetics.find(
-                  (p) => p.audio && (p.audio.includes('-us.mp3') || p.audio.includes('-uk.mp3'))
-                );
-                if (preferred) {
-                  foundAudio = preferred.audio;
-                  break;
-                }
-                if (!foundAudio) {
-                  const anyAudio = item.phonetics.find((p) => p.audio && p.audio.trim().endsWith('.mp3'));
-                  if (anyAudio) foundAudio = anyAudio.audio;
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Free Dictionary API failed, trying Datamuse fallback:', err);
-      }
-
-      // 2. Fallback to Datamuse API if phonetic is not yet found
-      if (!foundPhonetic) {
-        try {
-          const dmRes = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(query)}&qe=sp&md=r&ipa=1`);
-          if (dmRes.ok) {
-            const dmData = await dmRes.json();
-            if (Array.isArray(dmData) && dmData.length > 0) {
-              const matched = dmData.find((d) => d.word.toLowerCase() === query.toLowerCase()) || dmData[0];
-              if (matched && matched.tags) {
-                const ipaTag = matched.tags.find((t) => t.startsWith('ipa_pron:'));
-                if (ipaTag) {
-                  const rawIpa = ipaTag.replace('ipa_pron:', '').trim();
-                  if (rawIpa) {
-                    foundPhonetic = `/${rawIpa}/`;
-                  }
-                }
-              }
-            }
-          }
-        } catch (dmErr) {
-          console.warn('Datamuse API fallback failed:', dmErr);
-        }
-      }
-
-      // 3. Fallback to high-quality native US audio if not found
-      if (!foundAudio && query) {
-        foundAudio = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(query)}&type=2`;
-      }
+      const { phonetic: foundPhonetic, audio: foundAudio } = await fetchPhoneticAndAudio(query);
 
       if (foundPhonetic) {
         setPhonetic(foundPhonetic);
@@ -1052,9 +982,6 @@ export default function AddVocabModal({
       setAudioUrl('');
       setPos('v');
       setCountability('[C]');
-      setCollocationPattern('[V + N]');
-      setCustomCollocationPattern('');
-      setIsManualPattern(false);
       setAnchorWord('');
       setCollocationKeywords([]);
       setCustomKeywordInput('');
