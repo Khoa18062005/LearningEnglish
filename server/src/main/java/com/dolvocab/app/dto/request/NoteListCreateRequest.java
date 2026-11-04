@@ -19,4 +19,5 @@ public class NoteListCreateRequest {
     private String sourceReference;
     private String passage;
     private String note;
+    private Long folderId;
 }

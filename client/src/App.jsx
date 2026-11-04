@@ -11,6 +11,7 @@ import AddVocabModal from './features/vocabulary/components/AddVocabModal';
 import VocabDetailModal from './features/vocabulary/components/VocabDetailModal';
 import RelatedVocabGroupModal from './features/vocabulary/components/RelatedVocabGroupModal';
 import AddReadingListModal from './features/reading-lists/components/AddReadingListModal';
+import AddNoteFolderModal from './features/reading-lists/components/AddNoteFolderModal';
 import CategoryModal from './components/CategoryModal';
 import NotificationModal from './components/NotificationModal';
 import Toast from './components/Toast';
@@ -23,6 +24,7 @@ import ProfilePage from './features/profile/pages/ProfilePage';
 import { vocabApi } from './api/vocabApi';
 import { categoryApi } from './api/categoryApi';
 import { noteListApi } from './api/noteListApi';
+import { noteFolderApi } from './api/noteFolderApi';
 import { wordFamilyApi } from './api/wordFamilyApi';
 import { authApi } from './api/authApi';
 
@@ -63,6 +65,7 @@ export default function App() {
 
   const [vocabList, setVocabList] = useState(initialVocabList);
   const [readingLists, setReadingLists] = useState(() => applySavedReadingListOrder(initialReadingLists));
+  const [noteFolders, setNoteFolders] = useState([]);
   const [categories, setCategories] = useState(initialCategories);
   const [wordFamilies, setWordFamilies] = useState([]);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
@@ -219,13 +222,28 @@ export default function App() {
   };
   const [isAddReadingListModalOpen, setIsAddReadingListModalOpen] = useState(false);
   const [editingReadingList, setEditingReadingList] = useState(null);
+  const [defaultFolderForNewList, setDefaultFolderForNewList] = useState(null);
+  const [isNoteFolderModalOpen, setIsNoteFolderModalOpen] = useState(false);
+  const [editingNoteFolder, setEditingNoteFolder] = useState(null);
 
-  const handleOpenAddReadingListModal = () => {
+  const handleOpenAddFolderModal = () => {
+    setEditingNoteFolder(null);
+    setIsNoteFolderModalOpen(true);
+  };
+
+  const handleEditFolder = (folder) => {
+    setEditingNoteFolder(folder);
+    setIsNoteFolderModalOpen(true);
+  };
+
+  const handleOpenAddReadingListModal = (options = null) => {
+    setDefaultFolderForNewList(options?.defaultFolderId || null);
     setEditingReadingList(null);
     setIsAddReadingListModalOpen(true);
   };
 
   const handleEditReadingList = (list) => {
+    setDefaultFolderForNewList(list?.folderId || null);
     setEditingReadingList(list);
     setIsAddReadingListModalOpen(true);
   };
@@ -306,11 +324,12 @@ export default function App() {
     }
     try {
       setLoading(true);
-      const [vocabsData, listsData, catsData, familiesData] = await Promise.all([
+      const [vocabsData, listsData, catsData, familiesData, foldersData] = await Promise.all([
         vocabApi.getAll(),
         noteListApi.getAll(),
         categoryApi.getAll(),
         wordFamilyApi.getAll(),
+        noteFolderApi.getAll().catch(() => []),
       ]);
 
       if (Array.isArray(vocabsData)) {
@@ -354,6 +373,9 @@ export default function App() {
       }
       if (Array.isArray(familiesData)) {
         setWordFamilies(familiesData);
+      }
+      if (Array.isArray(foldersData)) {
+        setNoteFolders(foldersData);
       }
       setIsBackendConnected(true);
     } catch (err) {
@@ -738,15 +760,26 @@ export default function App() {
       return;
     }
 
+    const folder = newListPayload.folderId
+      ? noteFolders.find((f) => String(f.id) === String(newListPayload.folderId))
+      : null;
+
     try {
       if (isBackendConnected) {
         const created = await noteListApi.create(newListPayload);
-        setReadingLists((prev) => [...prev, created]);
+        const enriched = {
+          ...created,
+          folderId: created.folderId || (folder ? folder.id : null),
+          folderCode: created.folderCode || (folder ? folder.code : null),
+          folderName: created.folderName || (folder ? folder.name : null),
+        };
+        setReadingLists((prev) => [...prev, enriched]);
         setSelectedReadingListId(created.id);
         setCurrentView('reading-list');
         setIsAddReadingListModalOpen(false);
         setEditingReadingList(null);
-        return created;
+        showToast('Tạo danh sách từ vựng thành công!');
+        return enriched;
       }
     } catch (err) {
       console.error('Lỗi khi lưu Reading List lên Backend:', err);
@@ -762,6 +795,9 @@ export default function App() {
       sourceReference: newListPayload.sourceReference || '',
       passage: newListPayload.passage || '',
       note: newListPayload.note || '',
+      folderId: folder ? folder.id : null,
+      folderCode: folder ? folder.code : null,
+      folderName: folder ? folder.name : null,
       count: 0,
       createdAt: new Date().toISOString(),
     };
@@ -771,7 +807,99 @@ export default function App() {
     setCurrentView('reading-list');
     setIsAddReadingListModalOpen(false);
     setEditingReadingList(null);
+    showToast('Tạo danh sách từ vựng thành công!');
     return localNewList;
+  };
+
+  // Quản lý Thư Mục (Folder / Danh mục Cấp 2)
+  const handleSaveNoteFolder = async (folderPayload) => {
+    if (folderPayload.id) {
+      try {
+        if (isBackendConnected) {
+          const updated = await noteFolderApi.update(folderPayload.id, folderPayload);
+          setNoteFolders((prev) =>
+            prev.map((f) => (f.id === folderPayload.id ? { ...f, ...updated } : f))
+          );
+          setReadingLists((prev) =>
+            prev.map((l) =>
+              l.folderId === folderPayload.id
+                ? { ...l, folderCode: updated.code, folderName: updated.name }
+                : l
+            )
+          );
+          showToast('Cập nhật thư mục thành công!');
+          return updated;
+        }
+      } catch (err) {
+        console.error('Lỗi khi cập nhật thư mục lên Backend:', err);
+        throw err;
+      }
+
+      setNoteFolders((prev) =>
+        prev.map((f) => (f.id === folderPayload.id ? { ...f, ...folderPayload } : f))
+      );
+      setReadingLists((prev) =>
+        prev.map((l) =>
+          l.folderId === folderPayload.id
+            ? { ...l, folderCode: folderPayload.code, folderName: folderPayload.name }
+            : l
+        )
+      );
+      showToast('Cập nhật thư mục thành công!');
+      return folderPayload;
+    }
+
+    try {
+      if (isBackendConnected) {
+        const created = await noteFolderApi.create(folderPayload);
+        setNoteFolders((prev) => [...prev, created]);
+        showToast('Tạo thư mục mới thành công!');
+        return created;
+      }
+    } catch (err) {
+      console.error('Lỗi khi tạo thư mục lên Backend:', err);
+      throw err;
+    }
+
+    const localFolder = {
+      id: Date.now(),
+      code: folderPayload.code,
+      name: folderPayload.name,
+      description: folderPayload.description || null,
+      createdAt: new Date().toISOString(),
+      totalLists: 0,
+      totalWords: 0,
+    };
+    setNoteFolders((prev) => [...prev, localFolder]);
+    showToast('Tạo thư mục mới thành công!');
+    return localFolder;
+  };
+
+  const handleDeleteFolder = (folderId) => {
+    showNotification({
+      title: 'Xóa thư mục',
+      message: 'Bạn có chắc chắn muốn xóa thư mục này? Các bài đọc bên trong sẽ được giữ lại dưới dạng danh sách riêng lẻ.',
+      type: 'danger',
+      confirmText: 'Xóa thư mục',
+      onConfirm: async () => {
+        try {
+          if (isBackendConnected) {
+            await noteFolderApi.delete(folderId);
+          }
+        } catch (err) {
+          console.error('Lỗi khi xóa thư mục trên Backend:', err);
+        }
+        setNoteFolders((prev) => prev.filter((f) => f.id !== folderId));
+        setReadingLists((prev) =>
+          prev.map((l) =>
+            l.folderId === folderId
+              ? { ...l, folderId: null, folderCode: null, folderName: null }
+              : l
+          )
+        );
+        showToast('Đã xóa thư mục thành công!');
+      },
+    });
   };
 
   // Delete Reading List
@@ -844,10 +972,20 @@ export default function App() {
       if (isBackendConnected) {
         const updated = await noteListApi.update(id, updatedPayload);
         if (updated) {
+          const folder = updatedPayload.folderId
+            ? noteFolders.find((f) => String(f.id) === String(updatedPayload.folderId))
+            : null;
+          const enriched = {
+            ...updated,
+            folderId: updated.folderId !== undefined ? updated.folderId : (folder ? folder.id : null),
+            folderCode: updated.folderCode !== undefined ? updated.folderCode : (folder ? folder.code : null),
+            folderName: updated.folderName !== undefined ? updated.folderName : (folder ? folder.name : null),
+          };
           setReadingLists((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, ...updated } : r))
+            prev.map((r) => (r.id === id ? { ...r, ...enriched } : r))
           );
-          return updated;
+          showToast('Cập nhật bài đọc thành công!');
+          return enriched;
         }
       }
     } catch (err) {
@@ -860,6 +998,9 @@ export default function App() {
         if (r.id !== id) return r;
         const code = updatedPayload.code !== undefined ? updatedPayload.code : r.code;
         const title = updatedPayload.title !== undefined ? updatedPayload.title : r.title;
+        const folder = updatedPayload.folderId
+          ? noteFolders.find((f) => String(f.id) === String(updatedPayload.folderId))
+          : null;
         return {
           ...r,
           ...updatedPayload,
@@ -867,9 +1008,13 @@ export default function App() {
           title,
           shortTitle: code || r.shortTitle,
           fullTitle: code ? `${code}: ${title}` : title,
+          folderId: updatedPayload.folderId !== undefined ? (folder ? folder.id : null) : r.folderId,
+          folderCode: updatedPayload.folderId !== undefined ? (folder ? folder.code : null) : r.folderCode,
+          folderName: updatedPayload.folderId !== undefined ? (folder ? folder.name : null) : r.folderName,
         };
       })
     );
+    showToast('Cập nhật bài đọc thành công!');
   };
 
   // Add or update Category (syncs to Spring Boot if available)
@@ -1262,10 +1407,14 @@ export default function App() {
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
         readingLists={readingLists}
+        noteFolders={noteFolders}
         categories={categories}
         vocabList={vocabList}
         onOpenAddModal={handleOpenAddModal}
         onOpenAddReadingListModal={handleOpenAddReadingListModal}
+        onOpenAddFolderModal={handleOpenAddFolderModal}
+        onEditFolder={handleEditFolder}
+        onDeleteFolder={handleDeleteFolder}
         onOpenAddCategoryModal={handleOpenAddCategoryModal}
         onEditCategory={handleEditCategory}
         onDeleteCategory={handleDeleteCategory}
@@ -1340,6 +1489,7 @@ export default function App() {
                 readingList={activeReadingList}
                 vocabList={vocabList}
                 existingLists={readingLists}
+                noteFolders={noteFolders}
                 onOpenAddModal={handleOpenAddModal}
                 onEditVocab={handleEditVocab}
                 onPronounce={handlePronounce}
@@ -1507,6 +1657,7 @@ export default function App() {
             <div className="px-6 lg:px-8 pt-5 pb-8 max-w-[1600px] mx-auto w-full">
               <ListVocabularyPage
                 readingLists={readingLists}
+                noteFolders={noteFolders}
                 vocabList={vocabList}
                 onSelectList={(listId) => {
                   setSelectedReadingListId(listId);
@@ -1514,9 +1665,12 @@ export default function App() {
                   setCurrentView('reading-list');
                 }}
                 onOpenAddReadingListModal={handleOpenAddReadingListModal}
+                onOpenAddFolderModal={handleOpenAddFolderModal}
                 onOpenAddModal={handleOpenAddModal}
                 onEditReadingList={handleEditReadingList}
                 onDeleteReadingList={handleDeleteReadingList}
+                onEditFolder={handleEditFolder}
+                onDeleteFolder={handleDeleteFolder}
               />
             </div>
           )}
@@ -1582,16 +1736,34 @@ export default function App() {
         }}
       />
 
-      {/* Modal Thêm / Chỉnh Sửa Danh Sách Bài Đọc */}
+      {/* Modal Thêm / Chỉnh Sửa Danh Sách Bài Đọc (Cấp 3) */}
       <AddReadingListModal
         isOpen={isAddReadingListModalOpen}
         initialData={editingReadingList}
         onClose={() => {
           setIsAddReadingListModalOpen(false);
           setEditingReadingList(null);
+          setDefaultFolderForNewList(null);
         }}
         onSave={handleSaveReadingList}
         existingLists={readingLists}
+        existingFolders={noteFolders}
+        defaultFolderId={defaultFolderForNewList}
+        onOpenCreateFolder={() => {
+          setIsNoteFolderModalOpen(true);
+        }}
+      />
+
+      {/* Modal Thêm / Chỉnh Sửa Thư Mục / Bộ Đề (Cấp 2) */}
+      <AddNoteFolderModal
+        isOpen={isNoteFolderModalOpen}
+        initialData={editingNoteFolder}
+        onClose={() => {
+          setIsNoteFolderModalOpen(false);
+          setEditingNoteFolder(null);
+        }}
+        onSave={handleSaveNoteFolder}
+        existingFolders={noteFolders}
       />
 
       {/* Modal Thêm / Chỉnh Sửa Danh Mục (Categories) */}

@@ -2,9 +2,11 @@ package com.dolvocab.app.service.impl;
 
 import com.dolvocab.app.dto.request.NoteListCreateRequest;
 import com.dolvocab.app.dto.response.NoteListResponse;
+import com.dolvocab.app.entity.NoteFolder;
 import com.dolvocab.app.entity.NoteList;
 import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
+import com.dolvocab.app.repository.NoteFolderRepository;
 import com.dolvocab.app.repository.NoteListRepository;
 import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.NoteListService;
@@ -21,6 +23,7 @@ import java.util.List;
 public class NoteListServiceImpl implements NoteListService {
 
     private final NoteListRepository noteListRepository;
+    private final NoteFolderRepository noteFolderRepository;
     private final SecurityUtils securityUtils;
 
     private NoteListResponse toResponse(NoteList list, long count) {
@@ -30,6 +33,10 @@ public class NoteListServiceImpl implements NoteListService {
         String fullTitle = (code != null && !code.trim().isEmpty() && !code.trim().equalsIgnoreCase(title))
                 ? code.trim() + ": " + title
                 : title;
+
+        Long folderId = list.getFolder() != null ? list.getFolder().getId() : null;
+        String folderCode = list.getFolder() != null ? list.getFolder().getCode() : null;
+        String folderName = list.getFolder() != null ? list.getFolder().getName() : null;
 
         return NoteListResponse.builder()
                 .id(list.getId())
@@ -42,6 +49,9 @@ public class NoteListServiceImpl implements NoteListService {
                 .note(list.getNote())
                 .createdAt(list.getCreatedAt())
                 .count(count)
+                .folderId(folderId)
+                .folderCode(folderCode)
+                .folderName(folderName)
                 .build();
     }
 
@@ -61,6 +71,9 @@ public class NoteListServiceImpl implements NoteListService {
             String note = (String) row[5];
             LocalDateTime createdAt = (LocalDateTime) row[6];
             long count = ((Number) row[7]).longValue();
+            Long folderId = row.length > 8 ? (Long) row[8] : null;
+            String folderCode = row.length > 9 ? (String) row[9] : null;
+            String folderName = row.length > 10 ? (String) row[10] : null;
 
             String shortTitle = (code != null && !code.trim().isEmpty()) ? code.trim() : title;
             String fullTitle = (code != null && !code.trim().isEmpty() && !code.trim().equalsIgnoreCase(title))
@@ -78,6 +91,9 @@ public class NoteListServiceImpl implements NoteListService {
                     .note(note)
                     .createdAt(createdAt)
                     .count(count)
+                    .folderId(folderId)
+                    .folderCode(folderCode)
+                    .folderName(folderName)
                     .build());
         }
         return responses;
@@ -113,8 +129,15 @@ public class NoteListServiceImpl implements NoteListService {
             }
         }
 
+        NoteFolder folder = null;
+        if (request.getFolderId() != null) {
+            folder = noteFolderRepository.findByIdAndUserId(request.getFolderId(), currentUser.getId())
+                    .orElse(null);
+        }
+
         NoteList list = NoteList.builder()
                 .user(currentUser)
+                .folder(folder)
                 .title(request.getTitle().trim())
                 .code(code)
                 .sourceReference(request.getSourceReference() != null ? request.getSourceReference().trim() : null)
@@ -145,6 +168,14 @@ public class NoteListServiceImpl implements NoteListService {
         list.setSourceReference(request.getSourceReference() != null ? request.getSourceReference().trim() : null);
         list.setPassage(request.getPassage() != null ? request.getPassage().trim() : null);
         list.setNote(request.getNote() != null ? request.getNote().trim() : null);
+
+        if (request.getFolderId() != null) {
+            NoteFolder folder = noteFolderRepository.findByIdAndUserId(request.getFolderId(), currentUser.getId())
+                    .orElse(null);
+            list.setFolder(folder);
+        } else {
+            list.setFolder(null);
+        }
 
         NoteList saved = noteListRepository.save(list);
         return toResponse(saved, list.getVocabularies().size());

@@ -2617,7 +2617,14 @@ export default function AddVocabModal({
                                   )}
                                 </span>
                                 <div className="flex flex-col overflow-hidden">
-                                  <span className="font-bold text-xs truncate">{code}</span>
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    {rl.folderCode && (
+                                      <span className="text-[10px] text-amber-800 font-bold bg-yellow-400/25 px-1.5 py-0.5 rounded border border-yellow-300 shrink-0">
+                                        {rl.folderCode}
+                                      </span>
+                                    )}
+                                    <span className="font-bold text-xs truncate">{code}</span>
+                                  </div>
                                   {title && title !== code && (
                                     <span className="text-[11px] text-slate-400 truncate">
                                       {title}

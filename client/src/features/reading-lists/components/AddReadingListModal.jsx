@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function AddReadingListModal({
   isOpen,
   onClose,
   onSave,
   existingLists = [],
+  existingFolders = [],
+  defaultFolderId = null,
+  onOpenCreateFolder = null,
   initialData = null,
 }) {
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
+  const [folderId, setFolderId] = useState(defaultFolderId || initialData?.folderId || '');
+  const [isFolderDropdownOpen, setIsFolderDropdownOpen] = useState(false);
+  const folderDropdownRef = useRef(null);
   const [sourceReference, setSourceReference] = useState('');
   const [passage, setPassage] = useState('');
   const [note, setNote] = useState('');
@@ -16,12 +22,29 @@ export default function AddReadingListModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    if (!isFolderDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (folderDropdownRef.current && !folderDropdownRef.current.contains(e.target)) {
+        setIsFolderDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFolderDropdownOpen]);
+
+  const selectedFolder = existingFolders.find(
+    (f) => String(f.id) === String(folderId)
+  );
+
   // Auto-generate suggested list code on open or populate with initialData
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
         setCode(initialData.code || initialData.shortTitle || '');
         setTitle(initialData.title || '');
+        setFolderId(initialData.folderId ? String(initialData.folderId) : (defaultFolderId ? String(defaultFolderId) : ''));
         setSourceReference(initialData.sourceReference || '');
         setPassage(initialData.passage || '');
         setNote(initialData.note || '');
@@ -41,6 +64,7 @@ export default function AddReadingListModal({
         }
         setCode(formatted);
         setTitle('');
+        setFolderId(defaultFolderId ? String(defaultFolderId) : '');
         setSourceReference('');
         setPassage('');
         setNote('');
@@ -49,7 +73,7 @@ export default function AddReadingListModal({
       setErrorMessage('');
       setIsSubmitting(false);
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, defaultFolderId]);
 
   // Keyboard shortcut listener (ESC to close, Cmd/Ctrl+Enter to save)
   useEffect(() => {
@@ -110,6 +134,7 @@ export default function AddReadingListModal({
         sourceReference: sourceReference.trim() || null,
         passage: passage.trim() || null,
         note: note.trim() || null,
+        folderId: folderId ? Number(folderId) : null,
       };
 
       await onSave(payload, initialData?.id);
@@ -168,6 +193,182 @@ export default function AddReadingListModal({
               <span>{errorMessage}</span>
             </div>
           )}
+
+          {/* Thư mục / Bộ đề (Folder / Danh mục cha) */}
+          <div className="flex flex-col gap-1.5" ref={folderDropdownRef}>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-text-high-contrast flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px] text-amber-500">folder</span>
+                <span>Thư mục / Bộ đề (Danh mục cha)</span>
+              </label>
+              {onOpenCreateFolder && (
+                <button
+                  type="button"
+                  onClick={onOpenCreateFolder}
+                  className="text-[11px] font-bold text-crimson-primary hover:text-crimson-dark flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                  <span>Tạo thư mục mới</span>
+                </button>
+              )}
+            </div>
+
+            {/* Custom Styled Dropdown Selector */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsFolderDropdownOpen((prev) => !prev)}
+                className={`w-full h-11 px-3.5 bg-white rounded-xl text-xs font-semibold flex items-center justify-between transition-all outline-none cursor-pointer border ${
+                  isFolderDropdownOpen
+                    ? 'border-crimson-primary ring-4 ring-crimson-primary/10 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1 text-left">
+                  {selectedFolder ? (
+                    <>
+                      <span className="material-symbols-outlined text-[18px] text-amber-500 shrink-0">
+                        folder
+                      </span>
+                      <span className="truncate text-slate-800 font-bold text-xs">
+                        {selectedFolder.name}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px] text-slate-400 shrink-0">
+                        folder_off
+                      </span>
+                      <span className="text-slate-500 font-normal truncate">
+                        -- Danh sách riêng lẻ (Không thuộc thư mục) --
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  {folderId && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFolderId('');
+                      }}
+                      title="Bỏ chọn thư mục (Chuyển thành danh sách riêng lẻ)"
+                      className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer mr-0.5"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">close</span>
+                    </span>
+                  )}
+                  <span
+                    className={`material-symbols-outlined text-slate-400 text-[18px] transition-transform duration-200 shrink-0 ${
+                      isFolderDropdownOpen ? 'rotate-180 text-crimson-primary' : ''
+                    }`}
+                  >
+                    expand_more
+                  </span>
+                </div>
+              </button>
+
+              {/* Dropdown Popover */}
+              {isFolderDropdownOpen && (
+                <div
+                  className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200/95 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1 max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-black/5"
+                >
+                  <div className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
+                    <span>Chọn thư mục / danh mục cha</span>
+                    {onOpenCreateFolder && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsFolderDropdownOpen(false);
+                          onOpenCreateFolder();
+                        }}
+                        className="text-[10.5px] font-bold text-crimson-primary hover:underline cursor-pointer"
+                      >
+                        + Tạo mới
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Lựa chọn 1: Danh sách riêng lẻ */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFolderId('');
+                      setIsFolderDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 text-left text-xs transition-colors cursor-pointer ${
+                      !folderId
+                        ? 'bg-surface-crimson-subtle/80 text-crimson-primary font-bold'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="material-symbols-outlined text-[18px] text-slate-400 shrink-0">
+                        folder_off
+                      </span>
+                      <span className="truncate">
+                        Danh sách riêng lẻ (Không thuộc thư mục)
+                      </span>
+                    </div>
+                    <span
+                      className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+                        !folderId ? 'bg-crimson-primary text-white' : 'border border-slate-300'
+                      }`}
+                    >
+                      {!folderId && (
+                        <span className="material-symbols-outlined text-[11px] font-bold">check</span>
+                      )}
+                    </span>
+                  </button>
+
+                  {/* Danh sách các thư mục hiện có */}
+                  {existingFolders.map((f) => {
+                    const isSelected = String(f.id) === String(folderId);
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setFolderId(String(f.id));
+                          setIsFolderDropdownOpen(false);
+                        }}
+                        className={`w-full px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 text-left text-xs transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-surface-crimson-subtle/80 text-crimson-primary font-bold'
+                            : 'text-slate-700 hover:bg-amber-50/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="material-symbols-outlined text-[18px] text-amber-500 shrink-0">
+                            folder
+                          </span>
+                          <span className="truncate font-semibold text-slate-800">
+                            {f.name}
+                          </span>
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${
+                            isSelected ? 'bg-crimson-primary text-white' : 'border border-slate-300'
+                          }`}
+                        >
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-[11px] font-bold">check</span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <span className="text-[10.5px] text-text-muted">
+              Gom bài đọc này vào đề thi hoặc môn học tương ứng (VD: TOEIC Test 1, Anh văn 2...).
+            </span>
+          </div>
 
           {/* Code and Title Row */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">

@@ -1,19 +1,60 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import astronautImg from '../../../assets/Chibi_PhiHanhGia.png';
 
 export default function ListVocabularyPage({
   readingLists = [],
+  noteFolders = [],
   vocabList = [],
   onSelectList,
   onOpenAddReadingListModal,
+  onOpenAddFolderModal,
   onOpenAddModal,
   onEditReadingList,
   onDeleteReadingList,
+  onEditFolder,
+  onDeleteFolder,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFolderFilter, setSelectedFolderFilter] = useState('all'); // 'all' | folderId | 'none'
   const [sortBy, setSortBy] = useState('oldest'); // 'oldest' (mặc định) | 'newest' | 'most-vocabs' | 'title-az'
+  const [isFolderFilterOpen, setIsFolderFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const folderFilterRef = useRef(null);
+  const sortRef = useRef(null);
 
-  // Tính số lượng từ vựng cho từng bài đọc (chỉ so khớp chặt chẽ theo ID duy nhất)
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (folderFilterRef.current && !folderFilterRef.current.contains(e.target)) {
+        setIsFolderFilterOpen(false);
+      }
+      if (sortRef.current && !sortRef.current.contains(e.target)) {
+        setIsSortOpen(false);
+      }
+    };
+    if (isFolderFilterOpen || isSortOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFolderFilterOpen, isSortOpen]);
+
+  // Tên hiển thị của bộ lọc Thư mục & Sắp xếp
+  const selectedFolderLabel = useMemo(() => {
+    if (selectedFolderFilter === 'all') return 'Tất cả thư mục';
+    if (selectedFolderFilter === 'none') return 'Danh sách riêng lẻ';
+    const folder = noteFolders.find((f) => String(f.id) === String(selectedFolderFilter));
+    return folder ? folder.name : 'Tất cả thư mục';
+  }, [selectedFolderFilter, noteFolders]);
+
+  const selectedSortLabel = useMemo(() => {
+    switch (sortBy) {
+      case 'newest': return 'Mới nhất';
+      case 'most-vocabs': return 'Nhiều từ nhất';
+      case 'title-az': return 'Tên (A - Z)';
+      case 'oldest':
+      default: return 'Cũ nhất';
+    }
+  }, [sortBy]);
   const listsWithStats = useMemo(() => {
     return readingLists.map((list) => {
       const targetId = String(list.id);
@@ -75,6 +116,14 @@ export default function ListVocabularyPage({
       );
     }
 
+    if (selectedFolderFilter && selectedFolderFilter !== 'all') {
+      if (selectedFolderFilter === 'none') {
+        result = result.filter((list) => !list.folderId);
+      } else {
+        result = result.filter((list) => String(list.folderId) === String(selectedFolderFilter));
+      }
+    }
+
     const sorted = [...result];
     switch (sortBy) {
       case 'newest':
@@ -93,7 +142,7 @@ export default function ListVocabularyPage({
     }
 
     return sorted;
-  }, [listsWithStats, searchTerm, sortBy]);
+  }, [listsWithStats, searchTerm, sortBy, selectedFolderFilter]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -150,13 +199,24 @@ export default function ListVocabularyPage({
 
             {/* Action Buttons & Statistics */}
             <div className="flex items-center gap-3 pt-2 flex-wrap">
+              {onOpenAddFolderModal && (
+                <button
+                  type="button"
+                  onClick={onOpenAddFolderModal}
+                  className="h-10 px-4 rounded-xl bg-white hover:bg-slate-50 text-amber-800 font-bold text-xs shadow-md shadow-red-950/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-amber-600">create_new_folder</span>
+                  <span>Tạo Thư Mục (Bộ Đề)</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={onOpenAddReadingListModal}
-                className="h-10 px-4 rounded-xl bg-white hover:bg-slate-50 text-crimson-primary font-bold text-xs shadow-md shadow-red-950/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="h-10 px-4 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
-                <span>Tạo Danh Sách Mới</span>
+                <span>Tạo Danh Sách Bài Đọc</span>
               </button>
 
               {onOpenAddModal && (
@@ -171,10 +231,14 @@ export default function ListVocabularyPage({
               )}
 
               {/* Stats badges */}
-              <div className="flex items-center gap-2 pl-1">
+              <div className="flex items-center gap-2 pl-1 flex-wrap">
                 <div className="h-10 px-3.5 rounded-xl bg-black/15 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-semibold">
-                  <span className="material-symbols-outlined text-[16px] text-amber-300">folder_open</span>
-                  <span>{readingLists.length} danh sách</span>
+                  <span className="material-symbols-outlined text-[16px] text-yellow-300">folder</span>
+                  <span>{noteFolders.length} thư mục</span>
+                </div>
+                <div className="h-10 px-3.5 rounded-xl bg-black/15 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-semibold">
+                  <span className="material-symbols-outlined text-[16px] text-amber-300">article</span>
+                  <span>{readingLists.length} bài đọc</span>
                 </div>
                 <div className="h-10 px-3.5 rounded-xl bg-black/15 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-semibold">
                   <span className="material-symbols-outlined text-[16px] text-emerald-300">style</span>
@@ -223,21 +287,166 @@ export default function ListVocabularyPage({
           )}
         </div>
 
-        {/* Right Sort Controls */}
-        <div className="flex items-center gap-2.5 justify-between sm:justify-end">
-          <div className="flex items-center gap-1.5 text-xs text-text-muted">
-            <span className="material-symbols-outlined text-[16px] text-slate-400">sort</span>
-            <span className="hidden md:inline font-medium">Sắp xếp:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 focus:outline-none focus:border-crimson-primary cursor-pointer hover:border-slate-300 transition-colors"
+        {/* Right Filter & Sort Controls */}
+        <div className="flex items-center gap-2.5 justify-between sm:justify-end flex-wrap">
+          {/* Folder filter dropdown */}
+          {noteFolders.length > 0 && (
+            <div className="relative" ref={folderFilterRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFolderFilterOpen((prev) => !prev);
+                  setIsSortOpen(false);
+                }}
+                className={`h-10 px-3 rounded-xl border bg-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isFolderFilterOpen
+                    ? 'border-crimson-primary ring-4 ring-crimson-primary/10 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px] text-amber-500">folder</span>
+                <span className="text-slate-500 hidden sm:inline font-normal">Thư mục:</span>
+                <span className="font-bold text-slate-800 max-w-[120px] truncate">{selectedFolderLabel}</span>
+                <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform duration-200 ${isFolderFilterOpen ? 'rotate-180 text-crimson-primary' : ''}`}>
+                  expand_more
+                </span>
+              </button>
+
+              {isFolderFilterOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200/95 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-0.5 max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-black/5">
+                  <div className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                    Lọc theo Thư mục
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFolderFilter('all');
+                      setIsFolderFilterOpen(false);
+                    }}
+                    className={`w-full px-2.5 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                      selectedFolderFilter === 'all'
+                        ? 'bg-surface-crimson-subtle text-crimson-primary font-bold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Tất cả thư mục</span>
+                    {selectedFolderFilter === 'all' && (
+                      <span className="material-symbols-outlined text-[15px] text-crimson-primary">check</span>
+                    )}
+                  </button>
+                  {noteFolders.map((f) => {
+                    const isSelected = String(f.id) === String(selectedFolderFilter);
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedFolderFilter(String(f.id));
+                          setIsFolderFilterOpen(false);
+                        }}
+                        className={`w-full px-2.5 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-surface-crimson-subtle text-crimson-primary font-bold'
+                            : 'text-slate-700 hover:bg-amber-50/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 pr-1">
+                          <span className="material-symbols-outlined text-[15px] text-amber-500 shrink-0">folder</span>
+                          <span className="truncate">{f.name}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="material-symbols-outlined text-[15px] text-crimson-primary shrink-0">check</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFolderFilter('none');
+                      setIsFolderFilterOpen(false);
+                    }}
+                    className={`w-full px-2.5 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                      selectedFolderFilter === 'none'
+                        ? 'bg-surface-crimson-subtle text-crimson-primary font-bold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[15px] text-slate-400">folder_off</span>
+                      <span>Danh sách riêng lẻ</span>
+                    </div>
+                    {selectedFolderFilter === 'none' && (
+                      <span className="material-symbols-outlined text-[15px] text-crimson-primary">check</span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sắp xếp dropdown */}
+          <div className="relative" ref={sortRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSortOpen((prev) => !prev);
+                setIsFolderFilterOpen(false);
+              }}
+              className={`h-10 px-3 rounded-xl border bg-white text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isSortOpen
+                  ? 'border-crimson-primary ring-4 ring-crimson-primary/10 shadow-xs'
+                  : 'border-slate-200 hover:border-slate-300 text-slate-700'
+              }`}
             >
-              <option value="oldest">Cũ nhất trước (Mặc định)</option>
-              <option value="newest">Mới nhất trước</option>
-              <option value="most-vocabs">Nhiều từ vựng nhất</option>
-              <option value="title-az">Tên danh sách (A - Z)</option>
-            </select>
+              <span className="material-symbols-outlined text-[16px] text-slate-400">sort</span>
+              <span className="text-slate-500 hidden md:inline font-normal">Sắp xếp:</span>
+              <span className="font-bold text-slate-800">{selectedSortLabel}</span>
+              <span className={`material-symbols-outlined text-[16px] text-slate-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180 text-crimson-primary' : ''}`}>
+                expand_more
+              </span>
+            </button>
+
+            {isSortOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200/95 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-0.5 ring-1 ring-black/5">
+                <div className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                  Sắp xếp theo
+                </div>
+                {[
+                  { id: 'oldest', label: 'Cũ nhất trước (Mặc định)', icon: 'history' },
+                  { id: 'newest', label: 'Mới nhất trước', icon: 'schedule' },
+                  { id: 'most-vocabs', label: 'Nhiều từ vựng nhất', icon: 'format_list_numbered' },
+                  { id: 'title-az', label: 'Tên danh sách (A - Z)', icon: 'sort_by_alpha' },
+                ].map((opt) => {
+                  const isSelected = sortBy === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setSortBy(opt.id);
+                        setIsSortOpen(false);
+                      }}
+                      className={`w-full px-2.5 py-2 rounded-xl text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-surface-crimson-subtle text-crimson-primary font-bold'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`material-symbols-outlined text-[16px] ${isSelected ? 'text-crimson-primary' : 'text-slate-400'}`}>
+                          {opt.icon}
+                        </span>
+                        <span>{opt.label}</span>
+                      </div>
+                      {isSelected && (
+                        <span className="material-symbols-outlined text-[15px] text-crimson-primary">check</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="text-xs font-semibold text-slate-500 pl-2 border-l border-slate-200">
@@ -295,10 +504,19 @@ export default function ListVocabularyPage({
                 {/* Card Top: Code badge & Actions */}
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-crimson-subtle border border-border-crimson-tint text-crimson-primary text-xs font-black tracking-wide">
-                      <span className="material-symbols-outlined text-[14px]">article</span>
-                      <span>{displayCode}</span>
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-crimson-subtle border border-border-crimson-tint text-crimson-primary text-xs font-black tracking-wide">
+                        <span className="material-symbols-outlined text-[14px]">article</span>
+                        <span>{displayCode}</span>
+                      </span>
+
+                      {(list.folderId || list.folderCode || list.folderName) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-yellow-400/20 text-yellow-900 border border-yellow-300 text-[10.5px] font-bold">
+                          <span className="material-symbols-outlined text-[12px] text-amber-600">folder</span>
+                          <span className="truncate max-w-[130px]">{list.folderName || list.folderCode}</span>
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1">
                       {list.createdAt && (

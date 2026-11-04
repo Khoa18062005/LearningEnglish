@@ -6,6 +6,7 @@ export default function ReadingListView({
   readingList,
   vocabList,
   existingLists = [],
+  noteFolders = [],
   onOpenAddModal,
   onPronounce,
   onEditVocab,
@@ -25,6 +26,16 @@ export default function ReadingListView({
   const [localSortBy, setLocalSortBy] = React.useState('newest');
   const activeSortBy = setSortBy ? sortBy : localSortBy;
   const handleSortChange = setSortBy || setLocalSortBy;
+
+  const parentFolder = React.useMemo(() => {
+    if (readingList?.folderId) {
+      return noteFolders.find((f) => String(f.id) === String(readingList.folderId));
+    }
+    if (readingList?.folderCode || readingList?.folderName) {
+      return { code: readingList.folderCode, name: readingList.folderName };
+    }
+    return null;
+  }, [readingList, noteFolders]);
 
   const posOptions = [
     {
@@ -262,7 +273,30 @@ export default function ReadingListView({
 
   return (
     <div className="flex flex-col w-full pb-16">
-      <div className="px-6 lg:px-8 pt-5 pb-1 max-w-[1600px] mx-auto w-full flex flex-col gap-5">
+      <div className="px-6 lg:px-8 pt-5 pb-1 max-w-[1600px] mx-auto w-full flex flex-col gap-4">
+        {/* BREADCRUMB PHÂN CẤP */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+          <button
+            type="button"
+            onClick={onBackToListVocabulary}
+            className="hover:text-crimson-primary font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">auto_stories</span>
+            <span>List Vocabulary</span>
+          </button>
+          <span className="text-slate-300">/</span>
+          {parentFolder && (
+            <>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+                <span className="material-symbols-outlined text-[13px] text-amber-600">folder</span>
+                <span>{parentFolder.name}</span>
+              </span>
+              <span className="text-slate-300">/</span>
+            </>
+          )}
+          <span className="font-bold text-slate-800 truncate max-w-sm">{displayTitle}</span>
+        </div>
+
         {/* TOP BANNER / READING HEADER CARD (Gradient Đỏ Nhạt Chuẩn EdTech) */}
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 p-6 lg:p-7 transition-all text-white">
           {/* Decorative glowing halos in background */}
@@ -333,7 +367,14 @@ export default function ReadingListView({
                     </h1>
                   )}
 
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className="ml-auto flex items-center gap-2 flex-wrap">
+                    {parentFolder && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold backdrop-blur-xs border border-white/30 shadow-xs">
+                        <span className="material-symbols-outlined text-[14px]">folder</span>
+                        <span>{parentFolder.name}</span>
+                      </span>
+                    )}
+
                     {isEditing ? (
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-xs border border-white/35 focus-within:border-white focus-within:bg-white/30 shadow-xs transition-all">
                         <span className="material-symbols-outlined text-[14px]">menu_book</span>

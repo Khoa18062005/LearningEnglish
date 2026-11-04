@@ -13,7 +13,8 @@ import java.util.List;
 @Table(
     name = "note_lists",
     indexes = {
-        @Index(name = "idx_note_list_user", columnList = "user_id")
+        @Index(name = "idx_note_list_user", columnList = "user_id"),
+        @Index(name = "idx_note_list_folder", columnList = "folder_id")
     }
 )
 @Getter
@@ -30,6 +31,10 @@ public class NoteList {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "folder_id")
+    private NoteFolder folder;
 
     @Column(nullable = false, length = 200)
     private String title;

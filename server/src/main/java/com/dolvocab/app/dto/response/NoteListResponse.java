@@ -22,4 +22,7 @@ public class NoteListResponse {
     private LocalDateTime createdAt;
     private String shortTitle;
     private String fullTitle;
+    private Long folderId;
+    private String folderCode;
+    private String folderName;
 }
