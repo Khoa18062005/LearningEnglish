@@ -288,7 +288,7 @@ export default function ReadingListView({
           {parentFolder && (
             <>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
-                <span className="material-symbols-outlined text-[13px] text-amber-600">folder</span>
+                <span className="material-symbols-outlined text-[13px] text-amber-600">folder_open</span>
                 <span>{parentFolder.name}</span>
               </span>
               <span className="text-slate-300">/</span>
@@ -370,7 +370,7 @@ export default function ReadingListView({
                   <div className="ml-auto flex items-center gap-2 flex-wrap">
                     {parentFolder && (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold backdrop-blur-xs border border-white/30 shadow-xs">
-                        <span className="material-symbols-outlined text-[14px]">folder</span>
+                        <span className="material-symbols-outlined text-[14px]">folder_open</span>
                         <span>{parentFolder.name}</span>
                       </span>
                     )}

@@ -1671,6 +1671,7 @@ export default function App() {
                 onDeleteReadingList={handleDeleteReadingList}
                 onEditFolder={handleEditFolder}
                 onDeleteFolder={handleDeleteFolder}
+                onReorderReadingLists={handleReorderReadingLists}
               />
             </div>
           )}

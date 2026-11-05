@@ -198,7 +198,7 @@ export default function AddReadingListModal({
           <div className="flex flex-col gap-1.5" ref={folderDropdownRef}>
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-text-high-contrast flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-amber-500">folder</span>
+                <span className="material-symbols-outlined text-[16px] text-amber-500">folder_open</span>
                 <span>Thư mục / Bộ đề (Danh mục cha)</span>
               </label>
               {onOpenCreateFolder && (
@@ -228,7 +228,7 @@ export default function AddReadingListModal({
                   {selectedFolder ? (
                     <>
                       <span className="material-symbols-outlined text-[18px] text-amber-500 shrink-0">
-                        folder
+                        folder_open
                       </span>
                       <span className="truncate text-slate-800 font-bold text-xs">
                         {selectedFolder.name}
@@ -343,7 +343,7 @@ export default function AddReadingListModal({
                       >
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           <span className="material-symbols-outlined text-[18px] text-amber-500 shrink-0">
-                            folder
+                            folder_open
                           </span>
                           <span className="truncate font-semibold text-slate-800">
                             {f.name}
@@ -415,9 +415,9 @@ export default function AddReadingListModal({
                 )}
               </div>
               {isCodeDuplicate ? (
-                <span className="text-[10px] text-red-600 font-bold flex items-center gap-1 animate-in fade-in duration-150">
+                <span className="text-[10px] text-red-600 font-bold flex items-center gap-1 animate-in fade-in duration-150 whitespace-nowrap">
                   <span className="material-symbols-outlined text-[13px]">warning</span>
-                  Mã này đã có trong danh sách. Vui lòng chọn mã khác!
+                  Mã đã được sử dụng
                 </span>
               ) : (
                 <span className="text-[10px] text-text-muted">

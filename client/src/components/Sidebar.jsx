@@ -412,7 +412,7 @@ export default function Sidebar({
                         className="relative w-full px-2.5 py-2 rounded-xl flex items-center gap-2.5 text-left text-xs font-medium text-slate-700 hover:bg-amber-50/80 hover:text-amber-900 transition-colors cursor-pointer group"
                       >
                         <div className="w-6 h-6 rounded-lg bg-amber-100/80 border border-amber-200 flex items-center justify-center text-amber-700 group-hover:scale-105 transition-transform shrink-0 shadow-2xs">
-                          <span className="material-symbols-outlined text-[15px]">folder</span>
+                          <span className="material-symbols-outlined text-[15px]">folder_open</span>
                         </div>
                         <span className="leading-tight text-slate-800 group-hover:text-amber-900 font-semibold">
                           Thêm thư mục mới
@@ -475,7 +475,7 @@ export default function Sidebar({
                               </button>
 
                               <span className="material-symbols-outlined text-[17px] text-amber-500 shrink-0">
-                                {isFolderExpanded ? 'folder_open' : 'folder'}
+                                folder_open
                               </span>
 
                               <span className="font-bold text-slate-700 truncate text-[12px]" title={folder.name}>
@@ -493,7 +493,7 @@ export default function Sidebar({
                                       e.stopPropagation();
                                       onOpenAddReadingListModal({ defaultFolderId: folder.id });
                                     }}
-                                    title="Thêm bài đọc vào thư mục này"
+                                    title="Thêm danh sách mới vào thư mục này"
                                     className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors cursor-pointer"
                                   >
                                     <span className="material-symbols-outlined text-[13px]">add</span>
