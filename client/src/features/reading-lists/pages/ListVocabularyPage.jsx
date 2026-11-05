@@ -14,6 +14,8 @@ export default function ListVocabularyPage({
   onEditFolder,
   onDeleteFolder,
   onReorderReadingLists,
+  onMoveReadingListToFolder,
+  showNotification,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFolderFilter, setSelectedFolderFilter] = useState('all'); // 'all' | folderId | 'none'
@@ -261,21 +263,95 @@ export default function ListVocabularyPage({
   // State hỗ trợ kéo thả sắp xếp (Drag & Drop) danh sách bài đọc trong thư mục
   const [draggedListId, setDraggedListId] = useState(null);
   const [dragOverListId, setDragOverListId] = useState(null);
-  const [dropPosition, setDropPosition] = useState(null); // 'before' | 'after'
   const dragJustEndedRef = useRef(false);
+  const activeDragRef = useRef(null);
+  const hasReorderedRef = useRef(false);
+  const isDragCancelledRef = useRef(false);
+  const modalBodyRef = useRef(null);
+  const autoScrollAnimRef = useRef(null);
+  const scrollVelocityRef = useRef(0);
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
 
-  // Xử lý đổi thứ tự danh sách khi kéo thả
+  // Dọn dẹp animation cuộn tự động khi unmount
+  useEffect(() => {
+    return () => {
+      if (autoScrollAnimRef.current) {
+        cancelAnimationFrame(autoScrollAnimRef.current);
+      }
+    };
+  }, []);
+
+  // Xử lý đổi thứ tự danh sách khi kéo thả (Áp dụng cho cả thẻ to ở trang chính và trong Modal)
   const handleReorderInFolder = (draggedId, targetId, position) => {
-    if (!viewingFolderGroup || String(draggedId) === String(targetId)) return;
+    if (!draggedId || !targetId || String(draggedId) === String(targetId)) return;
 
-    const currentFolderLists = [...viewingFolderGroup.lists];
+    const draggedItem = readingLists.find((l) => String(l.id) === String(draggedId));
+    const targetItem = readingLists.find((l) => String(l.id) === String(targetId));
+    if (!draggedItem || !targetItem) return;
+
+    const isMatch = (a, b) => (!a && !b) || String(a) === String(b);
+    const isSameFolder = isMatch(draggedItem.folderId, targetItem.folderId);
+
+    // Kéo thả giữa 2 thư mục khác nhau trên giao diện trang chính
+    if (!isSameFolder && onMoveReadingListToFolder && showNotification) {
+      const sourceFolder = noteFolders.find((f) => String(f.id) === String(draggedItem.folderId));
+      const targetFolder = targetItem.folderId
+        ? noteFolders.find((f) => String(f.id) === String(targetItem.folderId))
+        : null;
+
+      const listName = draggedItem.title || draggedItem.code || 'Danh sách từ vựng';
+      const sourceName = sourceFolder ? sourceFolder.name : 'Danh sách riêng lẻ';
+      const targetName = targetFolder ? targetFolder.name : 'Danh sách riêng lẻ';
+
+      showNotification({
+        title: 'Xác nhận chuyển thư mục',
+        message: (
+          <div className="space-y-3 text-slate-600 text-left">
+            <p className="text-xs leading-relaxed text-slate-600">
+              Bạn có chắc chắn muốn chuyển danh sách <strong className="text-slate-900 font-bold">"{listName}"</strong> sang thư mục mới không?
+            </p>
+            <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs gap-2">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Thư mục nguồn</span>
+                <span className="font-semibold text-slate-700 truncate" title={sourceName}>
+                  {sourceName}
+                </span>
+              </div>
+              <div className="w-6 h-6 rounded-full bg-slate-200/70 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[15px] text-slate-600">arrow_forward</span>
+              </div>
+              <div className="flex flex-col min-w-0 flex-1 text-right">
+                <span className="text-[10.5px] uppercase font-bold text-slate-400">Thư mục đích</span>
+                <span className="font-semibold text-crimson-primary truncate" title={targetName}>
+                  {targetName}
+                </span>
+              </div>
+            </div>
+          </div>
+        ),
+        type: 'info',
+        confirmText: 'Chuyển thư mục',
+        cancelText: 'Hủy bỏ',
+        onConfirm: async () => {
+          await onMoveReadingListToFolder({
+            listId: draggedItem.id,
+            targetFolderId: targetFolder ? targetFolder.id : null,
+            targetListId: targetItem.id,
+            dropPosition: position,
+          });
+        },
+      });
+      return;
+    }
+
+    // Sắp xếp lại trong CÙNG thư mục hoặc CÙNG mục riêng lẻ
+    const targetFolderId = draggedItem.folderId;
+    const currentFolderLists = readingLists.filter((l) => isMatch(l.folderId, targetFolderId));
+
     const draggedIndex = currentFolderLists.findIndex((l) => String(l.id) === String(draggedId));
     const targetIndex = currentFolderLists.findIndex((l) => String(l.id) === String(targetId));
     if (draggedIndex === -1 || targetIndex === -1) return;
 
-    // Xác định vị trí chèn: nếu position null hoặc không hợp lệ,
-    // kéo từ sau ra trước (draggedIndex > targetIndex) -> chèn trước target ('before')
-    // kéo từ trước ra sau (draggedIndex < targetIndex) -> chèn sau target ('after')
     const effectivePos =
       position === 'before' || position === 'after'
         ? position
@@ -327,78 +403,304 @@ export default function ListVocabularyPage({
 
   const handleDragStart = (e, listId) => {
     dragJustEndedRef.current = false;
+    hasReorderedRef.current = false;
+    isDragCancelledRef.current = false;
+    const rect = e.currentTarget?.getBoundingClientRect?.() || {
+      left: 0,
+      right: 300,
+      top: 0,
+      bottom: 200,
+      width: 300,
+      height: 200,
+    };
+    activeDragRef.current = {
+      id: listId,
+      targetId: null,
+      startX: e.clientX,
+      startY: e.clientY,
+      sourceRect: {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: rect.width || 300,
+        height: rect.height || 200,
+      },
+    };
     setDraggedListId(listId);
+    setDragOverListId(null);
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', String(listId));
     }
   };
 
-  const handleDragOver = (e, targetId) => {
+  // Phát hiện thẻ mục tiêu đối xứng trái/phải tuyệt đối và tự động hủy viền khi rê chuột về vị trí cũ
+  const getTouchedCardId = (container, clientX, clientY, activeDraggedId) => {
+    if (!container || !activeDraggedId) return null;
+    const dragInfo = activeDragRef.current;
+    if (!dragInfo || !dragInfo.sourceRect) return null;
+
+    const cards = container.querySelectorAll('[data-card-id]');
+    if (!cards || cards.length === 0) return null;
+
+    const deltaX = clientX - dragInfo.startX;
+    const deltaY = clientY - dragInfo.startY;
+
+    // Nếu di chuyển chưa quá 20px từ vị trí bắt đầu kéo -> vẫn coi là ở vị trí cũ (không chọn thẻ nào)
+    const totalDistMoved = Math.hypot(deltaX, deltaY);
+    if (totalDistMoved < 20) {
+      return null;
+    }
+
+    const sourceRect = dragInfo.sourceRect;
+    // Bounding box thực tế của thẻ đang kéo tại thời điểm hiện tại
+    const draggedBox = {
+      left: sourceRect.left + deltaX,
+      right: sourceRect.right + deltaX,
+      top: sourceRect.top + deltaY,
+      bottom: sourceRect.bottom + deltaY,
+      centerX: sourceRect.left + sourceRect.width / 2 + deltaX,
+      centerY: sourceRect.top + sourceRect.height / 2 + deltaY,
+    };
+
+    let bestTargetId = null;
+    let highestScore = 0;
+
+    cards.forEach((el) => {
+      const cardId = el.getAttribute('data-card-id');
+      if (!cardId || String(cardId) === String(activeDraggedId)) return;
+
+      const rect = el.getBoundingClientRect();
+      const targetCenterX = rect.left + rect.width / 2;
+      const targetCenterY = rect.top + rect.height / 2;
+
+      // 1. Kiểm tra chuột có nằm bên trong thẻ mục tiêu không
+      const mouseInside =
+        clientX >= rect.left && clientX <= rect.right &&
+        clientY >= rect.top && clientY <= rect.bottom;
+
+      // 2. Tính diện tích va chạm (overlap) giữa thẻ đang kéo và thẻ mục tiêu
+      const overlapX = Math.max(0, Math.min(draggedBox.right, rect.right) - Math.max(draggedBox.left, rect.left));
+      const overlapY = Math.max(0, Math.min(draggedBox.bottom, rect.bottom) - Math.max(draggedBox.top, rect.top));
+      const overlapArea = overlapX * overlapY;
+
+      // Khoảng cách từ tâm thẻ đang kéo đến tâm thẻ mục tiêu
+      const dist = Math.hypot(draggedBox.centerX - targetCenterX, draggedBox.centerY - targetCenterY);
+
+      let score = 0;
+      if (mouseInside) {
+        score = 1000000 + (10000 - dist);
+      } else if (overlapArea > 0) {
+        score = 500000 + overlapArea;
+      }
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestTargetId = cardId;
+      }
+    });
+
+    return bestTargetId;
+  };
+
+  const handleDragEnter = (e) => {
     e.preventDefault();
-    e.stopPropagation();
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleGridDragOver = (e) => {
+    e.preventDefault();
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = 'move';
     }
 
-    const transferId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
-    const activeDraggedId = draggedListId || transferId;
+    const activeDraggedId = activeDragRef.current?.id || draggedListId;
+    if (!activeDraggedId) return;
 
-    if (!activeDraggedId || String(activeDraggedId) === String(targetId)) {
-      if (dragOverListId !== null) {
-        setDragOverListId(null);
-        setDropPosition(null);
-      }
-      return;
+    if (e.clientX === 0 && e.clientY === 0) return;
+
+    const targetId = getTouchedCardId(e.currentTarget, e.clientX, e.clientY, activeDraggedId);
+    if (activeDragRef.current) {
+      activeDragRef.current.targetId = targetId;
     }
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const isList = modalViewMode === 'list';
-    const offset = isList ? e.clientY - rect.top : e.clientX - rect.left;
-    const dimension = isList ? rect.height : rect.width;
-    const position = offset < dimension / 2 ? 'before' : 'after';
-
-    if (dragOverListId !== targetId || dropPosition !== position) {
+    if (dragOverListId !== targetId) {
       setDragOverListId(targetId);
-      setDropPosition(position);
     }
   };
 
-  const handleDragLeave = (e, targetId) => {
+  const handleGridDragLeave = (e) => {
     e.preventDefault();
     if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
-      if (dragOverListId === targetId) {
+      if (activeDragRef.current) {
+        activeDragRef.current.targetId = null;
+      }
+      if (dragOverListId !== null) {
         setDragOverListId(null);
-        setDropPosition(null);
       }
     }
   };
 
-  const handleDrop = (e, targetId) => {
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+  };
+
+  // Tự động cuộn mượt mà vùng xem chi tiết khi kéo thẻ lên sát mép trên hoặc xuống sát mép dưới
+  const startAutoScroll = () => {
+    if (autoScrollAnimRef.current) return;
+
+    const step = () => {
+      const container = modalBodyRef.current;
+      const velocity = scrollVelocityRef.current;
+
+      if (!container || velocity === 0 || !activeDragRef.current) {
+        stopAutoScroll();
+        return;
+      }
+
+      container.scrollTop += velocity;
+
+      // Cập nhật thẻ mục tiêu khi danh sách cuộn bên dưới chuột
+      const lastPos = lastMousePosRef.current;
+      const activeDraggedId = activeDragRef.current?.id;
+      if (lastPos && activeDraggedId) {
+        const targetId = getTouchedCardId(container, lastPos.x, lastPos.y, activeDraggedId);
+        if (activeDragRef.current) {
+          activeDragRef.current.targetId = targetId;
+        }
+        if (targetId !== dragOverListId) {
+          setDragOverListId(targetId);
+        }
+      }
+
+      autoScrollAnimRef.current = requestAnimationFrame(step);
+    };
+
+    autoScrollAnimRef.current = requestAnimationFrame(step);
+  };
+
+  const stopAutoScroll = () => {
+    if (autoScrollAnimRef.current) {
+      cancelAnimationFrame(autoScrollAnimRef.current);
+      autoScrollAnimRef.current = null;
+    }
+    scrollVelocityRef.current = 0;
+  };
+
+  const handleModalBodyDragOver = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    const activeDraggedId = activeDragRef.current?.id || draggedListId;
+    if (!activeDraggedId) return;
+
+    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+
+    const container = modalBodyRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mouseY = e.clientY;
+
+    // Vùng phát hiện cuộn tự động (75px từ mép trên hoặc mép dưới)
+    const threshold = 75;
+    const maxSpeed = 18;
+
+    let velocity = 0;
+    // Chuột ở vùng trên của scroll container hoặc kéo lên vùng toolbar/header của modal
+    if (mouseY < rect.top + threshold) {
+      const ratio = Math.min(2, Math.max(0.3, (rect.top + threshold - mouseY) / threshold));
+      velocity = -Math.round(ratio * maxSpeed);
+    } else if (mouseY > rect.bottom - threshold) {
+      // Chuột ở vùng dưới của scroll container hoặc kéo xuống vùng footer của modal
+      const ratio = Math.min(2, Math.max(0.3, (mouseY - (rect.bottom - threshold)) / threshold));
+      velocity = Math.round(ratio * maxSpeed);
+    }
+
+    scrollVelocityRef.current = velocity;
+
+    if (velocity !== 0 && !autoScrollAnimRef.current) {
+      startAutoScroll();
+    } else if (velocity === 0 && autoScrollAnimRef.current) {
+      stopAutoScroll();
+    }
+  };
+
+  const handleModalBodyDragLeave = (e) => {
+    e.preventDefault();
+    if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
+      stopAutoScroll();
+    }
+  };
+
+  // Đảm bảo thao tác hoán đổi vị trí luôn được thực thi chính xác 1 lần
+  const commitReorder = (sourceId, targetId) => {
+    if (hasReorderedRef.current) return;
+    if (!sourceId || !targetId || String(sourceId) === String(targetId)) return;
+    hasReorderedRef.current = true;
+    handleReorderInFolder(sourceId, targetId);
+  };
+
+  const handleDrop = (e, cardId) => {
     e.preventDefault();
     e.stopPropagation();
 
     const transferId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
-    const activeDraggedId = draggedListId || transferId;
-    const pos = dropPosition;
+    const activeDraggedId = activeDragRef.current?.id || draggedListId || transferId;
+    const targetId =
+      cardId && String(cardId) !== String(activeDraggedId)
+        ? cardId
+        : (activeDragRef.current?.targetId || dragOverListId);
 
+    commitReorder(activeDraggedId, targetId);
     cleanupDragState();
+  };
 
-    if (!activeDraggedId || String(activeDraggedId) === String(targetId)) {
+  const handleGridDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const transferId = e.dataTransfer ? e.dataTransfer.getData('text/plain') : null;
+    const activeDraggedId = activeDragRef.current?.id || draggedListId || transferId;
+    const targetId = activeDragRef.current?.targetId || dragOverListId;
+
+    commitReorder(activeDraggedId, targetId);
+    cleanupDragState();
+  };
+
+  const handleDragEnd = (e) => {
+    // Nếu người dùng hủy thao tác kéo bằng phím ESC hoặc trình duyệt báo dropEffect === 'none'
+    if (isDragCancelledRef.current || e?.dataTransfer?.dropEffect === 'none') {
+      cleanupDragState();
       return;
     }
 
-    handleReorderInFolder(activeDraggedId, targetId, pos);
-  };
+    // Nếu trình duyệt (như Safari) không dispatch sự kiện drop khi thả gần thẻ kéo,
+    // nhưng thẻ mục tiêu targetId vẫn đang được chọn -> cam kết hoán đổi vị trí ngay lập tức!
+    const activeDraggedId = activeDragRef.current?.id || draggedListId;
+    const targetId = activeDragRef.current?.targetId || dragOverListId;
 
-  const handleDragEnd = () => {
+    if (!hasReorderedRef.current && activeDraggedId && targetId && String(activeDraggedId) !== String(targetId)) {
+      commitReorder(activeDraggedId, targetId);
+    }
     cleanupDragState();
   };
 
   const cleanupDragState = () => {
+    stopAutoScroll();
+    activeDragRef.current = null;
     dragJustEndedRef.current = true;
     setTimeout(() => {
       dragJustEndedRef.current = false;
+      isDragCancelledRef.current = false;
     }, 200);
     setDraggedListId(null);
     setDragOverListId(null);
@@ -438,16 +740,28 @@ export default function ListVocabularyPage({
     return viewingFolderGroup.lists.reduce((acc, curr) => acc + (curr.vocabCount || 0), 0);
   }, [viewingFolderGroup]);
 
-  // Đóng modal Xem chi tiết khi nhấn phím ESC
+  // Xử lý phím ESC: Hủy thao tác kéo thẻ (nếu đang kéo) hoặc đóng modal Xem chi tiết (nếu không kéo)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && viewingFolderId) {
-        setViewingFolderId(null);
+      if (e.key === 'Escape') {
+        const isDragging = Boolean(activeDragRef.current || draggedListId);
+        if (isDragging) {
+          e.preventDefault();
+          e.stopPropagation();
+          isDragCancelledRef.current = true;
+          hasReorderedRef.current = true;
+          cleanupDragState();
+          return;
+        }
+
+        if (viewingFolderId) {
+          setViewingFolderId(null);
+        }
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewingFolderId]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [viewingFolderId, draggedListId]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -460,13 +774,21 @@ export default function ListVocabularyPage({
     }
   };
 
-  const renderCard = (list, customOnSelect = null) => {
+  const renderCard = (list, customOnSelect = null, dragProps = null) => {
     const displayCode = list.code || list.shortTitle || 'LIST';
     const displayTitle = list.title || 'Danh sách từ vựng';
 
     return (
       <div
         key={list.id}
+        data-card-id={list.id}
+        draggable={dragProps?.draggable}
+        onDragStart={dragProps?.onDragStart}
+        onDragEnter={dragProps?.onDragEnter}
+        onDragOver={dragProps?.onDragOver}
+        onDragLeave={dragProps?.onDragLeave}
+        onDragEnd={dragProps?.onDragEnd}
+        onDrop={dragProps?.onDrop}
         onClick={() => {
           if (dragJustEndedRef.current) return;
           if (customOnSelect) {
@@ -475,7 +797,15 @@ export default function ListVocabularyPage({
             onSelectList(list.id);
           }
         }}
-        className="group relative bg-white rounded-2xl border border-slate-200/90 hover:border-crimson-primary/40 hover:shadow-lg hover:shadow-red-950/5 transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer"
+        className={`group relative bg-white rounded-2xl border transition-all duration-150 p-5 flex flex-col justify-between cursor-pointer ${
+          dragProps?.draggable ? 'cursor-grab active:cursor-grabbing' : ''
+        } ${
+          dragProps?.isBeingDragged
+            ? 'opacity-35 scale-95 ring-2 ring-crimson-primary ring-dashed bg-red-50/20'
+            : dragProps?.isOver
+            ? 'ring-2 ring-crimson-primary border-crimson-primary bg-red-50/15 shadow-md'
+            : 'border-slate-200/90 hover:border-crimson-primary/40 hover:shadow-lg hover:shadow-red-950/5'
+        }`}
       >
         {/* Card Top: Code badge & Actions */}
         <div>
@@ -597,6 +927,7 @@ export default function ListVocabularyPage({
     return (
       <div
         key={list.id}
+        data-card-id={list.id}
         draggable={dragProps?.draggable}
         onDragStart={dragProps?.onDragStart}
         onDragEnter={dragProps?.onDragEnter}
@@ -615,10 +946,8 @@ export default function ListVocabularyPage({
         className={`group relative bg-white rounded-xl border transition-all duration-150 px-4 py-3 sm:px-5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-4 cursor-pointer shadow-2xs hover:shadow-md hover:border-crimson-primary/40 ${
           dragProps?.isBeingDragged
             ? 'opacity-40 scale-[0.99] border-dashed border-crimson-primary bg-red-50/20'
-            : dragProps?.isOverBefore
-            ? 'border-t-2 border-t-crimson-primary bg-red-50/10'
-            : dragProps?.isOverAfter
-            ? 'border-b-2 border-b-crimson-primary bg-red-50/10'
+            : dragProps?.isOver
+            ? 'ring-2 ring-crimson-primary border-crimson-primary bg-red-50/15 shadow-sm'
             : 'border-slate-200/90'
         }`}
       >
@@ -1161,8 +1490,28 @@ export default function ListVocabularyPage({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-1">
-                      {displayedLists.map((list) => renderCard(list))}
+                    <div
+                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-1"
+                      onDragOver={handleGridDragOver}
+                      onDragLeave={handleGridDragLeave}
+                      onDrop={handleGridDrop}
+                    >
+                      {displayedLists.map((list) => {
+                        const isBeingDragged = String(draggedListId) === String(list.id);
+                        const isOver = String(dragOverListId) === String(list.id);
+
+                        return renderCard(list, null, {
+                          draggable: !searchTerm.trim() && (sortBy === 'custom' || !sortBy),
+                          isBeingDragged,
+                          isOver,
+                          onDragStart: (e) => handleDragStart(e, list.id),
+                          onDragEnter: handleDragEnter,
+                          onDragOver: handleDragOver,
+                          onDragLeave: handleDragLeave,
+                          onDragEnd: handleDragEnd,
+                          onDrop: (e) => handleDrop(e, list.id),
+                        });
+                      })}
                     </div>
 
                     {/* Dòng chữ nhỏ bên dưới: Xem thêm / Thu gọn & Xem chi tiết */}
@@ -1219,6 +1568,8 @@ export default function ListVocabularyPage({
           <div
             className="relative w-full max-w-[1200px] bg-white rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col my-auto max-h-[92vh] overflow-hidden border border-slate-200/90 ring-1 ring-black/5 animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
+            onDragOver={handleModalBodyDragOver}
+            onDragLeave={handleModalBodyDragLeave}
           >
             {/* Header Accent Line */}
             <div className="h-1.5 w-full bg-gradient-to-r from-crimson-dark via-crimson-primary to-rose-400 shrink-0" />
@@ -1353,7 +1704,12 @@ export default function ListVocabularyPage({
             </div>
 
             {/* Modal Body: Cards (Grid mode) or Rows (List mode) with Drag and Drop Reordering */}
-            <div className="p-6 sm:p-8 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar">
+            <div
+              ref={modalBodyRef}
+              onDragOver={handleModalBodyDragOver}
+              onDragLeave={handleModalBodyDragLeave}
+              className="p-6 sm:p-8 overflow-y-auto flex-1 bg-slate-50/50 custom-scrollbar"
+            >
               {modalFilteredLists.length === 0 ? (
                 <div className="py-12 text-center flex flex-col items-center justify-center gap-2">
                   <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center">
@@ -1372,11 +1728,15 @@ export default function ListVocabularyPage({
                 </div>
               ) : modalViewMode === 'list' ? (
                 /* Dạng danh sách: Mỗi list nằm trên 1 hàng ngang */
-                <div className="flex flex-col gap-2.5">
+                <div
+                  className="flex flex-col gap-2.5"
+                  onDragOver={handleGridDragOver}
+                  onDragLeave={handleGridDragLeave}
+                  onDrop={handleGridDrop}
+                >
                   {modalFilteredLists.map((list) => {
                     const isBeingDragged = String(draggedListId) === String(list.id);
-                    const isOverBefore = String(dragOverListId) === String(list.id) && dropPosition === 'before';
-                    const isOverAfter = String(dragOverListId) === String(list.id) && dropPosition === 'after';
+                    const isOver = String(dragOverListId) === String(list.id);
 
                     return renderRow(
                       list,
@@ -1387,59 +1747,48 @@ export default function ListVocabularyPage({
                       },
                       {
                         draggable: !modalSearchTerm.trim(),
+                        isBeingDragged,
+                        isOver,
                         onDragStart: (e) => handleDragStart(e, list.id),
-                        onDragEnter: (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        },
-                        onDragOver: (e) => handleDragOver(e, list.id),
-                        onDragLeave: (e) => handleDragLeave(e, list.id),
+                        onDragEnter: handleDragEnter,
+                        onDragOver: handleDragOver,
+                        onDragLeave: handleDragLeave,
                         onDragEnd: handleDragEnd,
                         onDrop: (e) => handleDrop(e, list.id),
-                        isBeingDragged,
-                        isOverBefore,
-                        isOverAfter,
                       }
                     );
                   })}
                 </div>
               ) : (
                 /* Dạng cột (Lưới 3 cột) */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+                  onDragOver={handleGridDragOver}
+                  onDragLeave={handleGridDragLeave}
+                  onDrop={handleGridDrop}
+                >
                   {modalFilteredLists.map((list) => {
                     const isBeingDragged = String(draggedListId) === String(list.id);
-                    const isOverBefore = String(dragOverListId) === String(list.id) && dropPosition === 'before';
-                    const isOverAfter = String(dragOverListId) === String(list.id) && dropPosition === 'after';
+                    const isOver = String(dragOverListId) === String(list.id);
 
-                    return (
-                      <div
-                        key={list.id}
-                        draggable={!modalSearchTerm.trim()}
-                        onDragStart={(e) => handleDragStart(e, list.id)}
-                        onDragEnter={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDragOver={(e) => handleDragOver(e, list.id)}
-                        onDragLeave={(e) => handleDragLeave(e, list.id)}
-                        onDragEnd={handleDragEnd}
-                        onDrop={(e) => handleDrop(e, list.id)}
-                        className={`transition-all duration-150 rounded-2xl cursor-grab active:cursor-grabbing ${
-                          isBeingDragged
-                            ? 'opacity-35 scale-95 ring-2 ring-crimson-primary ring-dashed'
-                            : isOverBefore
-                            ? 'ring-2 ring-crimson-primary -translate-x-1.5 shadow-md'
-                            : isOverAfter
-                            ? 'ring-2 ring-crimson-primary translate-x-1.5 shadow-md'
-                            : ''
-                        }`}
-                      >
-                        {renderCard(list, (id) => {
-                          if (dragJustEndedRef.current) return;
-                          setViewingFolderId(null);
-                          if (onSelectList) onSelectList(id);
-                        })}
-                      </div>
+                    return renderCard(
+                      list,
+                      (id) => {
+                        if (dragJustEndedRef.current) return;
+                        setViewingFolderId(null);
+                        if (onSelectList) onSelectList(id);
+                      },
+                      {
+                        draggable: !modalSearchTerm.trim(),
+                        isBeingDragged,
+                        isOver,
+                        onDragStart: (e) => handleDragStart(e, list.id),
+                        onDragEnter: handleDragEnter,
+                        onDragOver: handleDragOver,
+                        onDragLeave: handleDragLeave,
+                        onDragEnd: handleDragEnd,
+                        onDrop: (e) => handleDrop(e, list.id),
+                      }
                     );
                   })}
                 </div>

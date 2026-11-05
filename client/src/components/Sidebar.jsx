@@ -22,6 +22,9 @@ export default function Sidebar({
   onEditReadingList,
   onDeleteReadingList,
   onReorderReadingLists,
+  onReorderNoteFolders,
+  onMoveReadingListToFolder,
+  showNotification,
   onNavigateHome,
 }) {
   const activeReadingListRef = useRef(null);
@@ -97,88 +100,444 @@ export default function Sidebar({
     }).length;
   };
 
-  // Drag and drop states for readingLists (Nhấn giữ & kéo thả sắp xếp vị trí)
-  const [draggedIndex, setDraggedIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
-  const [dropPosition, setDropPosition] = useState(null); // 'before' | 'after'
-  const isDraggingRef = useRef(false);
+  // ==================== DRAG & DROP STATE ====================
+  // dragType: 'folder' | 'reading-list' | null
+  const [dragType, setDragType] = useState(null);
 
-  const handleDragStart = (e, index) => {
-    isDraggingRef.current = true;
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', String(index));
+  // Kéo thả Thư mục (Folders)
+  const [draggedFolderId, setDraggedFolderId] = useState(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
+  const [folderDropPosition, setFolderDropPosition] = useState(null); // 'before' | 'after'
+
+  // Kéo thả Danh sách từ vựng (Reading Lists)
+  const [draggedListId, setDraggedListId] = useState(null);
+  const [dragOverListId, setDragOverListId] = useState(null);
+  const [listDropPosition, setListDropPosition] = useState(null); // 'before' | 'after'
+  // Thư mục đích đang hover (hoặc 'standalone' nếu hover mục danh sách riêng lẻ)
+  const [dragOverFolderTargetId, setDragOverFolderTargetId] = useState(null);
+
+  // Cờ chống click nhầm khi kết thúc kéo thả & Lưu trữ dữ liệu kéo thả tức thì (tránh trễ state)
+  const dragJustEndedRef = useRef(false);
+  const activeDragRef = useRef(null);
+
+  const cleanupDragState = () => {
+    activeDragRef.current = null;
+    setDragType(null);
+    setDraggedFolderId(null);
+    setDragOverFolderId(null);
+    setFolderDropPosition(null);
+    setDraggedListId(null);
+    setDragOverListId(null);
+    setListDropPosition(null);
+    setDragOverFolderTargetId(null);
+    setTimeout(() => {
+      dragJustEndedRef.current = false;
+    }, 200);
   };
 
-  const handleDragOver = (e, index) => {
+  // Hủy tiến trình kéo thả trong thanh menu bên trái khi nhấn phím ESC
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        const isDragging = Boolean(dragType || draggedFolderId || draggedListId || activeDragRef.current);
+        if (isDragging) {
+          e.preventDefault();
+          e.stopPropagation();
+          dragJustEndedRef.current = true;
+          cleanupDragState();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [dragType, draggedFolderId, draggedListId]);
+
+  // ==================== FOLDER DRAG HANDLERS ====================
+  const handleFolderDragStart = (e, folderId) => {
+    dragJustEndedRef.current = false;
+    activeDragRef.current = { type: 'folder', id: folderId };
+    setDragType('folder');
+    setDraggedFolderId(folderId);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(folderId));
+      e.dataTransfer.setData('application/json', JSON.stringify({ type: 'folder', id: folderId }));
+    }
+  };
+
+  const handleFolderDragOver = (e, targetFolderId) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'folder') return;
     e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
 
-    if (draggedIndex === null || draggedIndex === index) {
-      if (dragOverIndex !== null) {
-        setDragOverIndex(null);
-        setDropPosition(null);
+    const activeFolderId = activeDragRef.current?.id || draggedFolderId;
+    if (String(activeFolderId) === String(targetFolderId)) {
+      if (dragOverFolderId !== null) {
+        setDragOverFolderId(null);
+        setFolderDropPosition(null);
       }
       return;
     }
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const offset = e.clientY - rect.top;
-    const position = offset < rect.height / 2 ? 'before' : 'after';
+    const draggedIdx = noteFolders.findIndex((f) => String(f.id) === String(activeFolderId));
+    const targetIdx = noteFolders.findIndex((f) => String(f.id) === String(targetFolderId));
+    const position = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
 
-    if (dragOverIndex !== index || dropPosition !== position) {
-      setDragOverIndex(index);
-      setDropPosition(position);
+    if (dragOverFolderId !== targetFolderId || folderDropPosition !== position) {
+      setDragOverFolderId(targetFolderId);
+      setFolderDropPosition(position);
     }
   };
 
-  const handleDragLeave = (e, index) => {
-    e.preventDefault();
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      if (dragOverIndex === index) {
-        setDragOverIndex(null);
-        setDropPosition(null);
+  const handleFolderDragLeave = (e, targetFolderId) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'folder') return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
+      if (dragOverFolderId === targetFolderId) {
+        setDragOverFolderId(null);
+        setFolderDropPosition(null);
       }
     }
   };
 
-  const handleDrop = (e, index) => {
+  const handleFolderDrop = (e, targetFolderId) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'folder') return;
     e.preventDefault();
     e.stopPropagation();
 
-    if (draggedIndex === null || draggedIndex === index) {
+    const activeFolderId = activeDragRef.current?.id || draggedFolderId;
+    if (!activeFolderId || String(activeFolderId) === String(targetFolderId)) {
       cleanupDragState();
       return;
     }
 
-    const updatedLists = [...readingLists];
-    const [draggedItem] = updatedLists.splice(draggedIndex, 1);
+    const currentFolders = [...noteFolders];
+    const draggedIdx = currentFolders.findIndex((f) => String(f.id) === String(activeFolderId));
+    const targetIdx = currentFolders.findIndex((f) => String(f.id) === String(targetFolderId));
+    const effectivePos = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
 
-    let targetIndex = index;
-    if (draggedIndex < index) {
-      targetIndex = dropPosition === 'before' ? index - 1 : index;
-    } else {
-      targetIndex = dropPosition === 'before' ? index : index + 1;
-    }
+    if (draggedIdx !== -1 && targetIdx !== -1) {
+      const [moved] = currentFolders.splice(draggedIdx, 1);
+      const newTargetIdx = currentFolders.findIndex((f) => String(f.id) === String(targetFolderId));
+      let insertIdx = effectivePos === 'before' ? newTargetIdx : newTargetIdx + 1;
+      insertIdx = Math.max(0, Math.min(insertIdx, currentFolders.length));
+      currentFolders.splice(insertIdx, 0, moved);
 
-    targetIndex = Math.max(0, Math.min(targetIndex, updatedLists.length));
-    updatedLists.splice(targetIndex, 0, draggedItem);
-
-    if (onReorderReadingLists) {
-      onReorderReadingLists(updatedLists);
+      if (onReorderNoteFolders) {
+        onReorderNoteFolders(currentFolders);
+      }
     }
 
     cleanupDragState();
   };
 
-  const cleanupDragState = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    setDropPosition(null);
-    setTimeout(() => {
-      isDraggingRef.current = false;
-    }, 150);
+  const handleFolderDragEnd = () => {
+    dragJustEndedRef.current = true;
+    cleanupDragState();
+  };
+
+  // ==================== READING LIST DRAG HANDLERS ====================
+  const handleListDragStart = (e, list) => {
+    dragJustEndedRef.current = false;
+    activeDragRef.current = { type: 'reading-list', id: list.id, list };
+    setDragType('reading-list');
+    setDraggedListId(list.id);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(list.id));
+      e.dataTransfer.setData(
+        'application/json',
+        JSON.stringify({ type: 'reading-list', id: list.id, folderId: list.folderId })
+      );
+    }
+  };
+
+  // Khi kéo list qua một list khác
+  const handleListDragOver = (e, targetList) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+    const activeListId = activeDragRef.current?.id || draggedListId;
+    if (String(activeListId) === String(targetList.id)) {
+      if (dragOverListId !== null) {
+        setDragOverListId(null);
+        setListDropPosition(null);
+      }
+      return;
+    }
+
+    const draggedIdx = readingLists.findIndex((l) => String(l.id) === String(activeListId));
+    const targetIdx = readingLists.findIndex((l) => String(l.id) === String(targetList.id));
+    const position = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
+
+    if (dragOverListId !== targetList.id || listDropPosition !== position) {
+      setDragOverListId(targetList.id);
+      setListDropPosition(position);
+    }
+
+    // Nếu targetList thuộc folder khác, highlight folder đó
+    const draggedItem = activeDragRef.current?.list || readingLists.find((l) => String(l.id) === String(activeListId));
+    if (draggedItem && String(draggedItem.folderId || '') !== String(targetList.folderId || '')) {
+      setDragOverFolderTargetId(targetList.folderId ? String(targetList.folderId) : 'standalone');
+    } else {
+      setDragOverFolderTargetId(null);
+    }
+  };
+
+  const handleListDragLeave = (e, targetListId) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
+      if (dragOverListId === targetListId) {
+        setDragOverListId(null);
+        setListDropPosition(null);
+      }
+    }
+  };
+
+  // Khi kéo list qua tiêu đề của một Folder
+  const handleFolderHeaderDragOverForList = (e, folderId) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+    const activeListId = activeDragRef.current?.id || draggedListId;
+    const draggedItem = activeDragRef.current?.list || readingLists.find((l) => String(l.id) === String(activeListId));
+    if (draggedItem && String(draggedItem.folderId || '') !== String(folderId)) {
+      if (dragOverFolderTargetId !== String(folderId)) {
+        setDragOverFolderTargetId(String(folderId));
+        setDragOverListId(null);
+      }
+    }
+  };
+
+  const handleFolderHeaderDragLeaveForList = (e, folderId) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
+      if (dragOverFolderTargetId === String(folderId)) {
+        setDragOverFolderTargetId(null);
+      }
+    }
+  };
+
+  // Khi kéo list qua vùng Danh sách riêng lẻ
+  const handleStandaloneDragOverForList = (e) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+
+    const activeListId = activeDragRef.current?.id || draggedListId;
+    const draggedItem = activeDragRef.current?.list || readingLists.find((l) => String(l.id) === String(activeListId));
+    if (draggedItem && draggedItem.folderId) {
+      if (dragOverFolderTargetId !== 'standalone') {
+        setDragOverFolderTargetId('standalone');
+        setDragOverListId(null);
+      }
+    }
+  };
+
+  const handleStandaloneDragLeaveForList = (e) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (e && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
+      if (dragOverFolderTargetId === 'standalone') {
+        setDragOverFolderTargetId(null);
+      }
+    }
+  };
+
+  // Hộp thoại xác nhận chuyển thư mục cho danh sách từ vựng
+  const requestMoveFolderConfirmation = ({
+    draggedList,
+    targetFolderId,
+    targetListId = null,
+    dropPos = 'after',
+  }) => {
+    const sourceFolder = noteFolders.find((f) => String(f.id) === String(draggedList.folderId));
+    const targetFolder = targetFolderId
+      ? noteFolders.find((f) => String(f.id) === String(targetFolderId))
+      : null;
+
+    const listName = draggedList.title || draggedList.code || 'Danh sách từ vựng';
+    const sourceName = sourceFolder ? sourceFolder.name : 'Danh sách riêng lẻ';
+    const targetName = targetFolder ? targetFolder.name : 'Danh sách riêng lẻ';
+
+    if (showNotification) {
+      showNotification({
+        title: 'Xác nhận chuyển thư mục',
+        message: (
+          <div className="space-y-3 text-slate-600 text-left">
+            <p className="text-xs leading-relaxed text-slate-600">
+              Bạn có chắc chắn muốn chuyển danh sách <strong className="text-slate-900 font-bold">"{listName}"</strong> sang thư mục mới không?
+            </p>
+            <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs gap-2">
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400">Thư mục nguồn</span>
+                <span className="font-semibold text-slate-700 truncate" title={sourceName}>
+                  {sourceName}
+                </span>
+              </div>
+              <div className="w-6 h-6 rounded-full bg-slate-200/70 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[15px] text-slate-600">arrow_forward</span>
+              </div>
+              <div className="flex flex-col min-w-0 flex-1 text-right">
+                <span className="text-[10.5px] uppercase font-bold text-slate-400">Thư mục đích</span>
+                <span className="font-semibold text-crimson-primary truncate" title={targetName}>
+                  {targetName}
+                </span>
+              </div>
+            </div>
+          </div>
+        ),
+        type: 'info',
+        confirmText: 'Chuyển thư mục',
+        cancelText: 'Hủy bỏ',
+        onConfirm: async () => {
+          if (onMoveReadingListToFolder) {
+            await onMoveReadingListToFolder({
+              listId: draggedList.id,
+              targetFolderId: targetFolder ? targetFolder.id : null,
+              targetListId,
+              dropPosition: dropPos,
+            });
+          }
+          if (targetFolder) {
+            setExpandedFolderIds((prev) => new Set(prev).add(String(targetFolder.id)));
+          }
+        },
+      });
+    }
+  };
+
+  // Khi thả list lên một list khác
+  const handleListDropOnList = (e, targetList) => {
+    const activeType = activeDragRef.current?.type || dragType;
+    if (activeType !== 'reading-list') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const activeListId = activeDragRef.current?.id || draggedListId;
+    if (!activeListId || String(activeListId) === String(targetList.id)) {
+      cleanupDragState();
+      return;
+    }
+
+    const draggedItem =
+      activeDragRef.current?.list || readingLists.find((l) => String(l.id) === String(activeListId));
+    if (!draggedItem) {
+      cleanupDragState();
+      return;
+    }
+
+    const isMatch = (a, b) => (!a && !b) || String(a) === String(b);
+    const isSameFolder = isMatch(draggedItem.folderId, targetList.folderId);
+
+    if (isSameFolder) {
+      // Sắp xếp lại thứ tự trong CÙNG một thư mục hoặc CÙNG riêng lẻ
+      const targetFolderId = draggedItem.folderId;
+      const folderLists = readingLists.filter((l) => isMatch(l.folderId, targetFolderId));
+
+      const draggedIdx = folderLists.findIndex((l) => String(l.id) === String(activeListId));
+      const targetIdx = folderLists.findIndex((l) => String(l.id) === String(targetList.id));
+      const dropPos = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
+
+      if (draggedIdx !== -1 && targetIdx !== -1) {
+        const [moved] = folderLists.splice(draggedIdx, 1);
+        const newTargetIdx = folderLists.findIndex((l) => String(l.id) === String(targetList.id));
+        let insertIdx = dropPos === 'before' ? newTargetIdx : newTargetIdx + 1;
+        insertIdx = Math.max(0, Math.min(insertIdx, folderLists.length));
+        folderLists.splice(insertIdx, 0, moved);
+
+        const folderListIds = new Set(folderLists.map((l) => String(l.id)));
+        const queue = [...folderLists];
+        const updatedAllLists = readingLists.map((l) => {
+          if (folderListIds.has(String(l.id))) {
+            return queue.shift() || l;
+          }
+          return l;
+        });
+
+        if (onReorderReadingLists) {
+          onReorderReadingLists(updatedAllLists);
+        }
+      }
+    } else {
+      // KHÁC thư mục -> Mở hộp thoại xác nhận thay đổi thư mục!
+      requestMoveFolderConfirmation({
+        draggedList: draggedItem,
+        targetFolderId: targetList.folderId || null,
+        targetListId: targetList.id,
+        dropPos,
+      });
+    }
+
+    cleanupDragState();
+  };
+
+  // Khi thả list trực tiếp lên Header của Folder
+  const handleListDropOnFolderHeader = (e, targetFolderId) => {
+    if (dragType !== 'reading-list') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const draggedItem = readingLists.find((l) => String(l.id) === String(draggedListId));
+    if (!draggedItem) {
+      cleanupDragState();
+      return;
+    }
+
+    if (String(draggedItem.folderId || '') !== String(targetFolderId)) {
+      requestMoveFolderConfirmation({
+        draggedList: draggedItem,
+        targetFolderId,
+        targetListId: null,
+      });
+    }
+
+    cleanupDragState();
+  };
+
+  // Khi thả list lên vùng Standalone
+  const handleListDropOnStandalone = (e) => {
+    if (dragType !== 'reading-list') return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const draggedItem = readingLists.find((l) => String(l.id) === String(draggedListId));
+    if (!draggedItem) {
+      cleanupDragState();
+      return;
+    }
+
+    if (draggedItem.folderId) {
+      requestMoveFolderConfirmation({
+        draggedList: draggedItem,
+        targetFolderId: null,
+        targetListId: null,
+      });
+    }
+
+    cleanupDragState();
+  };
+
+  const handleListDragEnd = () => {
+    dragJustEndedRef.current = true;
+    cleanupDragState();
   };
 
   const getReadingListWordCount = (list) => {
@@ -453,12 +812,70 @@ export default function Sidebar({
                       );
                       const folderWordCount = getFolderWordCount(folder);
 
+                      const isFolderBeingDragged =
+                        dragType === 'folder' && String(draggedFolderId) === String(folder.id);
+                      const isFolderDropBefore =
+                        dragType === 'folder' &&
+                        String(dragOverFolderId) === String(folder.id) &&
+                        folderDropPosition === 'before';
+                      const isFolderDropAfter =
+                        dragType === 'folder' &&
+                        String(dragOverFolderId) === String(folder.id) &&
+                        folderDropPosition === 'after';
+                      const isFolderDropTargetForList =
+                        dragType === 'reading-list' &&
+                        String(dragOverFolderTargetId) === String(folder.id);
+
                       return (
-                        <div key={folder.id} className="flex flex-col gap-0.5">
+                        <div
+                          key={folder.id}
+                          draggable={true}
+                          onDragStart={(e) => handleFolderDragStart(e, folder.id)}
+                          onDragOver={(e) => {
+                            if (dragType === 'folder') {
+                              handleFolderDragOver(e, folder.id);
+                            } else if (dragType === 'reading-list') {
+                              handleFolderHeaderDragOverForList(e, folder.id);
+                            }
+                          }}
+                          onDragLeave={(e) => {
+                            if (dragType === 'folder') {
+                              handleFolderDragLeave(e, folder.id);
+                            } else if (dragType === 'reading-list') {
+                              handleFolderHeaderDragLeaveForList(e, folder.id);
+                            }
+                          }}
+                          onDrop={(e) => {
+                            if (dragType === 'folder') {
+                              handleFolderDrop(e, folder.id);
+                            } else if (dragType === 'reading-list') {
+                              handleListDropOnFolderHeader(e, folder.id);
+                            }
+                          }}
+                          onDragEnd={handleFolderDragEnd}
+                          className={`flex flex-col gap-0.5 transition-all ${
+                            isFolderBeingDragged ? 'opacity-40 scale-[0.98]' : ''
+                          }`}
+                        >
                           {/* Hàng Thư Mục */}
                           <div
-                            onClick={() => toggleFolder(folder.id)}
-                            className="group/folder flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-100/90 transition-all text-xs cursor-pointer select-none"
+                            onClick={() => {
+                              if (dragJustEndedRef.current) return;
+                              toggleFolder(folder.id);
+                            }}
+                            className={`group/folder relative flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-100/90 transition-all text-xs cursor-grab active:cursor-grabbing select-none ${
+                              isFolderDropBefore
+                                ? 'border-t-2 border-t-amber-500 bg-amber-50/40 rounded-t-none'
+                                : ''
+                            } ${
+                              isFolderDropAfter
+                                ? 'border-b-2 border-b-amber-500 bg-amber-50/40 rounded-b-none'
+                                : ''
+                            } ${
+                              isFolderDropTargetForList
+                                ? 'ring-2 ring-crimson-primary bg-red-50/80 shadow-xs'
+                                : ''
+                            }`}
                           >
                             <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-1 text-left">
                               <button
@@ -469,7 +886,11 @@ export default function Sidebar({
                                 }}
                                 className="w-4 h-4 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary cursor-pointer shrink-0"
                               >
-                                <span className={`material-symbols-outlined text-[15px] transition-transform duration-200 ${isFolderExpanded ? 'rotate-90' : ''}`}>
+                                <span
+                                  className={`material-symbols-outlined text-[15px] transition-transform duration-200 ${
+                                    isFolderExpanded ? 'rotate-90' : ''
+                                  }`}
+                                >
                                   chevron_right
                                 </span>
                               </button>
@@ -484,52 +905,60 @@ export default function Sidebar({
                             </div>
 
                             <div className="flex items-center gap-1 shrink-0">
-                              {/* Hover action buttons cho Folder */}
-                              <div className="hidden group-hover/folder:flex items-center gap-0.5">
-                                {onOpenAddReadingListModal && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onOpenAddReadingListModal({ defaultFolderId: folder.id });
-                                    }}
-                                    title="Thêm danh sách mới vào thư mục này"
-                                    className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors cursor-pointer"
-                                  >
-                                    <span className="material-symbols-outlined text-[13px]">add</span>
-                                  </button>
-                                )}
-                                {onEditFolder && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditFolder(folder);
-                                    }}
-                                    title="Chỉnh sửa thư mục"
-                                    className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors cursor-pointer"
-                                  >
-                                    <span className="material-symbols-outlined text-[13px]">edit</span>
-                                  </button>
-                                )}
-                                {onDeleteFolder && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDeleteFolder(folder.id);
-                                    }}
-                                    title="Xóa thư mục"
-                                    className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-white transition-colors cursor-pointer"
-                                  >
-                                    <span className="material-symbols-outlined text-[13px]">delete</span>
-                                  </button>
-                                )}
-                              </div>
+                              {isFolderDropTargetForList ? (
+                                <span className="text-[9.5px] font-bold text-crimson-primary bg-white px-1.5 py-0.5 rounded shadow-2xs border border-red-200 animate-pulse">
+                                  Thả để chuyển vào
+                                </span>
+                              ) : (
+                                <>
+                                  {/* Hover action buttons cho Folder */}
+                                  <div className="hidden group-hover/folder:flex items-center gap-0.5">
+                                    {onOpenAddReadingListModal && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onOpenAddReadingListModal({ defaultFolderId: folder.id });
+                                        }}
+                                        title="Thêm danh sách mới vào thư mục này"
+                                        className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors cursor-pointer"
+                                      >
+                                        <span className="material-symbols-outlined text-[13px]">add</span>
+                                      </button>
+                                    )}
+                                    {onEditFolder && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onEditFolder(folder);
+                                        }}
+                                        title="Chỉnh sửa thư mục"
+                                        className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-crimson-primary hover:bg-white transition-colors cursor-pointer"
+                                      >
+                                        <span className="material-symbols-outlined text-[13px]">edit</span>
+                                      </button>
+                                    )}
+                                    {onDeleteFolder && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onDeleteFolder(folder.id);
+                                        }}
+                                        title="Xóa thư mục"
+                                        className="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-white transition-colors cursor-pointer"
+                                      >
+                                        <span className="material-symbols-outlined text-[13px]">delete</span>
+                                      </button>
+                                    )}
+                                  </div>
 
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-text-muted">
-                                {folderWordCount}
-                              </span>
+                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-slate-100 text-text-muted">
+                                    {folderWordCount}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -537,31 +966,80 @@ export default function Sidebar({
                           {isFolderExpanded && (
                             <div className="ml-5 pl-2 border-l border-slate-200/90 flex flex-col gap-0.5 my-0.5">
                               {listsInFolder.length === 0 ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenAddReadingListModal && onOpenAddReadingListModal({ defaultFolderId: folder.id })}
-                                  className="px-2 py-1 text-[11px] text-text-muted hover:text-crimson-primary hover:bg-red-50/50 rounded flex items-center gap-1.5 transition-colors group text-left w-full cursor-pointer"
+                                <div
+                                  onDragOver={(e) => handleFolderHeaderDragOverForList(e, folder.id)}
+                                  onDragLeave={(e) => handleFolderHeaderDragLeaveForList(e, folder.id)}
+                                  onDrop={(e) => handleListDropOnFolderHeader(e, folder.id)}
+                                  className={`px-2 py-1.5 rounded-lg border border-dashed transition-all ${
+                                    isFolderDropTargetForList
+                                      ? 'border-crimson-primary bg-red-50/50 text-crimson-primary font-semibold'
+                                      : 'border-slate-200 text-text-muted hover:border-slate-300'
+                                  }`}
                                 >
-                                  <span className="material-symbols-outlined text-[13px] text-text-muted group-hover:text-crimson-primary">add_circle</span>
-                                  <span className="italic text-[10.5px]">Chưa có bài đọc (Bấm để thêm)</span>
-                                </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onOpenAddReadingListModal &&
+                                      onOpenAddReadingListModal({ defaultFolderId: folder.id })
+                                    }
+                                    className="text-[11px] flex items-center gap-1.5 text-left w-full cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">add_circle</span>
+                                    <span className="italic text-[10.5px]">
+                                      {isFolderDropTargetForList
+                                        ? 'Thả vào đây để chuyển bài đọc vào'
+                                        : 'Chưa có bài đọc (Bấm để thêm)'}
+                                    </span>
+                                  </button>
+                                </div>
                               ) : (
                                 listsInFolder.map((list) => {
                                   const isActive =
                                     currentView === 'reading-list' &&
-                                    (selectedReadingListId === list.id || String(selectedReadingListId) === String(list.id));
+                                    (selectedReadingListId === list.id ||
+                                      String(selectedReadingListId) === String(list.id));
                                   const displayCode = list.code || list.shortTitle || 'LIST';
                                   const displayTitle = list.title || '';
+
+                                  const isListBeingDragged =
+                                    dragType === 'reading-list' && String(draggedListId) === String(list.id);
+                                  const isListDropBefore =
+                                    dragType === 'reading-list' &&
+                                    String(dragOverListId) === String(list.id) &&
+                                    listDropPosition === 'before';
+                                  const isListDropAfter =
+                                    dragType === 'reading-list' &&
+                                    String(dragOverListId) === String(list.id) &&
+                                    listDropPosition === 'after';
 
                                   return (
                                     <div
                                       key={list.id}
+                                      draggable={true}
+                                      onDragStart={(e) => handleListDragStart(e, list)}
+                                      onDragOver={(e) => handleListDragOver(e, list)}
+                                      onDragLeave={(e) => handleListDragLeave(e, list.id)}
+                                      onDrop={(e) => handleListDropOnList(e, list)}
+                                      onDragEnd={handleListDragEnd}
                                       onClick={() => {
+                                        if (dragJustEndedRef.current) return;
                                         setSelectedReadingListId(list.id);
                                         setSelectedCategory(null);
                                         setCurrentView('reading-list');
                                       }}
-                                      className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-pointer select-none ${
+                                      className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-grab active:cursor-grabbing select-none ${
+                                        isListBeingDragged
+                                          ? 'opacity-35 scale-[0.98] border border-dashed border-crimson-primary bg-red-50/30'
+                                          : ''
+                                      } ${
+                                        isListDropBefore
+                                          ? 'border-t-2 border-t-crimson-primary bg-red-50/20 rounded-t-none'
+                                          : ''
+                                      } ${
+                                        isListDropAfter
+                                          ? 'border-b-2 border-b-crimson-primary bg-red-50/20 rounded-b-none'
+                                          : ''
+                                      } ${
                                         isActive
                                           ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
                                           : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
@@ -632,31 +1110,92 @@ export default function Sidebar({
                     {/* 2. Các danh sách riêng lẻ chưa thuộc thư mục (Standalone Lists) */}
                     {(() => {
                       const standaloneLists = (readingLists || []).filter((l) => !l.folderId);
-                      if (standaloneLists.length === 0) return null;
+                      const isDraggingListFromFolder =
+                        dragType === 'reading-list' &&
+                        (() => {
+                          const dragged = readingLists.find((l) => String(l.id) === String(draggedListId));
+                          return dragged && dragged.folderId != null;
+                        })();
+
+                      if (standaloneLists.length === 0 && !isDraggingListFromFolder) return null;
 
                       return (
-                        <div className="flex flex-col gap-0.5 pt-1">
-                          {noteFolders.length > 0 && (
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-0.5">
-                              Danh sách riêng lẻ
-                            </span>
+                        <div
+                          onDragOver={handleStandaloneDragOverForList}
+                          onDragLeave={handleStandaloneDragLeaveForList}
+                          onDrop={handleListDropOnStandalone}
+                          className={`flex flex-col gap-0.5 pt-1 rounded-lg transition-all ${
+                            dragOverFolderTargetId === 'standalone'
+                              ? 'ring-2 ring-crimson-primary bg-red-50/60 p-1 shadow-xs'
+                              : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between px-2 py-0.5">
+                            {noteFolders.length > 0 && (
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                Danh sách riêng lẻ
+                              </span>
+                            )}
+                            {dragOverFolderTargetId === 'standalone' && (
+                              <span className="text-[9.5px] font-bold text-crimson-primary bg-white px-1.5 py-0.5 rounded shadow-2xs border border-red-200 animate-pulse">
+                                Thả để đưa ra ngoài
+                              </span>
+                            )}
+                          </div>
+
+                          {standaloneLists.length === 0 && isDraggingListFromFolder && (
+                            <div className="px-2 py-2 border-2 border-dashed border-red-300 bg-red-50/40 rounded-lg text-center text-[10.5px] text-crimson-primary font-semibold">
+                              Thả vào đây để chuyển thành danh sách riêng lẻ
+                            </div>
                           )}
+
                           {standaloneLists.map((list) => {
                             const isActive =
                               currentView === 'reading-list' &&
-                              (selectedReadingListId === list.id || String(selectedReadingListId) === String(list.id));
+                              (selectedReadingListId === list.id ||
+                                String(selectedReadingListId) === String(list.id));
                             const displayCode = list.code || list.shortTitle || 'LIST';
                             const displayTitle = list.title || '';
+
+                            const isListBeingDragged =
+                              dragType === 'reading-list' && String(draggedListId) === String(list.id);
+                            const isListDropBefore =
+                              dragType === 'reading-list' &&
+                              String(dragOverListId) === String(list.id) &&
+                              listDropPosition === 'before';
+                            const isListDropAfter =
+                              dragType === 'reading-list' &&
+                              String(dragOverListId) === String(list.id) &&
+                              listDropPosition === 'after';
 
                             return (
                               <div
                                 key={list.id}
+                                draggable={true}
+                                onDragStart={(e) => handleListDragStart(e, list)}
+                                onDragOver={(e) => handleListDragOver(e, list)}
+                                onDragLeave={(e) => handleListDragLeave(e, list.id)}
+                                onDrop={(e) => handleListDropOnList(e, list)}
+                                onDragEnd={handleListDragEnd}
                                 onClick={() => {
+                                  if (dragJustEndedRef.current) return;
                                   setSelectedReadingListId(list.id);
                                   setSelectedCategory(null);
                                   setCurrentView('reading-list');
                                 }}
-                                className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-pointer select-none ${
+                                className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-grab active:cursor-grabbing select-none ${
+                                  isListBeingDragged
+                                    ? 'opacity-35 scale-[0.98] border border-dashed border-crimson-primary bg-red-50/30'
+                                    : ''
+                                } ${
+                                  isListDropBefore
+                                    ? 'border-t-2 border-t-crimson-primary bg-red-50/20 rounded-t-none'
+                                    : ''
+                                } ${
+                                  isListDropAfter
+                                    ? 'border-b-2 border-b-crimson-primary bg-red-50/20 rounded-b-none'
+                                    : ''
+                                } ${
                                   isActive
                                     ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
                                     : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'

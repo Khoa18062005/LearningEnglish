@@ -53,6 +53,25 @@ const applySavedReadingListOrder = (lists) => {
   return lists;
 };
 
+const applySavedNoteFolderOrder = (folders) => {
+  if (!Array.isArray(folders) || folders.length === 0) return folders;
+  try {
+    const saved = localStorage.getItem('note_folder_custom_order');
+    if (saved) {
+      const orderIds = JSON.parse(saved);
+      if (Array.isArray(orderIds) && orderIds.length > 0) {
+        const map = new Map(orderIds.map((id, idx) => [String(id), idx]));
+        return [...folders].sort((a, b) => {
+          const oa = map.has(String(a.id)) ? map.get(String(a.id)) : 999999;
+          const ob = map.has(String(b.id)) ? map.get(String(b.id)) : 999999;
+          return oa - ob;
+        });
+      }
+    }
+  } catch {}
+  return folders;
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -302,8 +321,17 @@ export default function App() {
   // Toast Notification state (Góc trên cùng bên phải)
   const [toast, setToast] = useState(null);
 
-  const showToast = ({ title, message, type = 'success', duration = 3000 }) => {
-    setToast({ title, message, type, duration });
+  const showToast = (toastInput) => {
+    if (typeof toastInput === 'string') {
+      setToast({ title: 'Thành công', message: toastInput, type: 'success', duration: 3000 });
+    } else if (toastInput && typeof toastInput === 'object') {
+      setToast({
+        title: toastInput.title || 'Thông báo',
+        message: toastInput.message || '',
+        type: toastInput.type || 'success',
+        duration: toastInput.duration || 3000,
+      });
+    }
   };
 
   useEffect(() => {
@@ -375,7 +403,7 @@ export default function App() {
         setWordFamilies(familiesData);
       }
       if (Array.isArray(foldersData)) {
-        setNoteFolders(foldersData);
+        setNoteFolders(applySavedNoteFolderOrder(foldersData));
       }
       setIsBackendConnected(true);
     } catch (err) {
@@ -889,7 +917,13 @@ export default function App() {
         } catch (err) {
           console.error('Lỗi khi xóa thư mục trên Backend:', err);
         }
-        setNoteFolders((prev) => prev.filter((f) => f.id !== folderId));
+        setNoteFolders((prev) => {
+          const next = prev.filter((f) => f.id !== folderId);
+          try {
+            localStorage.setItem('note_folder_custom_order', JSON.stringify(next.map((f) => f.id)));
+          } catch {}
+          return next;
+        });
         setReadingLists((prev) =>
           prev.map((l) =>
             l.folderId === folderId
@@ -942,6 +976,89 @@ export default function App() {
     } catch (e) {
       console.warn('Lỗi khi lưu thứ tự reading list vào localStorage:', e);
     }
+  };
+
+  // Reorder Note Folders (Drag and drop thư mục bên menu trái)
+  const handleReorderNoteFolders = (reorderedFolders) => {
+    setNoteFolders(reorderedFolders);
+    try {
+      const orderIds = reorderedFolders.map((f) => f.id);
+      localStorage.setItem('note_folder_custom_order', JSON.stringify(orderIds));
+    } catch (e) {
+      console.warn('Lỗi khi lưu thứ tự noteFolders vào localStorage:', e);
+    }
+  };
+
+  // Di chuyển danh sách từ vựng sang thư mục khác (hoặc ra ngoài danh sách riêng lẻ)
+  const handleMoveReadingListToFolder = async ({
+    listId,
+    targetFolderId,
+    targetListId = null,
+    dropPosition = 'after',
+  }) => {
+    const list = readingLists.find((l) => String(l.id) === String(listId));
+    if (!list) return;
+
+    const targetFolder = targetFolderId
+      ? noteFolders.find((f) => String(f.id) === String(targetFolderId))
+      : null;
+
+    const updatedPayload = {
+      ...list,
+      folderId: targetFolder ? targetFolder.id : null,
+      folderCode: targetFolder ? targetFolder.code : null,
+      folderName: targetFolder ? targetFolder.name : null,
+    };
+
+    try {
+      if (isBackendConnected) {
+        await noteListApi.update(list.id, updatedPayload);
+      }
+    } catch (err) {
+      console.error('Lỗi khi cập nhật thư mục cho danh sách trên backend:', err);
+    }
+
+    setReadingLists((prev) => {
+      let nextLists = prev.map((l) =>
+        String(l.id) === String(listId)
+          ? {
+              ...l,
+              folderId: targetFolder ? targetFolder.id : null,
+              folderCode: targetFolder ? targetFolder.code : null,
+              folderName: targetFolder ? targetFolder.name : null,
+            }
+          : l
+      );
+
+      // Nếu có thả trước/sau một danh sách cụ thể ở thư mục đích
+      if (targetListId && String(targetListId) !== String(listId)) {
+        const movedItem = nextLists.find((l) => String(l.id) === String(listId));
+        if (movedItem) {
+          nextLists = nextLists.filter((l) => String(l.id) !== String(listId));
+          const targetIdx = nextLists.findIndex((l) => String(l.id) === String(targetListId));
+          if (targetIdx !== -1) {
+            const insertIdx = dropPosition === 'before' ? targetIdx : targetIdx + 1;
+            nextLists.splice(insertIdx, 0, movedItem);
+          } else {
+            nextLists.push(movedItem);
+          }
+        }
+      }
+
+      try {
+        const orderIds = nextLists.map((l) => l.id);
+        localStorage.setItem('reading_list_custom_order', JSON.stringify(orderIds));
+      } catch {}
+
+      return nextLists;
+    });
+
+    const targetName = targetFolder ? targetFolder.name : 'Danh sách riêng lẻ';
+    showToast({
+      title: 'Chuyển thư mục thành công',
+      message: `Đã chuyển danh sách "${list.title || list.code || 'LIST'}" sang "${targetName}"`,
+      type: 'success',
+    });
   };
 
   // Update Reading List (syncs to Spring Boot if available)
@@ -1421,6 +1538,9 @@ export default function App() {
         onEditReadingList={handleEditReadingList}
         onDeleteReadingList={handleDeleteReadingList}
         onReorderReadingLists={handleReorderReadingLists}
+        onReorderNoteFolders={handleReorderNoteFolders}
+        onMoveReadingListToFolder={handleMoveReadingListToFolder}
+        showNotification={showNotification}
         onNavigateHome={() => navigateTo('home')}
       />
 
@@ -1672,6 +1792,8 @@ export default function App() {
                 onEditFolder={handleEditFolder}
                 onDeleteFolder={handleDeleteFolder}
                 onReorderReadingLists={handleReorderReadingLists}
+                onMoveReadingListToFolder={handleMoveReadingListToFolder}
+                showNotification={showNotification}
               />
             </div>
           )}
