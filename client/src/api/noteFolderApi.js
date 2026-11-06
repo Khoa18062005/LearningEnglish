@@ -25,4 +25,9 @@ export const noteFolderApi = {
     const res = await api.delete(`/note-folders/${id}`);
     return res.data;
   },
+
+  reorder: async (ids) => {
+    const res = await api.put('/note-folders/reorder', { ids });
+    return res.data;
+  },
 };

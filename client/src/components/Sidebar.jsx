@@ -160,8 +160,9 @@ export default function Sidebar({
     setDraggedFolderId(folderId);
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(folderId));
-      e.dataTransfer.setData('application/json', JSON.stringify({ type: 'folder', id: folderId }));
+      try {
+        e.dataTransfer.setData('text/plain', String(folderId));
+      } catch (err) {}
     }
   };
 
@@ -181,9 +182,16 @@ export default function Sidebar({
       return;
     }
 
-    const draggedIdx = noteFolders.findIndex((f) => String(f.id) === String(activeFolderId));
     const targetIdx = noteFolders.findIndex((f) => String(f.id) === String(targetFolderId));
-    const position = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
+    const isLastItem = targetIdx === noteFolders.length - 1;
+    let position = 'before';
+
+    if (isLastItem) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (e.clientY > rect.top + rect.height * 0.6) {
+        position = 'after';
+      }
+    }
 
     if (dragOverFolderId !== targetFolderId || folderDropPosition !== position) {
       setDragOverFolderId(targetFolderId);
@@ -218,12 +226,11 @@ export default function Sidebar({
     const currentFolders = [...noteFolders];
     const draggedIdx = currentFolders.findIndex((f) => String(f.id) === String(activeFolderId));
     const targetIdx = currentFolders.findIndex((f) => String(f.id) === String(targetFolderId));
-    const effectivePos = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
 
     if (draggedIdx !== -1 && targetIdx !== -1) {
       const [moved] = currentFolders.splice(draggedIdx, 1);
       const newTargetIdx = currentFolders.findIndex((f) => String(f.id) === String(targetFolderId));
-      let insertIdx = effectivePos === 'before' ? newTargetIdx : newTargetIdx + 1;
+      let insertIdx = folderDropPosition === 'after' ? newTargetIdx + 1 : newTargetIdx;
       insertIdx = Math.max(0, Math.min(insertIdx, currentFolders.length));
       currentFolders.splice(insertIdx, 0, moved);
 
@@ -248,11 +255,9 @@ export default function Sidebar({
     setDraggedListId(list.id);
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', String(list.id));
-      e.dataTransfer.setData(
-        'application/json',
-        JSON.stringify({ type: 'reading-list', id: list.id, folderId: list.folderId })
-      );
+      try {
+        e.dataTransfer.setData('text/plain', String(list.id));
+      } catch (err) {}
     }
   };
 
@@ -273,9 +278,18 @@ export default function Sidebar({
       return;
     }
 
-    const draggedIdx = readingLists.findIndex((l) => String(l.id) === String(activeListId));
-    const targetIdx = readingLists.findIndex((l) => String(l.id) === String(targetList.id));
-    const position = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
+    const isMatch = (a, b) => (!a && !b) || String(a) === String(b);
+    const siblings = readingLists.filter((l) => isMatch(l.folderId, targetList.folderId));
+    const targetIdx = siblings.findIndex((l) => String(l.id) === String(targetList.id));
+    const isLastItem = targetIdx === siblings.length - 1;
+    let position = 'before';
+
+    if (isLastItem) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (e.clientY > rect.top + rect.height * 0.6) {
+        position = 'after';
+      }
+    }
 
     if (dragOverListId !== targetList.id || listDropPosition !== position) {
       setDragOverListId(targetList.id);
@@ -454,12 +468,12 @@ export default function Sidebar({
 
       const draggedIdx = folderLists.findIndex((l) => String(l.id) === String(activeListId));
       const targetIdx = folderLists.findIndex((l) => String(l.id) === String(targetList.id));
-      const dropPos = draggedIdx !== -1 && targetIdx !== -1 && draggedIdx < targetIdx ? 'after' : 'before';
+      const effectiveDropPos = listDropPosition || (draggedIdx < targetIdx ? 'after' : 'before');
 
       if (draggedIdx !== -1 && targetIdx !== -1) {
         const [moved] = folderLists.splice(draggedIdx, 1);
         const newTargetIdx = folderLists.findIndex((l) => String(l.id) === String(targetList.id));
-        let insertIdx = dropPos === 'before' ? newTargetIdx : newTargetIdx + 1;
+        let insertIdx = effectiveDropPos === 'after' ? newTargetIdx + 1 : newTargetIdx;
         insertIdx = Math.max(0, Math.min(insertIdx, folderLists.length));
         folderLists.splice(insertIdx, 0, moved);
 
@@ -482,7 +496,7 @@ export default function Sidebar({
         draggedList: draggedItem,
         targetFolderId: targetList.folderId || null,
         targetListId: targetList.id,
-        dropPos,
+        dropPos: listDropPosition || 'before',
       });
     }
 
@@ -827,57 +841,65 @@ export default function Sidebar({
                         String(dragOverFolderTargetId) === String(folder.id);
 
                       return (
-                        <div
-                          key={folder.id}
-                          draggable={true}
-                          onDragStart={(e) => handleFolderDragStart(e, folder.id)}
-                          onDragOver={(e) => {
-                            if (dragType === 'folder') {
-                              handleFolderDragOver(e, folder.id);
-                            } else if (dragType === 'reading-list') {
-                              handleFolderHeaderDragOverForList(e, folder.id);
-                            }
-                          }}
-                          onDragLeave={(e) => {
-                            if (dragType === 'folder') {
-                              handleFolderDragLeave(e, folder.id);
-                            } else if (dragType === 'reading-list') {
-                              handleFolderHeaderDragLeaveForList(e, folder.id);
-                            }
-                          }}
-                          onDrop={(e) => {
-                            if (dragType === 'folder') {
-                              handleFolderDrop(e, folder.id);
-                            } else if (dragType === 'reading-list') {
-                              handleListDropOnFolderHeader(e, folder.id);
-                            }
-                          }}
-                          onDragEnd={handleFolderDragEnd}
-                          className={`flex flex-col gap-0.5 transition-all ${
-                            isFolderBeingDragged ? 'opacity-40 scale-[0.98]' : ''
-                          }`}
-                        >
+                        <div key={folder.id} className="flex flex-col gap-0.5">
                           {/* Hàng Thư Mục */}
                           <div
+                            draggable={true}
+                            onDragStart={(e) => {
+                              e.stopPropagation();
+                              handleFolderDragStart(e, folder.id);
+                            }}
+                            onDragOver={(e) => {
+                              e.stopPropagation();
+                              if (dragType === 'folder') {
+                                handleFolderDragOver(e, folder.id);
+                              } else if (dragType === 'reading-list') {
+                                handleFolderHeaderDragOverForList(e, folder.id);
+                              }
+                            }}
+                            onDragLeave={(e) => {
+                              e.stopPropagation();
+                              if (dragType === 'folder') {
+                                handleFolderDragLeave(e, folder.id);
+                              } else if (dragType === 'reading-list') {
+                                handleFolderHeaderDragLeaveForList(e, folder.id);
+                              }
+                            }}
+                            onDrop={(e) => {
+                              e.stopPropagation();
+                              if (dragType === 'folder') {
+                                handleFolderDrop(e, folder.id);
+                              } else if (dragType === 'reading-list') {
+                                handleListDropOnFolderHeader(e, folder.id);
+                              }
+                            }}
+                            onDragEnd={handleFolderDragEnd}
                             onClick={() => {
                               if (dragJustEndedRef.current) return;
                               toggleFolder(folder.id);
                             }}
                             className={`group/folder relative flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-100/90 transition-all text-xs cursor-grab active:cursor-grabbing select-none ${
-                              isFolderDropBefore
-                                ? 'border-t-2 border-t-amber-500 bg-amber-50/40 rounded-t-none'
-                                : ''
-                            } ${
-                              isFolderDropAfter
-                                ? 'border-b-2 border-b-amber-500 bg-amber-50/40 rounded-b-none'
-                                : ''
+                              isFolderBeingDragged ? 'opacity-35' : ''
                             } ${
                               isFolderDropTargetForList
-                                ? 'ring-2 ring-crimson-primary bg-red-50/80 shadow-xs'
+                                ? 'ring-2 ring-[#E31E24] bg-red-50/80 shadow-xs'
                                 : ''
                             }`}
                           >
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0 pr-1 text-left">
+                            {/* Đường kẻ ngang màu đỏ phía bên trên khi kéo thả vị trí mới */}
+                            {isFolderDropBefore && (
+                              <div className="absolute -top-[3px] left-0 right-0 flex items-center z-50 pointer-events-none">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#E31E24] -ml-1 ring-2 ring-white shadow-md shrink-0" />
+                                <div className="flex-1 h-[3px] bg-[#E31E24] rounded-full shadow-[0_0_8px_rgba(227,30,36,0.6)]" />
+                              </div>
+                            )}
+                            {isFolderDropAfter && (
+                              <div className="absolute -bottom-[3px] left-0 right-0 flex items-center z-50 pointer-events-none">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#E31E24] -ml-1 ring-2 ring-white shadow-md shrink-0" />
+                                <div className="flex-1 h-[3px] bg-[#E31E24] rounded-full shadow-[0_0_8px_rgba(227,30,36,0.6)]" />
+                              </div>
+                            )}
+                            <div className={`flex items-center gap-1.5 flex-1 min-w-0 pr-1 text-left ${dragType ? 'pointer-events-none' : ''}`}>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -904,7 +926,7 @@ export default function Sidebar({
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-1 shrink-0">
+                            <div className={`flex items-center gap-1 shrink-0 ${dragType ? 'pointer-events-none' : ''}`}>
                               {isFolderDropTargetForList ? (
                                 <span className="text-[9.5px] font-bold text-crimson-primary bg-white px-1.5 py-0.5 rounded shadow-2xs border border-red-200 animate-pulse">
                                   Thả để chuyển vào
@@ -1016,10 +1038,22 @@ export default function Sidebar({
                                     <div
                                       key={list.id}
                                       draggable={true}
-                                      onDragStart={(e) => handleListDragStart(e, list)}
-                                      onDragOver={(e) => handleListDragOver(e, list)}
-                                      onDragLeave={(e) => handleListDragLeave(e, list.id)}
-                                      onDrop={(e) => handleListDropOnList(e, list)}
+                                      onDragStart={(e) => {
+                                        e.stopPropagation();
+                                        handleListDragStart(e, list);
+                                      }}
+                                      onDragOver={(e) => {
+                                        e.stopPropagation();
+                                        handleListDragOver(e, list);
+                                      }}
+                                      onDragLeave={(e) => {
+                                        e.stopPropagation();
+                                        handleListDragLeave(e, list.id);
+                                      }}
+                                      onDrop={(e) => {
+                                        e.stopPropagation();
+                                        handleListDropOnList(e, list);
+                                      }}
                                       onDragEnd={handleListDragEnd}
                                       onClick={() => {
                                         if (dragJustEndedRef.current) return;
@@ -1028,24 +1062,27 @@ export default function Sidebar({
                                         setCurrentView('reading-list');
                                       }}
                                       className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-grab active:cursor-grabbing select-none ${
-                                        isListBeingDragged
-                                          ? 'opacity-35 scale-[0.98] border border-dashed border-crimson-primary bg-red-50/30'
-                                          : ''
-                                      } ${
-                                        isListDropBefore
-                                          ? 'border-t-2 border-t-crimson-primary bg-red-50/20 rounded-t-none'
-                                          : ''
-                                      } ${
-                                        isListDropAfter
-                                          ? 'border-b-2 border-b-crimson-primary bg-red-50/20 rounded-b-none'
-                                          : ''
+                                        isListBeingDragged ? 'opacity-35' : ''
                                       } ${
                                         isActive
                                           ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
                                           : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-1.5 truncate flex-1 min-w-0 pr-1 text-left">
+                                      {/* Đường kẻ ngang màu đỏ phía bên trên khi kéo thả vị trí mới */}
+                                      {isListDropBefore && (
+                                        <div className="absolute -top-[3px] left-0 right-0 flex items-center z-50 pointer-events-none">
+                                          <div className="w-2.5 h-2.5 rounded-full bg-[#E31E24] -ml-1 ring-2 ring-white shadow-md shrink-0" />
+                                          <div className="flex-1 h-[3px] bg-[#E31E24] rounded-full shadow-[0_0_8px_rgba(227,30,36,0.6)]" />
+                                        </div>
+                                      )}
+                                      {isListDropAfter && (
+                                        <div className="absolute -bottom-[3px] left-0 right-0 flex items-center z-50 pointer-events-none">
+                                          <div className="w-2.5 h-2.5 rounded-full bg-[#E31E24] -ml-1 ring-2 ring-white shadow-md shrink-0" />
+                                          <div className="flex-1 h-[3px] bg-[#E31E24] rounded-full shadow-[0_0_8px_rgba(227,30,36,0.6)]" />
+                                        </div>
+                                      )}
+                                      <div className={`flex items-center gap-1.5 truncate flex-1 min-w-0 pr-1 text-left ${dragType ? 'pointer-events-none' : ''}`}>
                                         <span
                                           className={`material-symbols-outlined text-[15px] shrink-0 ${
                                             isActive ? 'text-crimson-primary' : 'text-text-muted'
@@ -1058,7 +1095,7 @@ export default function Sidebar({
                                         </span>
                                       </div>
 
-                                      <div className="flex items-center gap-1 shrink-0">
+                                      <div className={`flex items-center gap-1 shrink-0 ${dragType ? 'pointer-events-none' : ''}`}>
                                         <div className="hidden group-hover:flex items-center gap-0.5">
                                           {onEditReadingList && (
                                             <button
@@ -1172,10 +1209,22 @@ export default function Sidebar({
                               <div
                                 key={list.id}
                                 draggable={true}
-                                onDragStart={(e) => handleListDragStart(e, list)}
-                                onDragOver={(e) => handleListDragOver(e, list)}
-                                onDragLeave={(e) => handleListDragLeave(e, list.id)}
-                                onDrop={(e) => handleListDropOnList(e, list)}
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  handleListDragStart(e, list);
+                                }}
+                                onDragOver={(e) => {
+                                  e.stopPropagation();
+                                  handleListDragOver(e, list);
+                                }}
+                                onDragLeave={(e) => {
+                                  e.stopPropagation();
+                                  handleListDragLeave(e, list.id);
+                                }}
+                                onDrop={(e) => {
+                                  e.stopPropagation();
+                                  handleListDropOnList(e, list);
+                                }}
                                 onDragEnd={handleListDragEnd}
                                 onClick={() => {
                                   if (dragJustEndedRef.current) return;
@@ -1184,24 +1233,27 @@ export default function Sidebar({
                                   setCurrentView('reading-list');
                                 }}
                                 className={`group relative flex items-center justify-between px-2 py-1.5 rounded-lg transition-all text-left text-xs cursor-grab active:cursor-grabbing select-none ${
-                                  isListBeingDragged
-                                    ? 'opacity-35 scale-[0.98] border border-dashed border-crimson-primary bg-red-50/30'
-                                    : ''
-                                } ${
-                                  isListDropBefore
-                                    ? 'border-t-2 border-t-crimson-primary bg-red-50/20 rounded-t-none'
-                                    : ''
-                                } ${
-                                  isListDropAfter
-                                    ? 'border-b-2 border-b-crimson-primary bg-red-50/20 rounded-b-none'
-                                    : ''
+                                  isListBeingDragged ? 'opacity-35' : ''
                                 } ${
                                   isActive
                                     ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
                                     : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                                 }`}
                               >
-                                <div className="flex items-center gap-2 truncate flex-1 min-w-0 pr-1 text-left">
+                                {/* Đường kẻ ngang màu đỏ phía bên trên khi kéo thả vị trí mới */}
+                                {isListDropBefore && (
+                                  <div className="absolute -top-[3px] left-0 right-0 flex items-center z-50 pointer-events-none">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#E31E24] -ml-1 ring-2 ring-white shadow-md shrink-0" />
+                                    <div className="flex-1 h-[3px] bg-[#E31E24] rounded-full shadow-[0_0_8px_rgba(227,30,36,0.6)]" />
+                                  </div>
+                                )}
+                                {isListDropAfter && (
+                                  <div className="absolute -bottom-[3px] left-0 right-0 flex items-center z-50 pointer-events-none">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#E31E24] -ml-1 ring-2 ring-white shadow-md shrink-0" />
+                                    <div className="flex-1 h-[3px] bg-[#E31E24] rounded-full shadow-[0_0_8px_rgba(227,30,36,0.6)]" />
+                                  </div>
+                                )}
+                                <div className={`flex items-center gap-2 truncate flex-1 min-w-0 pr-1 text-left ${dragType ? 'pointer-events-none' : ''}`}>
                                   <span
                                     className={`material-symbols-outlined text-[16px] shrink-0 ${
                                       isActive ? 'text-crimson-primary' : 'text-text-muted'
@@ -1222,7 +1274,7 @@ export default function Sidebar({
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className={`flex items-center gap-1 shrink-0 ${dragType ? 'pointer-events-none' : ''}`}>
                                   <div className="hidden group-hover:flex items-center gap-0.5">
                                     {onEditReadingList && (
                                       <button

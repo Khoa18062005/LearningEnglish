@@ -25,4 +25,9 @@ export const noteListApi = {
     const res = await api.delete(`/note-lists/${id}`);
     return res.data;
   },
+
+  reorder: async (ids) => {
+    const res = await api.put('/note-lists/reorder', { ids });
+    return res.data;
+  },
 };

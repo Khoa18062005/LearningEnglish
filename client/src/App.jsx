@@ -968,24 +968,30 @@ export default function App() {
   };
 
   // Reorder Reading Lists (Drag and drop)
-  const handleReorderReadingLists = (reorderedLists) => {
+  const handleReorderReadingLists = async (reorderedLists) => {
     setReadingLists(reorderedLists);
     try {
       const orderIds = reorderedLists.map((l) => l.id);
       localStorage.setItem('reading_list_custom_order', JSON.stringify(orderIds));
+      if (isBackendConnected) {
+        await noteListApi.reorder(orderIds);
+      }
     } catch (e) {
-      console.warn('Lỗi khi lưu thứ tự reading list vào localStorage:', e);
+      console.warn('Lỗi khi lưu thứ tự reading list vào backend/localStorage:', e);
     }
   };
 
   // Reorder Note Folders (Drag and drop thư mục bên menu trái)
-  const handleReorderNoteFolders = (reorderedFolders) => {
+  const handleReorderNoteFolders = async (reorderedFolders) => {
     setNoteFolders(reorderedFolders);
     try {
       const orderIds = reorderedFolders.map((f) => f.id);
       localStorage.setItem('note_folder_custom_order', JSON.stringify(orderIds));
+      if (isBackendConnected) {
+        await noteFolderApi.reorder(orderIds);
+      }
     } catch (e) {
-      console.warn('Lỗi khi lưu thứ tự noteFolders vào localStorage:', e);
+      console.warn('Lỗi khi lưu thứ tự noteFolders vào backend/localStorage:', e);
     }
   };
 
@@ -1048,6 +1054,9 @@ export default function App() {
       try {
         const orderIds = nextLists.map((l) => l.id);
         localStorage.setItem('reading_list_custom_order', JSON.stringify(orderIds));
+        if (isBackendConnected) {
+          noteListApi.reorder(orderIds).catch((err) => console.warn('Lỗi đồng bộ thứ tự list sau khi di chuyển:', err));
+        }
       } catch {}
 
       return nextLists;
