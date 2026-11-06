@@ -20,4 +20,5 @@ public class NoteListCreateRequest {
     private String passage;
     private String note;
     private Long folderId;
+    private java.util.List<ReadingPassageRequest> passages;
 }

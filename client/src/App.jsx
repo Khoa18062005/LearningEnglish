@@ -1625,6 +1625,8 @@ export default function App() {
                 onDeleteVocab={handleDeleteVocab}
                 onDeleteReadingList={handleDeleteReadingList}
                 onUpdateReadingList={handleUpdateReadingList}
+                onEditReadingList={handleEditReadingList}
+                showNotification={showNotification}
                 onSelectRelatedWord={handleSelectRelatedWord}
                 onOpenRelatedGroup={handleOpenRelatedGroup}
                 onBackToListVocabulary={() => {

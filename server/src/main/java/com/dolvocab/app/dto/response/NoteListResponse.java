@@ -26,4 +26,5 @@ public class NoteListResponse {
     private String folderCode;
     private String folderName;
     private Integer sortOrder;
+    private java.util.List<ReadingPassageResponse> passages;
 }

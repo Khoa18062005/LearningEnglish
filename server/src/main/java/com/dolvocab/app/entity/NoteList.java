@@ -59,6 +59,11 @@ public class NoteList {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @OneToMany(mappedBy = "noteList", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC, id ASC")
+    @Builder.Default
+    private List<ReadingPassage> passages = new ArrayList<>();
+
     @ManyToMany(mappedBy = "noteLists")
     @JsonIgnore
     @Builder.Default

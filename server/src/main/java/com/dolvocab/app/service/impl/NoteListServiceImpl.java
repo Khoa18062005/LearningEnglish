@@ -1,13 +1,17 @@
 package com.dolvocab.app.service.impl;
 
 import com.dolvocab.app.dto.request.NoteListCreateRequest;
+import com.dolvocab.app.dto.request.ReadingPassageRequest;
 import com.dolvocab.app.dto.response.NoteListResponse;
+import com.dolvocab.app.dto.response.ReadingPassageResponse;
 import com.dolvocab.app.entity.NoteFolder;
 import com.dolvocab.app.entity.NoteList;
+import com.dolvocab.app.entity.ReadingPassage;
 import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
 import com.dolvocab.app.repository.NoteFolderRepository;
 import com.dolvocab.app.repository.NoteListRepository;
+import com.dolvocab.app.repository.ReadingPassageRepository;
 import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.NoteListService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +20,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +31,41 @@ public class NoteListServiceImpl implements NoteListService {
 
     private final NoteListRepository noteListRepository;
     private final NoteFolderRepository noteFolderRepository;
+    private final ReadingPassageRepository readingPassageRepository;
     private final SecurityUtils securityUtils;
+
+    private int countWords(String text) {
+        if (text == null || text.isBlank()) return 0;
+        String clean = text.replaceAll("<[^>]*>", " ").replaceAll("&nbsp;", " ").trim();
+        if (clean.isBlank()) return 0;
+        return clean.split("\\s+").length;
+    }
+
+    private List<ReadingPassageResponse> mapPassagesToResponse(List<ReadingPassage> passages, String fallbackLegacyPassage) {
+        List<ReadingPassageResponse> list = new ArrayList<>();
+        if (passages != null && !passages.isEmpty()) {
+            for (ReadingPassage rp : passages) {
+                list.add(ReadingPassageResponse.builder()
+                        .id(rp.getId())
+                        .title(rp.getTitle())
+                        .content(rp.getContent())
+                        .wordCount(rp.getWordCount() != null ? rp.getWordCount() : countWords(rp.getContent()))
+                        .sortOrder(rp.getSortOrder())
+                        .createdAt(rp.getCreatedAt())
+                        .updatedAt(rp.getUpdatedAt())
+                        .build());
+            }
+        } else if (fallbackLegacyPassage != null && !fallbackLegacyPassage.trim().isEmpty()) {
+            list.add(ReadingPassageResponse.builder()
+                    .id(-1L)
+                    .title("Nội dung bài đọc")
+                    .content(fallbackLegacyPassage)
+                    .wordCount(countWords(fallbackLegacyPassage))
+                    .sortOrder(0)
+                    .build());
+        }
+        return list;
+    }
 
     private NoteListResponse toResponse(NoteList list, long count) {
         String code = list.getCode();
@@ -38,6 +79,8 @@ public class NoteListServiceImpl implements NoteListService {
         String folderCode = list.getFolder() != null ? list.getFolder().getCode() : null;
         String folderName = list.getFolder() != null ? list.getFolder().getName() : null;
 
+        List<ReadingPassageResponse> passageResponses = mapPassagesToResponse(list.getPassages(), list.getPassage());
+
         return NoteListResponse.builder()
                 .id(list.getId())
                 .title(title)
@@ -46,6 +89,7 @@ public class NoteListServiceImpl implements NoteListService {
                 .fullTitle(fullTitle)
                 .sourceReference(list.getSourceReference())
                 .passage(list.getPassage())
+                .passages(passageResponses)
                 .note(list.getNote())
                 .createdAt(list.getCreatedAt())
                 .count(count)
@@ -63,12 +107,30 @@ public class NoteListServiceImpl implements NoteListService {
         List<Object[]> rows = noteListRepository.findNoteListsWithVocabCountByUserId(currentUser.getId());
         List<NoteListResponse> responses = new ArrayList<>();
 
+        // Nạp toàn bộ passages của user để group theo noteListId (tránh N+1 query)
+        List<ReadingPassage> userPassages = readingPassageRepository.findAllByUserIdOrdered(currentUser.getId());
+        Map<Long, List<ReadingPassageResponse>> passagesByListId = new HashMap<>();
+        for (ReadingPassage rp : userPassages) {
+            Long listId = rp.getNoteList().getId();
+            passagesByListId.computeIfAbsent(listId, k -> new ArrayList<>()).add(
+                    ReadingPassageResponse.builder()
+                            .id(rp.getId())
+                            .title(rp.getTitle())
+                            .content(rp.getContent())
+                            .wordCount(rp.getWordCount() != null ? rp.getWordCount() : countWords(rp.getContent()))
+                            .sortOrder(rp.getSortOrder())
+                            .createdAt(rp.getCreatedAt())
+                            .updatedAt(rp.getUpdatedAt())
+                            .build()
+            );
+        }
+
         for (Object[] row : rows) {
             Long id = (Long) row[0];
             String title = (String) row[1];
             String code = (String) row[2];
             String source = (String) row[3];
-            String passage = (String) row[4];
+            String legacyPassage = (String) row[4];
             String note = (String) row[5];
             LocalDateTime createdAt = (LocalDateTime) row[6];
             long count = ((Number) row[7]).longValue();
@@ -82,6 +144,17 @@ public class NoteListServiceImpl implements NoteListService {
                     ? code.trim() + ": " + title
                     : title;
 
+            List<ReadingPassageResponse> listPassages = passagesByListId.getOrDefault(id, new ArrayList<>());
+            if (listPassages.isEmpty() && legacyPassage != null && !legacyPassage.trim().isEmpty()) {
+                listPassages.add(ReadingPassageResponse.builder()
+                        .id(-1L)
+                        .title("Nội dung bài đọc")
+                        .content(legacyPassage)
+                        .wordCount(countWords(legacyPassage))
+                        .sortOrder(0)
+                        .build());
+            }
+
             responses.add(NoteListResponse.builder()
                     .id(id)
                     .title(title)
@@ -89,7 +162,8 @@ public class NoteListServiceImpl implements NoteListService {
                     .shortTitle(shortTitle)
                     .fullTitle(fullTitle)
                     .sourceReference(source)
-                    .passage(passage)
+                    .passage(legacyPassage)
+                    .passages(listPassages)
                     .note(note)
                     .createdAt(createdAt)
                     .count(count)
@@ -148,6 +222,28 @@ public class NoteListServiceImpl implements NoteListService {
                 .note(request.getNote() != null ? request.getNote().trim() : null)
                 .build();
 
+        if (request.getPassages() != null && !request.getPassages().isEmpty()) {
+            int order = 0;
+            for (ReadingPassageRequest pr : request.getPassages()) {
+                boolean hasTitle = pr.getTitle() != null && !pr.getTitle().trim().isEmpty();
+                boolean hasContent = pr.getContent() != null && !pr.getContent().trim().isEmpty();
+                if (hasTitle || hasContent) {
+                    String pTitle = hasTitle ? pr.getTitle().trim() : ("Bài đọc " + (order + 1));
+                    String pContent = pr.getContent() != null ? pr.getContent() : "";
+                    int wc = (pr.getWordCount() != null && pr.getWordCount() > 0) ? pr.getWordCount() : countWords(pContent);
+                    ReadingPassage rp = ReadingPassage.builder()
+                            .noteList(list)
+                            .title(pTitle)
+                            .content(pContent)
+                            .wordCount(wc)
+                            .sortOrder(pr.getSortOrder() != null ? pr.getSortOrder() : order)
+                            .build();
+                    list.getPassages().add(rp);
+                    order++;
+                }
+            }
+        }
+
         NoteList saved = noteListRepository.save(list);
         return toResponse(saved, 0);
     }
@@ -178,6 +274,30 @@ public class NoteListServiceImpl implements NoteListService {
             list.setFolder(folder);
         } else {
             list.setFolder(null);
+        }
+
+        // Cập nhật danh sách passages nếu có gửi trong request
+        if (request.getPassages() != null) {
+            list.getPassages().clear();
+            int order = 0;
+            for (ReadingPassageRequest pr : request.getPassages()) {
+                boolean hasTitle = pr.getTitle() != null && !pr.getTitle().trim().isEmpty();
+                boolean hasContent = pr.getContent() != null && !pr.getContent().trim().isEmpty();
+                if (hasTitle || hasContent) {
+                    String pTitle = hasTitle ? pr.getTitle().trim() : ("Bài đọc " + (order + 1));
+                    String pContent = pr.getContent() != null ? pr.getContent() : "";
+                    int wc = (pr.getWordCount() != null && pr.getWordCount() > 0) ? pr.getWordCount() : countWords(pContent);
+                    ReadingPassage rp = ReadingPassage.builder()
+                            .noteList(list)
+                            .title(pTitle)
+                            .content(pContent)
+                            .wordCount(wc)
+                            .sortOrder(pr.getSortOrder() != null ? pr.getSortOrder() : order)
+                            .build();
+                    list.getPassages().add(rp);
+                    order++;
+                }
+            }
         }
 
         NoteList saved = noteListRepository.save(list);

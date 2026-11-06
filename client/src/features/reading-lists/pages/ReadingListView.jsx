@@ -1,6 +1,8 @@
 import React from 'react';
 import VocabCard from '../../vocabulary/components/VocabCard';
 import SortDropdown, { sortVocabularies } from '../../../components/SortDropdown';
+import TipTapEditor from '../../../components/TipTapEditor';
+import ReadingPassageReader from '../components/ReadingPassageReader';
 
 export default function ReadingListView({
   readingList,
@@ -13,6 +15,8 @@ export default function ReadingListView({
   onDeleteVocab,
   onDeleteReadingList,
   onUpdateReadingList,
+  onEditReadingList,
+  showNotification,
   onBackToListVocabulary,
   searchTerm = '',
   setSearchTerm,
@@ -88,7 +92,173 @@ export default function ReadingListView({
     },
   ];
 
-  const [showPassage, setShowPassage] = React.useState(Boolean(readingList?.passage));
+  // Danh sách bài đọc (hỗ trợ nhiều bài đọc hoặc bài đọc cũ)
+  const passageList = React.useMemo(() => {
+    if (Array.isArray(readingList?.passages) && readingList.passages.length > 0) {
+      return readingList.passages;
+    }
+    if (readingList?.passage) {
+      const clean = readingList.passage.replace(/<[^>]*>/g, ' ').trim();
+      const words = clean ? clean.split(/\s+/).filter(Boolean).length : 0;
+      return [
+        {
+          id: 'legacy',
+          title: 'Bài đọc chính',
+          content: readingList.passage,
+          wordCount: words,
+        },
+      ];
+    }
+    return [];
+  }, [readingList?.passages, readingList?.passage]);
+
+  const [activePassageIndex, setActivePassageIndex] = React.useState(0);
+  const [showPassage, setShowPassage] = React.useState(true);
+  const [isCopied, setIsCopied] = React.useState(false);
+
+  const totalWords = React.useMemo(() => {
+    return passageList.reduce((acc, cur) => acc + (cur.wordCount || 0), 0);
+  }, [passageList]);
+
+  const handleCopyPassage = (content) => {
+    if (!content) return;
+    const textToCopy = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+    navigator.clipboard.writeText(textToCopy);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleDeletePassage = React.useCallback(
+    async (indexToDelete) => {
+      const targetPassage = passageList[indexToDelete];
+      if (!targetPassage) return;
+
+      const doDelete = async () => {
+        const remainingPassages = passageList.filter((_, idx) => idx !== indexToDelete);
+        const payload = {
+          title: readingList.title,
+          code: readingList.code,
+          sourceReference: readingList.sourceReference,
+          note: readingList.note,
+          folderId: readingList.folderId,
+          passages: remainingPassages.map((p, idx) => ({
+            id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+            title: p.title,
+            content: p.content,
+            wordCount: p.wordCount,
+            sortOrder: idx,
+          })),
+          passage: remainingPassages[0]?.content || null,
+        };
+
+        if (onUpdateReadingList && readingList?.id) {
+          await onUpdateReadingList(readingList.id, payload);
+        }
+        setActivePassageIndex((prev) => Math.max(0, Math.min(prev, remainingPassages.length - 1)));
+      };
+
+      if (showNotification) {
+        showNotification({
+          title: 'Xóa bài đọc',
+          message: `Bạn có chắc chắn muốn xóa bài đọc "${targetPassage.title || 'này'}" không? Hành động này không thể hoàn tác.`,
+          type: 'danger',
+          confirmText: 'Xóa bài đọc',
+          cancelText: 'Hủy bỏ',
+          onConfirm: doDelete,
+        });
+      } else if (window.confirm(`Bạn có chắc chắn muốn xóa bài đọc "${targetPassage.title || 'này'}" không?`)) {
+        await doDelete();
+      }
+    },
+    [passageList, readingList, onUpdateReadingList, showNotification]
+  );
+
+  // Trạng thái soạn thảo TipTap inline ngay tại bài đọc
+  const [isEditingPassage, setIsEditingPassage] = React.useState(false);
+  const [editingPassageTitle, setEditingPassageTitle] = React.useState('');
+  const [editingPassageContent, setEditingPassageContent] = React.useState('');
+  const [editingPassageWordCount, setEditingPassageWordCount] = React.useState(0);
+  const [isSavingPassage, setIsSavingPassage] = React.useState(false);
+
+  const handleToggleEditPassage = () => {
+    if (isEditingPassage) {
+      handleSaveInlinePassage();
+    } else {
+      const current = passageList[activePassageIndex] || passageList[0];
+      if (current) {
+        setEditingPassageTitle(current.title || `Bài đọc ${activePassageIndex + 1}`);
+        setEditingPassageContent(current.content || '');
+        setEditingPassageWordCount(current.wordCount || 0);
+      }
+      setIsEditingPassage(true);
+    }
+  };
+
+  const handleCancelEditPassage = () => {
+    setIsEditingPassage(false);
+  };
+
+  const handleSaveInlinePassage = async () => {
+    if (isSavingPassage) return;
+    setIsSavingPassage(true);
+    try {
+      const updatedPassages = passageList.map((p, idx) => {
+        if (idx === activePassageIndex) {
+          return {
+            ...p,
+            title: editingPassageTitle.trim() || `Bài đọc ${idx + 1}`,
+            content: editingPassageContent,
+            wordCount: editingPassageWordCount,
+          };
+        }
+        return p;
+      });
+
+      const payload = {
+        title: readingList.title,
+        code: readingList.code,
+        sourceReference: readingList.sourceReference,
+        note: readingList.note,
+        folderId: readingList.folderId,
+        passages: updatedPassages.map((p, idx) => ({
+          id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+          title: p.title,
+          content: p.content,
+          wordCount: p.wordCount,
+          sortOrder: idx,
+        })),
+        passage: updatedPassages[0]?.content || null,
+      };
+
+      if (onUpdateReadingList && readingList?.id) {
+        await onUpdateReadingList(readingList.id, payload);
+      }
+      setIsEditingPassage(false);
+    } catch (err) {
+      console.error('Lỗi khi lưu bài đọc:', err);
+    } finally {
+      setIsSavingPassage(false);
+    }
+  };
+
+  // Lắng nghe phím tắt Ctrl + Enter (hoặc Cmd + Enter) để lưu bài đọc nhanh, Esc để hủy
+  React.useEffect(() => {
+    if (!isEditingPassage) return;
+
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSaveInlinePassage();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleCancelEditPassage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditingPassage, editingPassageTitle, editingPassageContent, editingPassageWordCount, passageList, activePassageIndex, readingList]);
+
   const [isEditing, setIsEditing] = React.useState(false);
   const [editCode, setEditCode] = React.useState(readingList?.code || readingList?.shortTitle || '');
   const [editTitle, setEditTitle] = React.useState(readingList?.title || '');
@@ -98,11 +268,67 @@ export default function ReadingListView({
   // Reset and sync state when readingList changes
   React.useEffect(() => {
     setIsEditing(false);
+    setIsEditingPassage(false);
+    setActivePassageIndex(0);
+    setShowPassage(true);
     setEditCode(readingList?.code || readingList?.shortTitle || '');
     setEditTitle(readingList?.title || '');
     setEditSource(readingList?.sourceReference || '');
     setEditNote(readingList?.note || '');
   }, [readingList?.id]);
+
+  React.useEffect(() => {
+    setIsEditingPassage(false);
+  }, [activePassageIndex]);
+
+  // Quick Highlight Mode khi ở chế độ xem
+  const [isQuickHighlightActive, setIsQuickHighlightActive] = React.useState(false);
+  const [quickHighlightColor, setQuickHighlightColor] = React.useState('#fef08a');
+  const [showViewerHighlightPicker, setShowViewerHighlightPicker] = React.useState(false);
+  const viewerHighlightPickerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (viewerHighlightPickerRef.current && !viewerHighlightPickerRef.current.contains(e.target)) {
+        setShowViewerHighlightPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSaveHighlight = async (newHtml, newWordCount) => {
+    const updatedPassages = passageList.map((p, idx) => {
+      if (idx === activePassageIndex) {
+        return {
+          ...p,
+          content: newHtml,
+          wordCount: newWordCount,
+        };
+      }
+      return p;
+    });
+
+    const payload = {
+      title: readingList.title,
+      code: readingList.code,
+      sourceReference: readingList.sourceReference,
+      note: readingList.note,
+      folderId: readingList.folderId,
+      passages: updatedPassages.map((p, idx) => ({
+        id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+        title: p.title,
+        content: p.content,
+        wordCount: p.wordCount,
+        sortOrder: idx,
+      })),
+      passage: updatedPassages[0]?.content || null,
+    };
+
+    if (onUpdateReadingList && readingList?.id) {
+      await onUpdateReadingList(readingList.id, payload);
+    }
+  };
 
   // Lắng nghe sự kiện cập nhật star/bookmark để cập nhật danh sách ngay lập tức
   const [prefVersion, setPrefVersion] = React.useState(0);
@@ -425,8 +651,14 @@ export default function ReadingListView({
 
                     <button
                       type="button"
-                      onClick={handleToggleEdit}
-                      title={isEditing ? 'Lưu thay đổi (Ctrl + S hoặc click vào đây)' : 'Chỉnh sửa danh mục bài đọc'}
+                      onClick={() => {
+                        if (onEditReadingList) {
+                          onEditReadingList(readingList);
+                        } else {
+                          handleToggleEdit();
+                        }
+                      }}
+                      title="Thiết lập danh mục từ vựng & Quản lý bài đọc"
                       className={
                         'w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer ' +
                         (isEditing
@@ -581,36 +813,336 @@ export default function ReadingListView({
             </div>
           </div>
         </section>
-        {/* READING PASSAGE COLLAPSIBLE SECTION */}
-        {readingList.passage && (
-          <section className="bg-card-white rounded-xl border border-slate-line/80 shadow-xs overflow-hidden transition-all">
-            <button
-              type="button"
-              onClick={() => setShowPassage(!showPassage)}
-              className="w-full px-5 py-3.5 bg-slate-50/70 hover:bg-slate-100/70 flex items-center justify-between border-b border-slate-line/60 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[20px] text-crimson-primary">menu_book</span>
-                <span className="font-headline font-bold text-sm text-text-high-contrast">
-                  Nội dung đoạn văn bài đọc (Reading Passage)
+        {/* READING PASSAGE COLLAPSIBLE SECTION (Hỗ trợ nhiều bài đọc TipTap) */}
+        {passageList.length > 0 ? (
+          <section className="bg-card-white rounded-2xl border border-slate-line/80 shadow-xs overflow-hidden transition-all">
+            <div className="w-full px-5 py-3.5 bg-slate-50/80 border-b border-slate-line/60 flex items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="material-symbols-outlined text-[20px] text-crimson-primary shrink-0">
+                  menu_book
                 </span>
-                <span className="text-[11px] text-text-muted">
-                  ({readingList.passage.split(/\s+/).filter(Boolean).length} từ)
+                <span className="font-headline font-bold text-sm text-text-high-contrast truncate">
+                  Nội dung tài liệu & Bài đọc (Reading Passages)
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-slate-200/70 text-[10.5px] font-semibold text-slate-600 shrink-0">
+                  {passageList.length} bài · {totalWords} từ
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-text-muted">
-                <span>{showPassage ? 'Thu gọn' : 'Xem nội dung'}</span>
-                <span className="material-symbols-outlined text-[18px]">
-                  {showPassage ? 'expand_less' : 'expand_more'}
-                </span>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowPassage(!showPassage)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-text-muted hover:text-text-high-contrast hover:bg-slate-200/50 transition-colors cursor-pointer"
+                >
+                  <span>{showPassage ? 'Thu gọn' : 'Xem nội dung'}</span>
+                  <span className="material-symbols-outlined text-[18px]">
+                    {showPassage ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
               </div>
-            </button>
+            </div>
+
             {showPassage && (
-              <div className="p-5 text-xs text-text-body leading-relaxed whitespace-pre-wrap bg-white border-t border-slate-50 font-normal">
-                {readingList.passage}
+              <div className="flex flex-col bg-white">
+                {/* Tabs bài đọc (nếu có từ 2 bài trở lên) */}
+                {passageList.length > 1 && (
+                  <div className="px-5 pt-2.5 pb-0 bg-slate-50/50 border-b border-slate-200/70 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+                    {passageList.map((p, idx) => {
+                      const isActive = activePassageIndex === idx;
+                      return (
+                        <button
+                          key={p.id || idx}
+                          type="button"
+                          onClick={() => setActivePassageIndex(idx)}
+                          className={`px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-t-2 border-x whitespace-nowrap ${
+                            isActive
+                              ? 'bg-white text-crimson-primary border-t-crimson-primary border-x-slate-200/80 -mb-px z-10 shadow-xs'
+                              : 'bg-transparent text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/70'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            article
+                          </span>
+                          <span>{p.title || `Bài đọc ${idx + 1}`}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                            isActive ? 'bg-crimson-primary/10 text-crimson-primary' : 'bg-slate-200 text-slate-500'
+                          }`}>
+                            {p.wordCount || 0}t
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Nội dung bài đọc hiện tại */}
+                {(() => {
+                  const current = passageList[activePassageIndex] || passageList[0];
+                  if (!current) return null;
+                  const isHtml = /<[a-z][\s\S]*>/i.test(current.content || '');
+
+                  return (
+                    <div className="p-5 sm:p-6 flex flex-col gap-3">
+                      {/* Sub-header trong bài đọc */}
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                          <span className="w-6 h-6 rounded-lg bg-crimson-primary/10 text-crimson-primary flex items-center justify-center text-xs font-bold shrink-0">
+                            {activePassageIndex + 1}
+                          </span>
+                          {isEditingPassage ? (
+                            <input
+                              type="text"
+                              value={editingPassageTitle}
+                              onChange={(e) => setEditingPassageTitle(e.target.value)}
+                              placeholder="Nhập tiêu đề bài đọc..."
+                              className="font-bold text-xs sm:text-sm text-slate-900 bg-white border border-crimson-primary/40 rounded-lg px-2.5 py-1 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 focus:outline-none flex-1 max-w-md shadow-2xs"
+                            />
+                          ) : (
+                            <h3 className="font-headline font-bold text-sm sm:text-base text-slate-900 truncate">
+                              {current.title || `Bài đọc ${activePassageIndex + 1}`}
+                            </h3>
+                          )}
+                          <span className="text-xs text-text-muted shrink-0">
+                            ({isEditingPassage ? editingPassageWordCount : (current.wordCount || 0)} từ)
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Nút Sao chép (Icon only - màu xám) - ẩn khi đang soạn thảo */}
+                          {!isEditingPassage && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPassage(current.content)}
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200"
+                              title={isCopied ? 'Đã sao chép nội dung!' : 'Sao chép nội dung bài đọc'}
+                            >
+                              <span className="material-symbols-outlined text-[17px]">
+                                {isCopied ? 'check' : 'content_copy'}
+                              </span>
+                            </button>
+                          )}
+
+                          {/* Nút Cây viết Highlight nhanh ở chế độ xem */}
+                          {!isEditingPassage && (
+                            <div className="relative" ref={viewerHighlightPickerRef}>
+                              <button
+                                type="button"
+                                onClick={() => setShowViewerHighlightPicker((prev) => !prev)}
+                                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer relative border ${
+                                  isQuickHighlightActive
+                                    ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs ring-2 ring-amber-300/40'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200'
+                                }`}
+                                title={
+                                  isQuickHighlightActive
+                                    ? 'Chế độ Bút dạ quang ĐANG BẬT (Bôi đen là tô màu ngay)'
+                                    : 'Bật bút dạ quang để highlight nhanh bài đọc'
+                                }
+                              >
+                                <span className="material-symbols-outlined text-[17px]">ink_highlighter</span>
+                                <span
+                                  className="absolute bottom-1 right-1 w-2 h-2 rounded-full border border-white shadow-2xs"
+                                  style={{ backgroundColor: quickHighlightColor }}
+                                />
+                              </button>
+
+                              {/* Dropdown bảng màu Highlight nhanh khi click vào cây viết */}
+                              {showViewerHighlightPicker && (
+                                <div className="absolute right-0 top-full mt-1.5 p-2 bg-white rounded-xl shadow-xl border border-slate-200 z-50 flex flex-col gap-1.5 min-w-[170px] animate-in fade-in zoom-in-95 duration-150">
+                                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    <span>Bút Highlight</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsQuickHighlightActive(!isQuickHighlightActive);
+                                        setShowViewerHighlightPicker(false);
+                                      }}
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer ${
+                                        isQuickHighlightActive
+                                          ? 'bg-amber-500 text-white'
+                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                      }`}
+                                    >
+                                      {isQuickHighlightActive ? 'Tắt' : 'Bật tự động'}
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 pt-0.5">
+                                    {[
+                                      { label: 'Vàng', value: '#fef08a' },
+                                      { label: 'Xanh lá', value: '#bbf7d0' },
+                                      { label: 'Xanh lam', value: '#bae6fd' },
+                                      { label: 'Cam', value: '#fed7aa' },
+                                      { label: 'Hồng', value: '#fecdd3' },
+                                      { label: 'Tím', value: '#e9d5ff' },
+                                    ].map((h) => (
+                                      <button
+                                        key={h.value}
+                                        type="button"
+                                        onClick={() => {
+                                          setQuickHighlightColor(h.value);
+                                          setIsQuickHighlightActive(true);
+                                          setShowViewerHighlightPicker(false);
+                                        }}
+                                        title={h.label}
+                                        className={`w-5 h-5 rounded-md border transition-transform cursor-pointer shadow-2xs shrink-0 ${
+                                          quickHighlightColor === h.value
+                                            ? 'ring-2 ring-slate-800 scale-110'
+                                            : 'border-black/10 hover:scale-110'
+                                        }`}
+                                        style={{ backgroundColor: h.value }}
+                                      />
+                                    ))}
+                                  </div>
+
+                                  <span className="text-[9.5px] text-slate-400 leading-tight">
+                                    {isQuickHighlightActive
+                                      ? 'Đang bật: Bôi đen text để tô màu ngay'
+                                      : 'Bôi đen văn bản để chọn màu highlight'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Nút Cây bút (Khi ấn vào lập tức chuyển sang màu đỏ) */}
+                          <button
+                            type="button"
+                            onClick={handleToggleEditPassage}
+                            disabled={isSavingPassage}
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                              isEditingPassage
+                                ? 'bg-crimson-primary text-white border border-crimson-primary shadow-xs ring-2 ring-crimson-primary/20'
+                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200'
+                            }`}
+                            title={isEditingPassage ? 'Lưu thay đổi bài đọc' : 'Chỉnh sửa bài đọc này ngay tại đây'}
+                          >
+                            <span className="material-symbols-outlined text-[17px]">
+                              {isSavingPassage ? 'sync' : 'edit'}
+                            </span>
+                          </button>
+
+                          {/* Nút Hủy (khi đang edit) hoặc Nút Thùng rác (khi đang xem) */}
+                          {isEditingPassage ? (
+                            <button
+                              type="button"
+                              onClick={handleCancelEditPassage}
+                              disabled={isSavingPassage}
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border border-slate-200"
+                              title="Hủy bỏ chỉnh sửa"
+                            >
+                              <span className="material-symbols-outlined text-[17px]">close</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePassage(activePassageIndex)}
+                              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer border border-slate-200 hover:border-rose-200"
+                              title="Xóa bài đọc này"
+                            >
+                              <span className="material-symbols-outlined text-[17px]">delete</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Vùng hiển thị hoặc Soạn thảo TipTap ngay tại bài đọc */}
+                      {isEditingPassage ? (
+                        <div className="flex flex-col gap-3 animate-in fade-in duration-150">
+                          <TipTapEditor
+                            content={editingPassageContent}
+                            onSaveShortcut={handleSaveInlinePassage}
+                            onChange={(html, wc) => {
+                              setEditingPassageContent(html);
+                              setEditingPassageWordCount(wc);
+                            }}
+                            placeholder="Dán hoặc soạn thảo bài đọc, transcript nghe... Hỗ trợ in đậm, in nghiêng, highlight từ vựng quan trọng."
+                            minHeight="220px"
+                          />
+
+                          <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
+                            <div className="flex items-center gap-1.5 text-[11px] text-text-muted select-none">
+                              <span>Mẹo: Nhấn</span>
+                              <kbd className="inline-flex items-center px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200 text-[10px] font-mono font-bold shadow-2xs">
+                                Ctrl + Enter
+                              </kbd>
+                              <span>để lưu nhanh</span>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-auto">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditPassage}
+                                disabled={isSavingPassage}
+                                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                              >
+                                Hủy bỏ
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleSaveInlinePassage}
+                                disabled={isSavingPassage}
+                                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                              >
+                                {isSavingPassage ? (
+                                  <>
+                                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Đang lưu...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="material-symbols-outlined text-[15px]">check</span>
+                                    <span>Lưu thay đổi</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <ReadingPassageReader
+                          content={current.content}
+                          quickHighlightColor={quickHighlightColor}
+                          isQuickHighlightActive={isQuickHighlightActive}
+                          onSaveHighlight={handleSaveHighlight}
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </section>
+        ) : (
+          /* Empty State khi chưa có bài đọc */
+          onEditReadingList && (
+            <section className="p-4 rounded-2xl border border-dashed border-slate-200/90 bg-white/70 hover:bg-white transition-all flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                  <span className="material-symbols-outlined text-[20px]">menu_book</span>
+                </span>
+                <div className="flex flex-col">
+                  <span className="font-headline font-bold text-xs sm:text-sm text-slate-700">
+                    Danh mục từ vựng này chưa có bài đọc / transcript
+                  </span>
+                  <span className="text-[11px] text-text-muted">
+                    Lưu trữ các bài đọc (Passage 1, 2, 3...) soạn thảo bằng TipTap để tiện tra cứu ngữ cảnh từ vựng.
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onEditReadingList(readingList)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-crimson-primary/10 hover:bg-crimson-primary text-crimson-primary hover:text-white text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              >
+                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                <span>+ Thêm nội dung bài đọc</span>
+              </button>
+            </section>
+          )
         )}
 
         {/* SEARCH & POS FILTERS TOOLBAR */}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import TipTapEditor from '../../../components/TipTapEditor';
 
 export default function AddReadingListModal({
   isOpen,
@@ -16,9 +17,9 @@ export default function AddReadingListModal({
   const [isFolderDropdownOpen, setIsFolderDropdownOpen] = useState(false);
   const folderDropdownRef = useRef(null);
   const [sourceReference, setSourceReference] = useState('');
-  const [passage, setPassage] = useState('');
   const [note, setNote] = useState('');
-  const [showPassageField, setShowPassageField] = useState(false);
+  const [passages, setPassages] = useState([]);
+  const [showPassages, setShowPassages] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -46,9 +47,34 @@ export default function AddReadingListModal({
         setTitle(initialData.title || '');
         setFolderId(initialData.folderId ? String(initialData.folderId) : (defaultFolderId ? String(defaultFolderId) : ''));
         setSourceReference(initialData.sourceReference || '');
-        setPassage(initialData.passage || '');
         setNote(initialData.note || '');
-        setShowPassageField(Boolean(initialData.passage));
+
+        if (Array.isArray(initialData.passages) && initialData.passages.length > 0) {
+          setPassages(
+            initialData.passages.map((p, idx) => ({
+              id: p.id || `temp-${Date.now()}-${idx}`,
+              title: p.title || `Bài đọc ${idx + 1}`,
+              content: p.content || '',
+              wordCount: p.wordCount || 0,
+              isExpanded: idx === 0,
+            }))
+          );
+          setShowPassages(true);
+        } else if (initialData.passage) {
+          setPassages([
+            {
+              id: `legacy-${Date.now()}`,
+              title: 'Bài đọc 1',
+              content: initialData.passage,
+              wordCount: 0,
+              isExpanded: true,
+            },
+          ]);
+          setShowPassages(true);
+        } else {
+          setPassages([]);
+          setShowPassages(false);
+        }
       } else {
         // Tự động tìm mã LIST XX tiếp theo chưa từng được sử dụng
         const existingCodes = new Set(
@@ -66,9 +92,9 @@ export default function AddReadingListModal({
         setTitle('');
         setFolderId(defaultFolderId ? String(defaultFolderId) : '');
         setSourceReference('');
-        setPassage('');
         setNote('');
-        setShowPassageField(false);
+        setPassages([]);
+        setShowPassages(false);
       }
       setErrorMessage('');
       setIsSubmitting(false);
@@ -89,7 +115,7 @@ export default function AddReadingListModal({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, code, title, sourceReference, passage, note]);
+  }, [isOpen, code, title, sourceReference, note, passages]);
 
   // Kiểm tra trùng mã danh sách theo thời gian thực (không phân biệt hoa thường)
   const trimmedCode = (code || '').trim().toUpperCase();
@@ -103,6 +129,61 @@ export default function AddReadingListModal({
         return otherCode === trimmedCode;
       })
   );
+
+  const handleTogglePassageSection = () => {
+    if (!showPassages) {
+      setShowPassages(true);
+      if (passages.length === 0) {
+        setPassages([
+          {
+            id: `temp-${Date.now()}`,
+            title: 'Bài đọc 1',
+            content: '',
+            wordCount: 0,
+            isExpanded: true,
+          },
+        ]);
+      }
+    } else {
+      setShowPassages(false);
+    }
+  };
+
+  const handleAddPassage = () => {
+    setShowPassages(true);
+    setPassages((prev) => [
+      ...prev.map((p) => ({ ...p, isExpanded: false })),
+      {
+        id: `temp-${Date.now()}-${prev.length + 1}`,
+        title: `Bài đọc ${prev.length + 1}`,
+        content: '',
+        wordCount: 0,
+        isExpanded: true,
+      },
+    ]);
+  };
+
+  const handleRemovePassage = (indexToRemove) => {
+    setPassages((prev) => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      if (updated.length > 0 && !updated.some((p) => p.isExpanded)) {
+        updated[Math.max(0, indexToRemove - 1)].isExpanded = true;
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdatePassage = (index, field, value) => {
+    setPassages((prev) =>
+      prev.map((p, idx) => (idx === index ? { ...p, [field]: value } : p))
+    );
+  };
+
+  const handleToggleExpandPassage = (index) => {
+    setPassages((prev) =>
+      prev.map((p, idx) => (idx === index ? { ...p, isExpanded: !p.isExpanded } : p))
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -128,13 +209,24 @@ export default function AddReadingListModal({
     setIsSubmitting(true);
 
     try {
+      const validPassages = passages
+        .map((p, idx) => ({
+          id: typeof p.id === 'number' ? p.id : null,
+          title: (p.title || '').trim() || `Bài đọc ${idx + 1}`,
+          content: p.content || '',
+          wordCount: p.wordCount || 0,
+          sortOrder: idx,
+        }))
+        .filter((p) => p.content.trim() || p.title.trim());
+
       const payload = {
         code: code.trim(),
         title: title.trim(),
         sourceReference: sourceReference.trim() || null,
-        passage: passage.trim() || null,
         note: note.trim() || null,
         folderId: folderId ? Number(folderId) : null,
+        passages: validPassages,
+        passage: validPassages[0]?.content || null,
       };
 
       await onSave(payload, initialData?.id);
@@ -149,7 +241,7 @@ export default function AddReadingListModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-[680px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(15,23,42,0.3)] flex flex-col my-auto max-h-[92vh] overflow-hidden border border-slate-200/90 ring-1 ring-black/5 animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-[780px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(15,23,42,0.3)] flex flex-col my-auto max-h-[92vh] overflow-hidden border border-slate-200/90 ring-1 ring-black/5 animate-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
         <div className="px-6 sm:px-8 py-4 flex items-center justify-between border-b border-slate-100 bg-white shrink-0">
@@ -178,7 +270,7 @@ export default function AddReadingListModal({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-5 overflow-y-auto flex flex-col gap-4 bg-slate-50/70">
+        <form onSubmit={handleSubmit} className="px-6 sm:px-8 py-5 overflow-y-auto flex flex-col gap-4 bg-slate-50/70 custom-scrollbar">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2 animate-in fade-in duration-150">
               <span className="material-symbols-outlined text-[18px] text-crimson-primary">error</span>
@@ -471,32 +563,120 @@ export default function AddReadingListModal({
             />
           </div>
 
-          {/* Reading Passage Toggle Button */}
-          <div className="pt-1 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPassageField(!showPassageField)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-crimson-primary hover:text-crimson-dark transition-colors self-start"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {showPassageField ? 'expand_less' : 'add_circle'}
-              </span>
-              <span>
-                {showPassageField ? 'Ẩn nội dung ngữ cảnh / bài đọc' : 'Thêm nội dung bài đọc / transcript nghe / trích đoạn (Passage & Context)'}
-              </span>
-            </button>
+          {/* Reading Passages Section with TipTap (Hỗ trợ nhiều bài đọc) */}
+          <div className="pt-1 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleTogglePassageSection}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-crimson-primary hover:text-crimson-dark transition-colors self-start cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {showPassages ? 'expand_less' : 'add_circle'}
+                </span>
+                <span>
+                  {showPassages
+                    ? `Thu gọn danh sách bài đọc (${passages.length} bài)`
+                    : 'Thêm nội dung bài đọc / transcript nghe / trích đoạn (Passage & Context)'}
+                </span>
+              </button>
 
-            {showPassageField && (
-              <div className="flex flex-col gap-1.5 animate-in fade-in duration-200">
-                <textarea
-                  rows={5}
-                  value={passage}
-                  onChange={(e) => setPassage(e.target.value)}
-                  placeholder="Dán toàn bộ hoặc trích đoạn nội dung bài đọc, transcript nghe, bài báo vào đây để đối chiếu ngữ cảnh lúc học từ vựng..."
-                  className="w-full p-3 bg-white rounded-xl text-xs text-text-high-contrast border border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10 transition-all outline-none resize-y font-normal leading-relaxed"
-                />
+              {showPassages && (
+                <button
+                  type="button"
+                  onClick={handleAddPassage}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-crimson-primary hover:bg-surface-crimson-subtle border border-crimson-primary/20 transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px]">add</span>
+                  <span>Thêm bài đọc tiếp theo</span>
+                </button>
+              )}
+            </div>
+
+            {showPassages && (
+              <div className="flex flex-col gap-3 animate-in fade-in duration-200">
+                {passages.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-white text-center flex flex-col items-center gap-2">
+                    <span className="material-symbols-outlined text-slate-400 text-[28px]">menu_book</span>
+                    <p className="text-xs text-slate-500">Chưa có bài đọc nào được thêm vào danh mục này.</p>
+                    <button
+                      type="button"
+                      onClick={handleAddPassage}
+                      className="px-3 py-1.5 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark transition-colors inline-flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add</span>
+                      Thêm bài đọc đầu tiên
+                    </button>
+                  </div>
+                ) : (
+                  passages.map((p, idx) => (
+                    <div
+                      key={p.id || idx}
+                      className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition-all"
+                    >
+                      {/* Card Header bài đọc */}
+                      <div className="px-3.5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="w-5 h-5 rounded-md bg-crimson-primary/10 text-crimson-primary flex items-center justify-center text-[11px] font-bold shrink-0">
+                            {idx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={p.title}
+                            onChange={(e) => handleUpdatePassage(idx, 'title', e.target.value)}
+                            placeholder={`VD: Passage ${idx + 1}: The History of Coffee`}
+                            className="font-bold text-xs text-slate-800 bg-white/60 hover:bg-white focus:bg-white px-2 py-1 rounded-md border border-slate-200 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 transition-all outline-none flex-1 min-w-0"
+                          />
+                          <span className="text-[10.5px] font-semibold text-slate-400 shrink-0">
+                            ({p.wordCount || 0} từ)
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Toggle Expand */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleExpandPassage(idx)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                            title={p.isExpanded ? 'Thu gọn bài đọc' : 'Mở rộng soạn thảo bài đọc'}
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              {p.isExpanded ? 'expand_less' : 'expand_more'}
+                            </span>
+                          </button>
+
+                          {/* Delete Passage */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePassage(idx)}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Xóa bài đọc này"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Card Body: TipTap Rich Text Editor */}
+                      {p.isExpanded && (
+                        <div className="p-3 bg-white">
+                          <TipTapEditor
+                            content={p.content}
+                            onChange={(html, wc) => {
+                              handleUpdatePassage(idx, 'content', html);
+                              handleUpdatePassage(idx, 'wordCount', wc);
+                            }}
+                            placeholder="Dán hoặc soạn thảo nội dung bài đọc, transcript nghe... Hỗ trợ in đậm, in nghiêng, highlight từ vựng quan trọng."
+                            minHeight="160px"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+
                 <span className="text-[10px] text-text-muted">
-                  Nội dung này sẽ được hiển thị trong thẻ xem chi tiết danh sách từ vựng để đối chiếu ngữ cảnh.
+                  Mỗi danh mục từ vựng có thể lưu nhiều bài đọc (ví dụ: Cambridge Reading gồm Passage 1, 2, 3). Các bài đọc này sẽ được hiển thị dạng thẻ/tab để đối chiếu ngữ cảnh lúc học.
                 </span>
               </div>
             )}
