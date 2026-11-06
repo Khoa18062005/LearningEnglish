@@ -249,6 +249,16 @@ export default function ListVocabularyPage({
   // Quản lý trạng thái mở rộng (hiển thị 3 hay 6 danh sách) cho từng thư mục
   const [expandedFolderIds, setExpandedFolderIds] = useState({});
 
+  // Quản lý trạng thái thu gọn toàn bộ nội dung thư mục (đóng/mở nhóm thư mục)
+  const [collapsedFolderIds, setCollapsedFolderIds] = useState({});
+
+  const toggleCollapseFolder = (folderId) => {
+    setCollapsedFolderIds((prev) => ({
+      ...prev,
+      [folderId]: !prev[folderId],
+    }));
+  };
+
   // Quản lý hộp thoại modal "Xem chi tiết" hiển thị trọn vẹn tất cả danh sách của thư mục
   const [viewingFolderId, setViewingFolderId] = useState(null);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
@@ -1419,29 +1429,29 @@ export default function ListVocabularyPage({
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col">
           {folderGroups.map((group) => {
             const isExpanded = Boolean(expandedFolderIds[group.id]);
+            const isCollapsed = Boolean(collapsedFolderIds[group.id]);
             const limit = isExpanded ? 6 : 3;
             const displayedLists = group.lists.slice(0, limit);
 
             return (
-              <section key={group.id} className="flex flex-col">
+              <section
+                key={group.id}
+                className={`flex flex-col ${isCollapsed ? 'mb-2.5 sm:mb-3' : 'mb-8'} last:mb-0`}
+              >
                 {/* Header: Tên folder bên trái trên cùng kèm một đường kẻ ngang */}
-                <div className="flex items-center gap-3.5 mb-4">
+                <div className={`flex items-center gap-3.5 ${isCollapsed ? 'mb-0' : 'mb-4'}`}>
                   {/* Left: Icon, Name, Badge, Count */}
                   <div className="flex items-center gap-2.5 shrink-0">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center border shadow-2xs ${
-                        group.isStandalone
-                          ? 'bg-slate-100 border-slate-200/90 text-slate-600'
-                          : 'bg-amber-500/10 border-amber-500/25 text-amber-500'
+                    <span
+                      className={`material-symbols-outlined text-[24px] select-none shrink-0 ${
+                        group.isStandalone ? 'text-slate-400' : 'text-amber-500'
                       }`}
                     >
-                      <span className="material-symbols-outlined text-[20px]">
-                        {group.isStandalone ? 'folder_off' : 'folder_open'}
-                      </span>
-                    </div>
+                      {group.isStandalone ? 'folder_off' : 'folder_open'}
+                    </span>
 
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight font-sans">
@@ -1502,93 +1512,111 @@ export default function ListVocabularyPage({
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                       </button>
                     )}
+
+                    {/* Button kiểu dropdown nằm bên phải button thùng rác */}
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapseFolder(group.id)}
+                      className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer"
+                      title={isCollapsed ? 'Mở rộng thư mục' : 'Thu gọn thư mục'}
+                    >
+                      <span
+                        className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${
+                          isCollapsed ? 'rotate-180' : 'rotate-0'
+                        }`}
+                      >
+                        keyboard_arrow_down
+                      </span>
+                    </button>
                   </div>
                 </div>
 
                 {/* Danh sách thẻ: Mặc định hiển thị 3 thẻ, ấn Xem thêm sẽ hiển thị 6 thẻ */}
-                {group.lists.length === 0 ? (
-                  <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 sm:p-8 text-center flex flex-col items-center justify-center gap-2">
-                    <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 border border-amber-200 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[24px]">folder_open</span>
-                    </div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      Chưa có danh sách bài đọc nào trong thư mục này
-                    </p>
-                    {onOpenAddReadingListModal && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenAddReadingListModal({ defaultFolderId: group.id })}
-                        className="mt-1 px-3.5 py-1.5 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">add</span>
-                        <span>Tạo danh sách mới vào thư mục</span>
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <div
-                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-1"
-                      onDragOver={handleGridDragOver}
-                      onDragLeave={handleGridDragLeave}
-                      onDrop={handleGridDrop}
-                    >
-                      {displayedLists.map((list) => {
-                        const isBeingDragged = String(draggedListId) === String(list.id);
-                        const isOver = String(dragOverListId) === String(list.id);
-
-                        return renderCard(list, null, {
-                          draggable: !searchTerm.trim() && (sortBy === 'custom' || !sortBy),
-                          isBeingDragged,
-                          isOver,
-                          onDragStart: (e) => handleDragStart(e, list.id),
-                          onDragEnter: handleDragEnter,
-                          onDragOver: handleDragOver,
-                          onDragLeave: handleDragLeave,
-                          onDragEnd: handleDragEnd,
-                          onDrop: (e) => handleDrop(e, list.id),
-                        });
-                      })}
-                    </div>
-
-                    {/* Dòng chữ nhỏ bên dưới: Xem thêm / Thu gọn & Xem chi tiết */}
-                    <div className="flex items-center justify-between pt-2.5 pb-1 px-1 flex-wrap gap-2 text-xs border-t border-slate-100/80 mt-1">
-                      <span className="text-[11.5px] text-slate-400 font-medium">
-                        Đang hiển thị {displayedLists.length} / {group.lists.length} danh sách
-                      </span>
-
-                      <div className="flex items-center gap-2">
-                        {group.lists.length > 3 && (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpandFolder(group.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 font-semibold transition-all cursor-pointer active:scale-95"
-                          >
-                            <span>{isExpanded ? 'Thu gọn' : 'Xem thêm'}</span>
-                            <span
-                              className={`material-symbols-outlined text-[15px] transition-transform duration-200 ${
-                                isExpanded ? 'rotate-180' : ''
-                              }`}
-                            >
-                              expand_more
-                            </span>
-                          </button>
-                        )}
-
+                {!isCollapsed && (
+                  group.lists.length === 0 ? (
+                    <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 sm:p-8 text-center flex flex-col items-center justify-center gap-2">
+                      <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 border border-amber-200 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[24px]">folder_open</span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-600">
+                        Chưa có danh sách bài đọc nào trong thư mục này
+                      </p>
+                      {onOpenAddReadingListModal && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setViewingFolderId(group.id);
-                            setModalSearchTerm('');
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-crimson-primary hover:bg-red-50 font-bold transition-all cursor-pointer active:scale-95"
+                          onClick={() => onOpenAddReadingListModal({ defaultFolderId: group.id })}
+                          className="mt-1 px-3.5 py-1.5 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer"
                         >
-                          <span>Xem chi tiết</span>
-                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          <span className="material-symbols-outlined text-[16px]">add</span>
+                          <span>Tạo danh sách mới vào thư mục</span>
                         </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <div
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-1"
+                        onDragOver={handleGridDragOver}
+                        onDragLeave={handleGridDragLeave}
+                        onDrop={handleGridDrop}
+                      >
+                        {displayedLists.map((list) => {
+                          const isBeingDragged = String(draggedListId) === String(list.id);
+                          const isOver = String(dragOverListId) === String(list.id);
+
+                          return renderCard(list, null, {
+                            draggable: !searchTerm.trim() && (sortBy === 'custom' || !sortBy),
+                            isBeingDragged,
+                            isOver,
+                            onDragStart: (e) => handleDragStart(e, list.id),
+                            onDragEnter: handleDragEnter,
+                            onDragOver: handleDragOver,
+                            onDragLeave: handleDragLeave,
+                            onDragEnd: handleDragEnd,
+                            onDrop: (e) => handleDrop(e, list.id),
+                          });
+                        })}
+                      </div>
+
+                      {/* Dòng chữ nhỏ bên dưới: Xem thêm / Thu gọn & Xem chi tiết */}
+                      <div className="flex items-center justify-between pt-2.5 pb-1 px-1 flex-wrap gap-2 text-xs border-t border-slate-100/80 mt-1">
+                        <span className="text-[11.5px] text-slate-400 font-medium">
+                          Đang hiển thị {displayedLists.length} / {group.lists.length} danh sách
+                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {group.lists.length > 3 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandFolder(group.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-600 hover:text-slate-900 font-semibold transition-all cursor-pointer active:scale-95"
+                            >
+                              <span>{isExpanded ? 'Thu gọn' : 'Xem thêm'}</span>
+                              <span
+                                className={`material-symbols-outlined text-[15px] transition-transform duration-200 ${
+                                  isExpanded ? 'rotate-180' : ''
+                                }`}
+                              >
+                                expand_more
+                              </span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setViewingFolderId(group.id);
+                              setModalSearchTerm('');
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-crimson-primary hover:bg-red-50 font-bold transition-all cursor-pointer active:scale-95"
+                          >
+                            <span>Xem chi tiết</span>
+                            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
                 )}
               </section>
             );
