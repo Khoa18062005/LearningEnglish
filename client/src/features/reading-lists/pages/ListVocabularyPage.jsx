@@ -521,6 +521,30 @@ export default function ListVocabularyPage({
     if (dragOverListId !== targetId) {
       setDragOverListId(targetId);
     }
+
+    // Auto-scroll cho cửa sổ trình duyệt khi kéo trên lưới chính (khi không mở modal)
+    if (!isManageModalOpen) {
+      const mouseY = e.clientY;
+      const windowH = window.innerHeight;
+      const threshold = 70;
+      const maxSpeed = 16;
+      let velocity = 0;
+
+      if (mouseY < threshold) {
+        const ratio = Math.min(2, Math.max(0.3, (threshold - mouseY) / threshold));
+        velocity = -Math.round(ratio * maxSpeed);
+      } else if (mouseY > windowH - threshold) {
+        const ratio = Math.min(2, Math.max(0.3, (mouseY - (windowH - threshold)) / threshold));
+        velocity = Math.round(ratio * maxSpeed);
+      }
+
+      scrollVelocityRef.current = velocity;
+      if (velocity !== 0 && !autoScrollAnimRef.current) {
+        startAutoScroll();
+      } else if (velocity === 0 && autoScrollAnimRef.current && !modalBodyRef.current) {
+        stopAutoScroll();
+      }
+    }
   };
 
   const handleGridDragLeave = (e) => {
@@ -539,7 +563,7 @@ export default function ListVocabularyPage({
     e.preventDefault();
   };
 
-  // Tự động cuộn mượt mà vùng xem chi tiết khi kéo thẻ lên sát mép trên hoặc xuống sát mép dưới
+  // Tự động cuộn mượt mà vùng xem chi tiết hoặc trang chính khi kéo thẻ lên sát mép trên hoặc xuống sát mép dưới
   const startAutoScroll = () => {
     if (autoScrollAnimRef.current) return;
 
@@ -547,17 +571,21 @@ export default function ListVocabularyPage({
       const container = modalBodyRef.current;
       const velocity = scrollVelocityRef.current;
 
-      if (!container || velocity === 0 || !activeDragRef.current) {
+      if (velocity === 0 || !activeDragRef.current) {
         stopAutoScroll();
         return;
       }
 
-      container.scrollTop += velocity;
+      if (container) {
+        container.scrollTop += velocity;
+      } else {
+        window.scrollBy(0, velocity);
+      }
 
       // Cập nhật thẻ mục tiêu khi danh sách cuộn bên dưới chuột
       const lastPos = lastMousePosRef.current;
       const activeDraggedId = activeDragRef.current?.id;
-      if (lastPos && activeDraggedId) {
+      if (lastPos && activeDraggedId && container) {
         const targetId = getTouchedCardId(container, lastPos.x, lastPos.y, activeDraggedId);
         if (activeDragRef.current) {
           activeDragRef.current.targetId = targetId;
@@ -727,6 +755,27 @@ export default function ListVocabularyPage({
     if (!viewingFolderGroup) return 0;
     return viewingFolderGroup.lists.reduce((acc, curr) => acc + (curr.vocabCount || 0), 0);
   }, [viewingFolderGroup]);
+
+  // Tự động dừng auto-scroll khi kết thúc hoặc thả kéo
+  useEffect(() => {
+    if (!draggedListId) {
+      stopAutoScroll();
+      return;
+    }
+
+    const handleWindowDragEnd = () => {
+      stopAutoScroll();
+    };
+
+    window.addEventListener('dragend', handleWindowDragEnd);
+    window.addEventListener('drop', handleWindowDragEnd);
+
+    return () => {
+      window.removeEventListener('dragend', handleWindowDragEnd);
+      window.removeEventListener('drop', handleWindowDragEnd);
+      stopAutoScroll();
+    };
+  }, [draggedListId]);
 
   // Xử lý phím ESC: Hủy thao tác kéo thẻ (nếu đang kéo) hoặc đóng modal Xem chi tiết (nếu không kéo)
   useEffect(() => {

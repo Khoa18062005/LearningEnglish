@@ -129,7 +129,186 @@ export default function Sidebar({
   const dragJustEndedRef = useRef(false);
   const activeDragRef = useRef(null);
 
+  // Auto-scroll refs khi kéo danh sách / thư mục trong Sidebar
+  const readingListScrollRef = useRef(null);
+  const sidebarNavScrollRef = useRef(null);
+  const autoScrollAnimRef = useRef(null);
+  const scrollVelocityRef = useRef({ readingList: 0, sidebar: 0 });
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
+
+  const stopAutoScroll = () => {
+    if (autoScrollAnimRef.current) {
+      cancelAnimationFrame(autoScrollAnimRef.current);
+      autoScrollAnimRef.current = null;
+    }
+    scrollVelocityRef.current = { readingList: 0, sidebar: 0 };
+  };
+
+  const startAutoScroll = () => {
+    if (autoScrollAnimRef.current) return;
+
+    const step = () => {
+      if (!activeDragRef.current) {
+        stopAutoScroll();
+        return;
+      }
+
+      const vRL = scrollVelocityRef.current.readingList;
+      const vSB = scrollVelocityRef.current.sidebar;
+
+      if (vRL === 0 && vSB === 0) {
+        stopAutoScroll();
+        return;
+      }
+
+      let hasScrolled = false;
+
+      // 1. Cuộn danh sách bài đọc (sub-container)
+      if (readingListScrollRef.current && vRL !== 0) {
+        const el = readingListScrollRef.current;
+        const prevTop = el.scrollTop;
+        el.scrollTop += vRL;
+        if (el.scrollTop !== prevTop) {
+          hasScrolled = true;
+        }
+      }
+
+      // 2. Cuộn thanh Sidebar chính (main nav container)
+      if (sidebarNavScrollRef.current && vSB !== 0) {
+        const el = sidebarNavScrollRef.current;
+        const prevTop = el.scrollTop;
+        el.scrollTop += vSB;
+        if (el.scrollTop !== prevTop) {
+          hasScrolled = true;
+        }
+      }
+
+      // 3. Cập nhật đối tượng mục tiêu khi nội dung cuộn bên dưới con trỏ chuột
+      if (hasScrolled && lastMousePosRef.current) {
+        const { x, y } = lastMousePosRef.current;
+        const hoveredEl = document.elementFromPoint(x, y);
+        if (hoveredEl) {
+          // Khi kéo reading-list
+          if (activeDragRef.current?.type === 'reading-list') {
+            const listItemEl = hoveredEl.closest('[data-reading-list-id]');
+            if (listItemEl) {
+              const listId = listItemEl.getAttribute('data-reading-list-id');
+              const targetList = readingLists.find((l) => String(l.id) === String(listId));
+              if (targetList && String(targetList.id) !== String(activeDragRef.current.id)) {
+                const rect = listItemEl.getBoundingClientRect();
+                const position = y > rect.top + rect.height * 0.5 ? 'after' : 'before';
+                setDragOverListId(targetList.id);
+                setListDropPosition(position);
+
+                const draggedItem = activeDragRef.current.list || readingLists.find((l) => String(l.id) === String(activeDragRef.current.id));
+                if (draggedItem && String(draggedItem.folderId || '') !== String(targetList.folderId || '')) {
+                  setDragOverFolderTargetId(targetList.folderId ? String(targetList.folderId) : 'standalone');
+                } else {
+                  setDragOverFolderTargetId(null);
+                }
+              }
+            } else {
+              const folderEl = hoveredEl.closest('[data-folder-id]');
+              if (folderEl) {
+                const fId = folderEl.getAttribute('data-folder-id');
+                const draggedItem = activeDragRef.current.list || readingLists.find((l) => String(l.id) === String(activeDragRef.current.id));
+                if (draggedItem && String(draggedItem.folderId || '') !== String(fId)) {
+                  setDragOverFolderTargetId(String(fId));
+                  setDragOverListId(null);
+                }
+              }
+            }
+          } else if (activeDragRef.current?.type === 'folder') {
+            const folderEl = hoveredEl.closest('[data-folder-id]');
+            if (folderEl) {
+              const fId = folderEl.getAttribute('data-folder-id');
+              if (String(fId) !== String(activeDragRef.current.id)) {
+                const rect = folderEl.getBoundingClientRect();
+                const position = y > rect.top + rect.height * 0.5 ? 'after' : 'before';
+                setDragOverFolderId(fId);
+                setFolderDropPosition(position);
+              }
+            }
+          }
+        }
+      }
+
+      autoScrollAnimRef.current = requestAnimationFrame(step);
+    };
+
+    autoScrollAnimRef.current = requestAnimationFrame(step);
+  };
+
+  const updateAutoScrollVelocity = (clientX, clientY) => {
+    if (!activeDragRef.current) {
+      stopAutoScroll();
+      return;
+    }
+
+    lastMousePosRef.current = { x: clientX, y: clientY };
+
+    let vRL = 0;
+    let vSB = 0;
+
+    // 1. Kiểm tra sub-container danh sách bài đọc (readingListScrollRef)
+    if (readingListScrollRef.current) {
+      const el = readingListScrollRef.current;
+      const rect = el.getBoundingClientRect();
+      const isInsideX = clientX >= rect.left - 25 && clientX <= rect.right + 25;
+
+      if (isInsideX && el.scrollHeight > el.clientHeight + 4) {
+        const threshold = 50;
+        const maxSpeed = 14;
+
+        if (clientY >= rect.top - 20 && clientY < rect.top + threshold) {
+          if (el.scrollTop > 0) {
+            const ratio = Math.min(2, Math.max(0.3, (rect.top + threshold - clientY) / threshold));
+            vRL = -Math.round(ratio * maxSpeed);
+          }
+        } else if (clientY > rect.bottom - threshold && clientY <= rect.bottom + 20) {
+          if (el.scrollTop < el.scrollHeight - el.clientHeight - 1) {
+            const ratio = Math.min(2, Math.max(0.3, (clientY - (rect.bottom - threshold)) / threshold));
+            vRL = Math.round(ratio * maxSpeed);
+          }
+        }
+      }
+    }
+
+    // 2. Kiểm tra container chính toàn Sidebar (sidebarNavScrollRef)
+    if (sidebarNavScrollRef.current) {
+      const el = sidebarNavScrollRef.current;
+      const rect = el.getBoundingClientRect();
+      const isInsideX = clientX >= rect.left - 20 && clientX <= rect.right + 20;
+
+      if (isInsideX && el.scrollHeight > el.clientHeight + 4) {
+        const threshold = 60;
+        const maxSpeed = 16;
+
+        if (clientY >= rect.top && clientY < rect.top + threshold) {
+          if (el.scrollTop > 0) {
+            const ratio = Math.min(2, Math.max(0.3, (rect.top + threshold - clientY) / threshold));
+            vSB = -Math.round(ratio * maxSpeed);
+          }
+        } else if (clientY > rect.bottom - threshold && clientY <= rect.bottom + 10) {
+          if (el.scrollTop < el.scrollHeight - el.clientHeight - 1) {
+            const ratio = Math.min(2, Math.max(0.3, (clientY - (rect.bottom - threshold)) / threshold));
+            vSB = Math.round(ratio * maxSpeed);
+          }
+        }
+      }
+    }
+
+    scrollVelocityRef.current = { readingList: vRL, sidebar: vSB };
+
+    if ((vRL !== 0 || vSB !== 0) && !autoScrollAnimRef.current) {
+      startAutoScroll();
+    } else if (vRL === 0 && vSB === 0 && autoScrollAnimRef.current) {
+      stopAutoScroll();
+    }
+  };
+
   const cleanupDragState = () => {
+    stopAutoScroll();
     activeDragRef.current = null;
     setDragType(null);
     setDraggedFolderId(null);
@@ -143,6 +322,34 @@ export default function Sidebar({
       dragJustEndedRef.current = false;
     }, 200);
   };
+
+  // Tự động cuộn mượt mà khi người dùng kéo danh sách/thư mục tới mép trên/dưới
+  useEffect(() => {
+    if (!dragType) {
+      stopAutoScroll();
+      return;
+    }
+
+    const handleWindowDragOver = (e) => {
+      if (e.clientX === 0 && e.clientY === 0) return;
+      updateAutoScrollVelocity(e.clientX, e.clientY);
+    };
+
+    const handleWindowDragEnd = () => {
+      stopAutoScroll();
+    };
+
+    window.addEventListener('dragover', handleWindowDragOver);
+    window.addEventListener('dragend', handleWindowDragEnd);
+    window.addEventListener('drop', handleWindowDragEnd);
+
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver);
+      window.removeEventListener('dragend', handleWindowDragEnd);
+      window.removeEventListener('drop', handleWindowDragEnd);
+      stopAutoScroll();
+    };
+  }, [dragType]);
 
   // Hủy tiến trình kéo thả trong thanh menu bên trái khi nhấn phím ESC
   useEffect(() => {
@@ -610,7 +817,7 @@ export default function Sidebar({
 
   return (
     <aside className="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden border-r border-slate-line">
-      <div className="flex flex-col flex-1 overflow-y-auto">
+      <div ref={sidebarNavScrollRef} className="flex flex-col flex-1 overflow-y-auto">
         {/* Brand Header */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-line/60">
           <div 
@@ -802,6 +1009,7 @@ export default function Sidebar({
                 {/* Sub-items: Phân cấp Thư mục (Cấp 2) & Bài đọc con (Cấp 3) */}
                 {isReadingListOpen && (
                   <div 
+                    ref={readingListScrollRef}
                     className="ml-2.5 pl-2 my-1 border-l-2 border-slate-100 flex flex-col gap-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar"
                   >
                     {/* 1. Danh sách các THƯ MỤC / BỘ ĐỀ (Cấp 2) */}
@@ -830,6 +1038,7 @@ export default function Sidebar({
                         <div key={folder.id} className="flex flex-col gap-0.5">
                           {/* Hàng Thư Mục */}
                           <div
+                            data-folder-id={folder.id}
                             draggable={true}
                             onDragStart={(e) => {
                               e.stopPropagation();
@@ -1023,6 +1232,7 @@ export default function Sidebar({
                                   return (
                                     <div
                                       key={list.id}
+                                      data-reading-list-id={list.id}
                                       draggable={true}
                                       onDragStart={(e) => {
                                         e.stopPropagation();
@@ -1194,6 +1404,7 @@ export default function Sidebar({
                             return (
                               <div
                                 key={list.id}
+                                data-reading-list-id={list.id}
                                 draggable={true}
                                 onDragStart={(e) => {
                                   e.stopPropagation();
