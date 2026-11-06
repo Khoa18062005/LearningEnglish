@@ -1010,7 +1010,7 @@ export default function Sidebar({
                 {isReadingListOpen && (
                   <div 
                     ref={readingListScrollRef}
-                    className="ml-2.5 pl-2 my-1 border-l-2 border-slate-100 flex flex-col gap-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar"
+                    className="ml-2.5 pl-2 my-1 border-l-2 border-slate-100 flex flex-col gap-1 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar"
                   >
                     {/* 1. Danh sách các THƯ MỤC / BỘ ĐỀ (Cấp 2) */}
                     {noteFolders.map((folder) => {
@@ -1181,7 +1181,7 @@ export default function Sidebar({
 
                           {/* Sub-items: Danh sách bài đọc con trong Thư mục (Cấp 3) */}
                           {isFolderExpanded && (
-                            <div className="ml-5 pl-2 border-l border-slate-200/90 flex flex-col gap-0.5 my-0.5">
+                            <div className="ml-4 pl-2 border-l border-slate-200/90 flex flex-col gap-0.5 my-0.5">
                               {listsInFolder.length === 0 ? (
                                 <div
                                   onDragOver={(e) => handleFolderHeaderDragOverForList(e, folder.id)}
@@ -1589,7 +1589,7 @@ export default function Sidebar({
 
                 {/* Sub-items: Danh sách các chủ đề con */}
                 {isTopicVocabularyOpen && (
-                  <div className="ml-4 pl-2.5 my-1 border-l-2 border-slate-100 flex flex-col gap-0.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                  <div className="ml-4 pl-2.5 my-1 border-l-2 border-slate-100 flex flex-col gap-0.5 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                     {categories.length === 0 ? (
                       <button
                         type="button"
