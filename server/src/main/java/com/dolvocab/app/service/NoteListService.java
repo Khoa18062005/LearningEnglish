@@ -13,5 +13,6 @@ public interface NoteListService {
     NoteListResponse createNoteList(NoteListCreateRequest request);
     NoteListResponse updateNoteList(Long id, NoteListCreateRequest request);
     void deleteNoteList(Long id);
+    void reorderNoteLists(List<Long> listIds);
     NoteList getOrCreateNoteList(String identifier, String title, User user);
 }

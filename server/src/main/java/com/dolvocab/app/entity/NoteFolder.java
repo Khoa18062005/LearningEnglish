@@ -41,6 +41,10 @@ public class NoteFolder {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "sort_order")
+    @Builder.Default
+    private Integer sortOrder = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

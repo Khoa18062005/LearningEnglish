@@ -1,6 +1,7 @@
 package com.dolvocab.app.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +14,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NoteFolderRequest {
 
-    @Size(max = 50, message = "Mã danh mục không quá 50 ký tự")
+    @Size(max = 8, message = "Mã thư mục không quá 8 ký tự")
+    @Pattern(regexp = "^[a-zA-Z0-9]*$", message = "Mã thư mục chỉ chấp nhận chữ và số, không chứa khoảng cách hoặc ký tự đặc biệt")
     private String code;
 
     @NotBlank(message = "Tên danh mục không được để trống")

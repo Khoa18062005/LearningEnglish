@@ -39,6 +39,13 @@ public class NoteListController {
                 .body(ApiResponse.success("Tạo thẻ ghi chú bài đọc thành công", created));
     }
 
+    @PutMapping("/reorder")
+    public ResponseEntity<ApiResponse<Void>> reorderNoteLists(@RequestBody Object body) {
+        List<Long> ids = parseIds(body);
+        noteListService.reorderNoteLists(ids);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thứ tự danh sách thành công", null));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<NoteListResponse>> updateNoteList(
             @PathVariable Long id,
@@ -51,5 +58,30 @@ public class NoteListController {
     public ResponseEntity<ApiResponse<Void>> deleteNoteList(@PathVariable Long id) {
         noteListService.deleteNoteList(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa danh sách bài đọc thành công", null));
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Long> parseIds(Object body) {
+        List<Long> ids = new java.util.ArrayList<>();
+        if (body instanceof List<?> rawList) {
+            for (Object item : rawList) {
+                if (item instanceof Number n) ids.add(n.longValue());
+                else if (item != null) {
+                    try { ids.add(Long.parseLong(item.toString())); } catch (Exception ignored) {}
+                }
+            }
+        } else if (body instanceof java.util.Map<?, ?> map) {
+            Object rawIds = map.get("ids");
+            if (rawIds == null) rawIds = map.get("listIds");
+            if (rawIds instanceof List<?> rawList) {
+                for (Object item : rawList) {
+                    if (item instanceof Number n) ids.add(n.longValue());
+                    else if (item != null) {
+                        try { ids.add(Long.parseLong(item.toString())); } catch (Exception ignored) {}
+                    }
+                }
+            }
+        }
+        return ids;
     }
 }

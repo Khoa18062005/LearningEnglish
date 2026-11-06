@@ -71,6 +71,7 @@ public class NoteFolderServiceImpl implements NoteFolderService {
                 .createdAt(folder.getCreatedAt())
                 .totalLists(listResponses.size())
                 .totalWords(uniqueVocabIds.size())
+                .sortOrder(folder.getSortOrder())
                 .lists(listResponses)
                 .build();
     }
@@ -79,11 +80,11 @@ public class NoteFolderServiceImpl implements NoteFolderService {
     @Transactional(readOnly = true)
     public List<NoteFolderResponse> getAllFolders() {
         User currentUser = securityUtils.getCurrentUser();
-        List<NoteFolder> folders = noteFolderRepository.findAllByUserIdOrderByIdAsc(currentUser.getId());
+        List<NoteFolder> folders = noteFolderRepository.findAllByUserIdOrdered(currentUser.getId());
         List<NoteFolderResponse> responses = new ArrayList<>();
 
         for (NoteFolder f : folders) {
-            List<NoteList> lists = noteListRepository.findAllByFolderIdAndUserIdOrderByIdAsc(f.getId(), currentUser.getId());
+            List<NoteList> lists = noteListRepository.findAllByFolderIdAndUserIdOrdered(f.getId(), currentUser.getId());
             responses.add(toResponse(f, lists));
         }
 
@@ -97,7 +98,7 @@ public class NoteFolderServiceImpl implements NoteFolderService {
         NoteFolder folder = noteFolderRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thư mục với ID: " + id));
 
-        List<NoteList> lists = noteListRepository.findAllByFolderIdAndUserIdOrderByIdAsc(folder.getId(), currentUser.getId());
+        List<NoteList> lists = noteListRepository.findAllByFolderIdAndUserIdOrdered(folder.getId(), currentUser.getId());
         return toResponse(folder, lists);
     }
 
@@ -106,8 +107,9 @@ public class NoteFolderServiceImpl implements NoteFolderService {
     public NoteFolderResponse createFolder(NoteFolderRequest request) {
         User currentUser = securityUtils.getCurrentUser();
         String name = request.getName().trim();
-        String code = request.getCode() != null && !request.getCode().trim().isEmpty()
-                ? request.getCode().trim()
+        String rawCode = request.getCode() != null ? request.getCode().trim().replaceAll("[^a-zA-Z0-9]", "").toUpperCase() : "";
+        String code = !rawCode.isEmpty()
+                ? (rawCode.length() > 8 ? rawCode.substring(0, 8) : rawCode)
                 : null;
 
         if (code != null && noteFolderRepository.findByCodeIgnoreCaseAndUserId(code, currentUser.getId()).isPresent()) {
@@ -132,9 +134,10 @@ public class NoteFolderServiceImpl implements NoteFolderService {
         NoteFolder folder = noteFolderRepository.findByIdAndUserId(id, currentUser.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy thư mục với ID: " + id));
 
-        String newCode = request.getCode() != null && !request.getCode().trim().isEmpty()
-                ? request.getCode().trim()
-                : folder.getCode();
+        String rawNewCode = request.getCode() != null ? request.getCode().trim().replaceAll("[^a-zA-Z0-9]", "").toUpperCase() : "";
+        String newCode = !rawNewCode.isEmpty()
+                ? (rawNewCode.length() > 8 ? rawNewCode.substring(0, 8) : rawNewCode)
+                : null;
 
         if (newCode != null) {
             var existing = noteFolderRepository.findByCodeIgnoreCaseAndUserId(newCode, currentUser.getId());
@@ -148,7 +151,7 @@ public class NoteFolderServiceImpl implements NoteFolderService {
         folder.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
 
         NoteFolder saved = noteFolderRepository.save(folder);
-        List<NoteList> lists = noteListRepository.findAllByFolderIdAndUserIdOrderByIdAsc(saved.getId(), currentUser.getId());
+        List<NoteList> lists = noteListRepository.findAllByFolderIdAndUserIdOrdered(saved.getId(), currentUser.getId());
         return toResponse(saved, lists);
     }
 
@@ -167,5 +170,22 @@ public class NoteFolderServiceImpl implements NoteFolderService {
         }
 
         noteFolderRepository.delete(folder);
+    }
+
+    @Override
+    @Transactional
+    public void reorderFolders(List<Long> folderIds) {
+        if (folderIds == null || folderIds.isEmpty()) return;
+        User currentUser = securityUtils.getCurrentUser();
+        for (int i = 0; i < folderIds.size(); i++) {
+            Long folderId = folderIds.get(i);
+            if (folderId == null) continue;
+            Optional<NoteFolder> folderOpt = noteFolderRepository.findByIdAndUserId(folderId, currentUser.getId());
+            if (folderOpt.isPresent()) {
+                NoteFolder folder = folderOpt.get();
+                folder.setSortOrder(i);
+                noteFolderRepository.save(folder);
+            }
+        }
     }
 }

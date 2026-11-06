@@ -25,4 +25,5 @@ public class NoteListResponse {
     private Long folderId;
     private String folderCode;
     private String folderName;
+    private Integer sortOrder;
 }

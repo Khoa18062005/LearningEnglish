@@ -20,5 +20,6 @@ public class NoteFolderResponse {
     private LocalDateTime createdAt;
     private long totalLists;
     private long totalWords;
+    private Integer sortOrder;
     private List<NoteListResponse> lists;
 }

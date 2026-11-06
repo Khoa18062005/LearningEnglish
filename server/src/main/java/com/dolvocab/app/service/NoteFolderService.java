@@ -11,4 +11,5 @@ public interface NoteFolderService {
     NoteFolderResponse createFolder(NoteFolderRequest request);
     NoteFolderResponse updateFolder(Long id, NoteFolderRequest request);
     void deleteFolder(Long id);
+    void reorderFolders(List<Long> folderIds);
 }

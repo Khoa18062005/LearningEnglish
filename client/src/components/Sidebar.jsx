@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import MoveFolderConfirmModal from '../features/reading-lists/components/MoveFolderConfirmModal';
 
 export default function Sidebar({
   currentView,
@@ -34,6 +35,14 @@ export default function Sidebar({
   const [isTopicVocabularyOpen, setIsTopicVocabularyOpen] = useState(true);
   const [expandedFolderIds, setExpandedFolderIds] = useState(() => new Set());
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [moveModalState, setMoveModalState] = useState({
+    isOpen: false,
+    listName: '',
+    listCode: '',
+    sourceFolderName: '',
+    targetFolderName: '',
+    onConfirm: null,
+  });
 
   // Đóng menu thêm mới khi click ra ngoài
   useEffect(() => {
@@ -387,55 +396,32 @@ export default function Sidebar({
       ? noteFolders.find((f) => String(f.id) === String(targetFolderId))
       : null;
 
+    const listCode = draggedList.code || draggedList.shortTitle || '';
     const listName = draggedList.title || draggedList.code || 'Danh sách từ vựng';
     const sourceName = sourceFolder ? sourceFolder.name : 'Danh sách riêng lẻ';
     const targetName = targetFolder ? targetFolder.name : 'Danh sách riêng lẻ';
 
-    if (showNotification) {
-      showNotification({
-        title: 'Xác nhận chuyển thư mục',
-        message: (
-          <div className="space-y-3 text-slate-600 text-left">
-            <p className="text-xs leading-relaxed text-slate-600">
-              Bạn có chắc chắn muốn chuyển danh sách <strong className="text-slate-900 font-bold">"{listName}"</strong> sang thư mục mới không?
-            </p>
-            <div className="p-3 bg-slate-50/90 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs gap-2">
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className="text-[10px] uppercase font-bold text-slate-400">Thư mục nguồn</span>
-                <span className="font-semibold text-slate-700 truncate" title={sourceName}>
-                  {sourceName}
-                </span>
-              </div>
-              <div className="w-6 h-6 rounded-full bg-slate-200/70 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[15px] text-slate-600">arrow_forward</span>
-              </div>
-              <div className="flex flex-col min-w-0 flex-1 text-right">
-                <span className="text-[10.5px] uppercase font-bold text-slate-400">Thư mục đích</span>
-                <span className="font-semibold text-crimson-primary truncate" title={targetName}>
-                  {targetName}
-                </span>
-              </div>
-            </div>
-          </div>
-        ),
-        type: 'info',
-        confirmText: 'Chuyển thư mục',
-        cancelText: 'Hủy bỏ',
-        onConfirm: async () => {
-          if (onMoveReadingListToFolder) {
-            await onMoveReadingListToFolder({
-              listId: draggedList.id,
-              targetFolderId: targetFolder ? targetFolder.id : null,
-              targetListId,
-              dropPosition: dropPos,
-            });
-          }
-          if (targetFolder) {
-            setExpandedFolderIds((prev) => new Set(prev).add(String(targetFolder.id)));
-          }
-        },
-      });
-    }
+    setMoveModalState({
+      isOpen: true,
+      listName,
+      listCode,
+      sourceFolderName: sourceName,
+      targetFolderName: targetName,
+      onConfirm: async () => {
+        if (onMoveReadingListToFolder) {
+          await onMoveReadingListToFolder({
+            listId: draggedList.id,
+            targetFolderId: targetFolder ? targetFolder.id : null,
+            targetListId,
+            dropPosition: dropPos,
+          });
+        }
+        if (targetFolder) {
+          setExpandedFolderIds((prev) => new Set(prev).add(String(targetFolder.id)));
+        }
+        setMoveModalState((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   // Khi thả list lên một list khác
@@ -1509,6 +1495,17 @@ export default function Sidebar({
           </button>
         </div>
       </div>
+
+      {/* Modal Xác nhận chuyển thư mục / danh sách */}
+      <MoveFolderConfirmModal
+        isOpen={moveModalState.isOpen}
+        onClose={() => setMoveModalState((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={moveModalState.onConfirm}
+        listName={moveModalState.listName}
+        listCode={moveModalState.listCode}
+        sourceFolderName={moveModalState.sourceFolderName}
+        targetFolderName={moveModalState.targetFolderName}
+      />
     </aside>
   );
 }

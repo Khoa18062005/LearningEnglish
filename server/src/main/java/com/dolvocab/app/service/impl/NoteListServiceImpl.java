@@ -52,6 +52,7 @@ public class NoteListServiceImpl implements NoteListService {
                 .folderId(folderId)
                 .folderCode(folderCode)
                 .folderName(folderName)
+                .sortOrder(list.getSortOrder())
                 .build();
     }
 
@@ -74,6 +75,7 @@ public class NoteListServiceImpl implements NoteListService {
             Long folderId = row.length > 8 ? (Long) row[8] : null;
             String folderCode = row.length > 9 ? (String) row[9] : null;
             String folderName = row.length > 10 ? (String) row[10] : null;
+            Integer sortOrder = row.length > 11 && row[11] != null ? ((Number) row[11]).intValue() : null;
 
             String shortTitle = (code != null && !code.trim().isEmpty()) ? code.trim() : title;
             String fullTitle = (code != null && !code.trim().isEmpty() && !code.trim().equalsIgnoreCase(title))
@@ -94,6 +96,7 @@ public class NoteListServiceImpl implements NoteListService {
                     .folderId(folderId)
                     .folderCode(folderCode)
                     .folderName(folderName)
+                    .sortOrder(sortOrder)
                     .build());
         }
         return responses;
@@ -196,6 +199,23 @@ public class NoteListServiceImpl implements NoteListService {
         }
 
         noteListRepository.delete(list);
+    }
+
+    @Override
+    @Transactional
+    public void reorderNoteLists(List<Long> listIds) {
+        if (listIds == null || listIds.isEmpty()) return;
+        User currentUser = securityUtils.getCurrentUser();
+        for (int i = 0; i < listIds.size(); i++) {
+            Long listId = listIds.get(i);
+            if (listId == null) continue;
+            var listOpt = noteListRepository.findByIdAndUserId(listId, currentUser.getId());
+            if (listOpt.isPresent()) {
+                NoteList list = listOpt.get();
+                list.setSortOrder(i);
+                noteListRepository.save(list);
+            }
+        }
     }
 
     @Override
