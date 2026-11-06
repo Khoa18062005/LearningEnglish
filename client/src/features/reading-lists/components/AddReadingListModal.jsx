@@ -151,23 +151,15 @@ export default function AddReadingListModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
       <div className="relative w-full max-w-[680px] bg-white rounded-2xl sm:rounded-3xl shadow-[0_25px_60px_-15px_rgba(15,23,42,0.3)] flex flex-col my-auto max-h-[92vh] overflow-hidden border border-slate-200/90 ring-1 ring-black/5 animate-in zoom-in-95 duration-150">
         
-        {/* Top Gradient Hairline Accent */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-crimson-dark via-crimson-primary to-rose-400 shrink-0"></div>
-
         {/* Modal Header */}
-        <div className="px-6 sm:px-8 pt-5 pb-4 flex items-center justify-between border-b border-slate-100 bg-white shrink-0">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-rose-50 to-red-100/60 border border-red-200/60 flex items-center justify-center text-crimson-primary shadow-xs shrink-0">
-              <span className="material-symbols-outlined text-[24px]">article</span>
-            </div>
-            <div>
-              <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
-                {initialData ? 'Chỉnh Sửa Danh Sách Từ Vựng' : 'Tạo Danh Sách Từ Vựng Mới'}
-              </h2>
-              <p className="text-xs text-text-muted mt-0.5">
-                Quản lý và gom nhóm từ vựng theo bài đọc, bài nghe, tạp chí hoặc chủ đề riêng.
-              </p>
-            </div>
+        <div className="px-6 sm:px-8 py-4 flex items-center justify-between border-b border-slate-100 bg-white shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[24px] text-crimson-primary shrink-0">
+              article
+            </span>
+            <h2 className="font-headline text-lg sm:text-xl font-bold text-text-high-contrast tracking-tight">
+              {initialData ? 'Thiết lập danh sách từ vựng' : 'Tạo Danh Sách Từ Vựng Mới'}
+            </h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -194,12 +186,11 @@ export default function AddReadingListModal({
             </div>
           )}
 
-          {/* Thư mục / Bộ đề (Folder / Danh mục cha) */}
+          {/* Thư mục */}
           <div className="flex flex-col gap-1.5" ref={folderDropdownRef}>
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-text-high-contrast flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-amber-500">folder_open</span>
-                <span>Thư mục / Bộ đề (Danh mục cha)</span>
+              <label className="text-xs font-bold text-text-high-contrast">
+                Thư mục
               </label>
               {onOpenCreateFolder && (
                 <button
