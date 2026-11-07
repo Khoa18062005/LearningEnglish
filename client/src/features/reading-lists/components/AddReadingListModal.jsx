@@ -624,6 +624,14 @@ export default function AddReadingListModal({
                             type="text"
                             value={p.title}
                             onChange={(e) => handleUpdatePassage(idx, 'title', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === 'Tab') {
+                                e.preventDefault();
+                                const cardEl = e.currentTarget.closest('.rounded-xl');
+                                const editorEl = cardEl?.querySelector('.tiptap-content .ProseMirror');
+                                editorEl?.focus();
+                              }
+                            }}
                             placeholder={`VD: Passage ${idx + 1}: The History of Coffee`}
                             className="font-bold text-xs text-slate-800 bg-white/60 hover:bg-white focus:bg-white px-2 py-1 rounded-md border border-slate-200 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 transition-all outline-none flex-1 min-w-0"
                           />

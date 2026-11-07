@@ -37,6 +37,7 @@ export default function TipTapEditor({
   editable = true,
   minHeight = '180px',
   className = '',
+  editorRef,
 }) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
@@ -86,6 +87,22 @@ export default function TipTapEditor({
       }
     },
   });
+
+  // Expose editor instance qua editorRef nếu được truyền
+  useEffect(() => {
+    if (editorRef) {
+      if (typeof editorRef === 'function') {
+        editorRef(editor);
+      } else if (typeof editorRef === 'object') {
+        editorRef.current = editor;
+      }
+    }
+    return () => {
+      if (editorRef && typeof editorRef === 'object') {
+        editorRef.current = null;
+      }
+    };
+  }, [editor, editorRef]);
 
   // Tự động đóng dropdown khi click ra ngoài
   useEffect(() => {

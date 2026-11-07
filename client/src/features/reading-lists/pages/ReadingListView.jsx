@@ -181,6 +181,7 @@ export default function ReadingListView({
   const [editingPassageWordCount, setEditingPassageWordCount] = React.useState(0);
   const [isSavingPassage, setIsSavingPassage] = React.useState(false);
   const isInEditPassageMode = isEditingPassage || isCreatingPassage;
+  const passageEditorRef = React.useRef(null);
 
   const handleAddNewPassageInline = () => {
     setShowPassage(true);
@@ -977,6 +978,17 @@ export default function ReadingListView({
                               type="text"
                               value={editingPassageTitle}
                               onChange={(e) => setEditingPassageTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === 'Tab') {
+                                  e.preventDefault();
+                                  if (passageEditorRef.current) {
+                                    passageEditorRef.current.commands?.focus?.('end');
+                                  } else {
+                                    const proseMirrorEl = document.querySelector('.tiptap-content .ProseMirror');
+                                    proseMirrorEl?.focus();
+                                  }
+                                }
+                              }}
                               placeholder={isCreatingPassage ? `Nhập tiêu đề bài đọc ${passageList.length + 1}...` : "Nhập tiêu đề bài đọc..."}
                               autoFocus={isCreatingPassage}
                               className="font-bold text-xs sm:text-sm text-crimson-primary bg-white border border-crimson-primary/40 rounded-lg px-2.5 py-1 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 focus:outline-none flex-1 max-w-md shadow-2xs"
@@ -1054,6 +1066,7 @@ export default function ReadingListView({
                       {isInEditPassageMode ? (
                         <div className="flex flex-col gap-3 animate-in fade-in duration-150">
                           <TipTapEditor
+                            editorRef={passageEditorRef}
                             content={editingPassageContent}
                             onSaveShortcut={handleSaveInlinePassage}
                             onChange={(html, wc) => {
