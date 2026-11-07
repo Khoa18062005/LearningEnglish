@@ -433,6 +433,12 @@ export default function App() {
           console.warn('Phiên đăng nhập hết hạn hoặc token không hợp lệ:', err.message);
           authApi.logout();
           setCurrentUser(null);
+          setVocabList([]);
+          setReadingLists([]);
+          setNoteFolders([]);
+          setCategories([]);
+          setWordFamilies([]);
+          setIsBackendConnected(false);
         }
       }
     };
@@ -563,6 +569,7 @@ export default function App() {
   const handleAuthSuccess = (user, message) => {
     setCurrentUser(user);
     navigateTo('profile');
+    loadBackendData();
     showToast({
       title: 'Đăng nhập thành công',
       message: message || `Chào mừng ${user?.fullName || 'bạn'} quay lại hệ thống!`,
@@ -580,13 +587,21 @@ export default function App() {
     setSearchTerm('');
     setSelectedPos('all');
 
-    // 2. Trở về trang Home ngay lập tức và đồng bộ URL về '/'
+    // 2. Dọn dẹp toàn bộ dữ liệu người dùng của phiên làm việc cũ
+    setVocabList([]);
+    setReadingLists([]);
+    setNoteFolders([]);
+    setCategories([]);
+    setWordFamilies([]);
+    setIsBackendConnected(false);
+
+    // 3. Trở về trang Home ngay lập tức và đồng bộ URL về '/'
     setCurrentView('home');
     if (typeof window !== 'undefined') {
       window.history.pushState({ currentView: 'home' }, '', '/');
     }
 
-    // 3. Thông báo Toast góc trên cùng bên phải màu xanh lá
+    // 4. Thông báo Toast góc trên cùng bên phải màu xanh lá
     showToast({
       title: 'Đăng xuất thành công',
       message: 'Bạn đã đăng xuất tài khoản an toàn.',
@@ -1071,7 +1086,7 @@ export default function App() {
   };
 
   // Update Reading List (syncs to Spring Boot if available)
-  const handleUpdateReadingList = async (id, updatedPayload) => {
+  const handleUpdateReadingList = async (id, updatedPayload, options = {}) => {
     // Kiểm tra trùng mã danh sách khi cập nhật (ngoại trừ chính nó)
     if (updatedPayload.code !== undefined && updatedPayload.code !== null) {
       const targetCode = String(updatedPayload.code).trim().toUpperCase();
@@ -1110,7 +1125,9 @@ export default function App() {
           setReadingLists((prev) =>
             prev.map((r) => (r.id === id ? { ...r, ...enriched } : r))
           );
-          showToast('Cập nhật bài đọc thành công!');
+          if (!options?.silent) {
+            showToast('Cập nhật bài đọc thành công!');
+          }
           return enriched;
         }
       }
@@ -1140,7 +1157,9 @@ export default function App() {
         };
       })
     );
-    showToast('Cập nhật bài đọc thành công!');
+    if (!options?.silent) {
+      showToast('Cập nhật bài đọc thành công!');
+    }
   };
 
   // Add or update Category (syncs to Spring Boot if available)

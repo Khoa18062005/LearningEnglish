@@ -5,6 +5,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { trimSelectionRange } from '../features/reading-lists/components/ReadingPassageReader';
 
 // Danh sách các màu chữ thông dụng
 const TEXT_COLORS = [
@@ -410,7 +411,15 @@ export default function TipTapEditor({
                     key={h.value}
                     type="button"
                     onClick={() => {
-                      editor.chain().focus().setHighlight({ color: h.value }).run();
+                      const { from, to, empty } = editor.state.selection;
+                      if (!empty && from !== to) {
+                        const trimmed = trimSelectionRange(editor.state.doc, from, to);
+                        if (trimmed.isValid) {
+                          editor.chain().focus().setTextSelection({ from: trimmed.from, to: trimmed.to }).setHighlight({ color: h.value }).run();
+                        }
+                      } else {
+                        editor.chain().focus().setHighlight({ color: h.value }).run();
+                      }
                       setShowHighlightPicker(false);
                     }}
                     title={h.label}

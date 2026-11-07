@@ -281,21 +281,39 @@ export default function ReadingListView({
     setIsEditingPassage(false);
   }, [activePassageIndex]);
 
-  // Quick Highlight Mode khi ở chế độ xem
-  const [isQuickHighlightActive, setIsQuickHighlightActive] = React.useState(false);
-  const [quickHighlightColor, setQuickHighlightColor] = React.useState('#fef08a');
-  const [showViewerHighlightPicker, setShowViewerHighlightPicker] = React.useState(false);
-  const viewerHighlightPickerRef = React.useRef(null);
+  // Tooltip hiển thị đầy đủ tên bài đọc khi hover tab (giảm thời gian chờ xuống ~1s mượt mà)
+  const [hoveredTabTooltip, setHoveredTabTooltip] = React.useState(null);
+  const tabTooltipTimeoutRef = React.useRef(null);
+
+  const handleTabMouseEnter = (e, title) => {
+    if (tabTooltipTimeoutRef.current) {
+      clearTimeout(tabTooltipTimeoutRef.current);
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    tabTooltipTimeoutRef.current = setTimeout(() => {
+      setHoveredTabTooltip({
+        x: rect.left + rect.width / 2,
+        y: rect.bottom + 8,
+        title,
+      });
+    }, 1000);
+  };
+
+  const handleTabMouseLeave = () => {
+    if (tabTooltipTimeoutRef.current) {
+      clearTimeout(tabTooltipTimeoutRef.current);
+    }
+    setHoveredTabTooltip(null);
+  };
 
   React.useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (viewerHighlightPickerRef.current && !viewerHighlightPickerRef.current.contains(e.target)) {
-        setShowViewerHighlightPicker(false);
+    return () => {
+      if (tabTooltipTimeoutRef.current) {
+        clearTimeout(tabTooltipTimeoutRef.current);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
 
   const handleSaveHighlight = async (newHtml, newWordCount) => {
     const updatedPassages = passageList.map((p, idx) => {
@@ -326,7 +344,7 @@ export default function ReadingListView({
     };
 
     if (onUpdateReadingList && readingList?.id) {
-      await onUpdateReadingList(readingList.id, payload);
+      await onUpdateReadingList(readingList.id, payload, { silent: true });
     }
   };
 
@@ -822,10 +840,7 @@ export default function ReadingListView({
                   menu_book
                 </span>
                 <span className="font-headline font-bold text-sm text-text-high-contrast truncate">
-                  Nội dung tài liệu & Bài đọc (Reading Passages)
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-slate-200/70 text-[10.5px] font-semibold text-slate-600 shrink-0">
-                  {passageList.length} bài · {totalWords} từ
+                  Tài liệu liên quan
                 </span>
               </div>
 
@@ -850,25 +865,31 @@ export default function ReadingListView({
                   <div className="px-5 pt-2.5 pb-0 bg-slate-50/50 border-b border-slate-200/70 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
                     {passageList.map((p, idx) => {
                       const isActive = activePassageIndex === idx;
+                      const passageTitle = p.title || `Bài đọc ${idx + 1}`;
                       return (
                         <button
                           key={p.id || idx}
                           type="button"
-                          onClick={() => setActivePassageIndex(idx)}
-                          className={`px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border-t-2 border-x whitespace-nowrap ${
+                          title=""
+                          onClick={() => {
+                            setActivePassageIndex(idx);
+                            handleTabMouseLeave();
+                          }}
+                          onMouseEnter={(e) => handleTabMouseEnter(e, passageTitle)}
+                          onMouseLeave={handleTabMouseLeave}
+                          className={`w-40 sm:w-44 px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border-t-2 border-x-2 border-b-0 -mb-px ${
                             isActive
-                              ? 'bg-white text-crimson-primary border-t-crimson-primary border-x-slate-200/80 -mb-px z-10 shadow-xs'
-                              : 'bg-transparent text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-100/70'
+                              ? 'bg-white text-crimson-primary border-border-crimson-tint z-10 shadow-xs'
+                              : 'bg-slate-100/60 text-slate-600 border-slate-200/80 hover:text-slate-900 hover:bg-slate-100 hover:border-slate-300'
                           }`}
                         >
-                          <span className="material-symbols-outlined text-[16px]">
+                          <span className={`material-symbols-outlined text-[17px] shrink-0 ${
+                            isActive ? 'text-crimson-primary' : 'text-slate-400 group-hover:text-slate-600'
+                          }`}>
                             article
                           </span>
-                          <span>{p.title || `Bài đọc ${idx + 1}`}</span>
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                            isActive ? 'bg-crimson-primary/10 text-crimson-primary' : 'bg-slate-200 text-slate-500'
-                          }`}>
-                            {p.wordCount || 0}t
+                          <span title="" className="line-clamp-1 flex-1 text-left">
+                            {passageTitle}
                           </span>
                         </button>
                       );
@@ -896,16 +917,13 @@ export default function ReadingListView({
                               value={editingPassageTitle}
                               onChange={(e) => setEditingPassageTitle(e.target.value)}
                               placeholder="Nhập tiêu đề bài đọc..."
-                              className="font-bold text-xs sm:text-sm text-slate-900 bg-white border border-crimson-primary/40 rounded-lg px-2.5 py-1 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 focus:outline-none flex-1 max-w-md shadow-2xs"
+                              className="font-bold text-xs sm:text-sm text-crimson-primary bg-white border border-crimson-primary/40 rounded-lg px-2.5 py-1 focus:border-crimson-primary focus:ring-2 focus:ring-crimson-primary/10 focus:outline-none flex-1 max-w-md shadow-2xs"
                             />
                           ) : (
-                            <h3 className="font-headline font-bold text-sm sm:text-base text-slate-900 truncate">
+                            <h3 className="font-headline font-bold text-sm sm:text-base text-crimson-primary truncate">
                               {current.title || `Bài đọc ${activePassageIndex + 1}`}
                             </h3>
                           )}
-                          <span className="text-xs text-text-muted shrink-0">
-                            ({isEditingPassage ? editingPassageWordCount : (current.wordCount || 0)} từ)
-                          </span>
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -921,89 +939,6 @@ export default function ReadingListView({
                                 {isCopied ? 'check' : 'content_copy'}
                               </span>
                             </button>
-                          )}
-
-                          {/* Nút Cây viết Highlight nhanh ở chế độ xem */}
-                          {!isEditingPassage && (
-                            <div className="relative" ref={viewerHighlightPickerRef}>
-                              <button
-                                type="button"
-                                onClick={() => setShowViewerHighlightPicker((prev) => !prev)}
-                                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer relative border ${
-                                  isQuickHighlightActive
-                                    ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs ring-2 ring-amber-300/40'
-                                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200'
-                                }`}
-                                title={
-                                  isQuickHighlightActive
-                                    ? 'Chế độ Bút dạ quang ĐANG BẬT (Bôi đen là tô màu ngay)'
-                                    : 'Bật bút dạ quang để highlight nhanh bài đọc'
-                                }
-                              >
-                                <span className="material-symbols-outlined text-[17px]">ink_highlighter</span>
-                                <span
-                                  className="absolute bottom-1 right-1 w-2 h-2 rounded-full border border-white shadow-2xs"
-                                  style={{ backgroundColor: quickHighlightColor }}
-                                />
-                              </button>
-
-                              {/* Dropdown bảng màu Highlight nhanh khi click vào cây viết */}
-                              {showViewerHighlightPicker && (
-                                <div className="absolute right-0 top-full mt-1.5 p-2 bg-white rounded-xl shadow-xl border border-slate-200 z-50 flex flex-col gap-1.5 min-w-[170px] animate-in fade-in zoom-in-95 duration-150">
-                                  <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                    <span>Bút Highlight</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setIsQuickHighlightActive(!isQuickHighlightActive);
-                                        setShowViewerHighlightPicker(false);
-                                      }}
-                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer ${
-                                        isQuickHighlightActive
-                                          ? 'bg-amber-500 text-white'
-                                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                      }`}
-                                    >
-                                      {isQuickHighlightActive ? 'Tắt' : 'Bật tự động'}
-                                    </button>
-                                  </div>
-
-                                  <div className="flex items-center gap-1 pt-0.5">
-                                    {[
-                                      { label: 'Vàng', value: '#fef08a' },
-                                      { label: 'Xanh lá', value: '#bbf7d0' },
-                                      { label: 'Xanh lam', value: '#bae6fd' },
-                                      { label: 'Cam', value: '#fed7aa' },
-                                      { label: 'Hồng', value: '#fecdd3' },
-                                      { label: 'Tím', value: '#e9d5ff' },
-                                    ].map((h) => (
-                                      <button
-                                        key={h.value}
-                                        type="button"
-                                        onClick={() => {
-                                          setQuickHighlightColor(h.value);
-                                          setIsQuickHighlightActive(true);
-                                          setShowViewerHighlightPicker(false);
-                                        }}
-                                        title={h.label}
-                                        className={`w-5 h-5 rounded-md border transition-transform cursor-pointer shadow-2xs shrink-0 ${
-                                          quickHighlightColor === h.value
-                                            ? 'ring-2 ring-slate-800 scale-110'
-                                            : 'border-black/10 hover:scale-110'
-                                        }`}
-                                        style={{ backgroundColor: h.value }}
-                                      />
-                                    ))}
-                                  </div>
-
-                                  <span className="text-[9.5px] text-slate-400 leading-tight">
-                                    {isQuickHighlightActive
-                                      ? 'Đang bật: Bôi đen text để tô màu ngay'
-                                      : 'Bôi đen văn bản để chọn màu highlight'}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
                           )}
 
                           {/* Nút Cây bút (Khi ấn vào lập tức chuyển sang màu đỏ) */}
@@ -1104,8 +1039,6 @@ export default function ReadingListView({
                       ) : (
                         <ReadingPassageReader
                           content={current.content}
-                          quickHighlightColor={quickHighlightColor}
-                          isQuickHighlightActive={isQuickHighlightActive}
                           onSaveHighlight={handleSaveHighlight}
                         />
                       )}
@@ -1284,6 +1217,19 @@ export default function ReadingListView({
           )}
         </div>
       </div>
+
+      {/* Floating Tooltip hiển thị đầy đủ tên bài đọc khi hover tab */}
+      {hoveredTabTooltip && (
+        <div
+          style={{ left: `${hoveredTabTooltip.x}px`, top: `${hoveredTabTooltip.y}px` }}
+          className="fixed -translate-x-1/2 z-[9999] pointer-events-none animate-in fade-in zoom-in-95 duration-150 flex flex-col items-center"
+        >
+          <div className="w-2 h-1 border-x-4 border-x-transparent border-b-4 border-b-slate-900" />
+          <div className="bg-slate-900 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-2xl whitespace-nowrap max-w-[340px] truncate border border-slate-700">
+            {hoveredTabTooltip.title}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
