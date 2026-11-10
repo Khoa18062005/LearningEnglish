@@ -539,6 +539,52 @@ export default function ReadingListView({
     return sortVocabularies(filtered, activeSortBy);
   }, [allReadingListWords, selectedPos, searchTerm, activeSortBy, prefVersion]);
 
+  // 3. Danh sách từ vựng tinh gọn để tự động highlight màu đỏ trong bài đọc
+  const readingListVocabs = React.useMemo(() => {
+    return allReadingListWords
+      .map((v) => ({
+        id: v.id,
+        word: (v.word || '').trim(),
+        meaning: v.vietnameseDefinition || v.meaning || v.definition || '',
+        pos: v.pos || v.partOfSpeech || '',
+      }))
+      .filter((v) => v.word.length > 0);
+  }, [allReadingListWords]);
+
+  // Từ vựng đang được rê chuột hoặc focus ở danh sách bên dưới
+  const [hoveredVocabWord, setHoveredVocabWord] = React.useState('');
+
+  // Cuộn mượt đến thẻ từ vựng bên dưới khi click vào từ highlight trong bài đọc
+  const handleScrollToVocab = React.useCallback((word) => {
+    if (!word) return;
+    const cleanWord = word.trim().toLowerCase();
+    let targetCard = document.querySelector(`[data-vocab-word="${cleanWord}"]`);
+    if (!targetCard) {
+      // Thử tìm thẻ từ theo các biến thể hình thái học (bỏ đuôi ed, ing, s, es hoặc thêm)
+      const variants = [
+        cleanWord.replace(/ed$/, ''),
+        cleanWord.replace(/ing$/, ''),
+        cleanWord.replace(/es$/, ''),
+        cleanWord.replace(/s$/, ''),
+        cleanWord + 'ed',
+        cleanWord + 'ing',
+        cleanWord + 's',
+      ];
+      for (const v of variants) {
+        if (!v || v === cleanWord) continue;
+        targetCard = document.querySelector(`[data-vocab-word="${v}"]`);
+        if (targetCard) break;
+      }
+    }
+    if (targetCard) {
+      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetCard.classList.add('ring-4', 'ring-crimson-primary/40');
+      setTimeout(() => {
+        targetCard.classList.remove('ring-4', 'ring-crimson-primary/40');
+      }, 2000);
+    }
+  }, []);
+
 
   const totalCollocationsCount = listWords.reduce(
     (acc, w) => acc + w.forms.filter((f) => f.type === 'collocation' || (f.collocation && !f.pattern)).length,
@@ -875,6 +921,15 @@ export default function ReadingListView({
                 <span className="font-headline font-bold text-sm text-text-high-contrast truncate">
                   Tài liệu liên quan
                 </span>
+                {readingListVocabs.length > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-crimson-primary text-[11px] font-bold border border-red-200/80 shrink-0"
+                    title={`Đang tự động highlight màu đỏ ${readingListVocabs.length} từ vựng thuộc bài đọc này`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-crimson-primary" />
+                    <span>Auto-highlight {readingListVocabs.length} từ</span>
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -1119,7 +1174,11 @@ export default function ReadingListView({
                         </div>
                       ) : (
                         <ReadingPassageReader
+                          key={`passage-reader-${activePassageIndex}-${current?.id || 'p'}-${readingListVocabs.map((v) => v.id || v.word).join('_')}`}
                           content={current?.content}
+                          vocabs={readingListVocabs}
+                          activeVocabWord={hoveredVocabWord}
+                          onSelectVocabWord={handleScrollToVocab}
                           onSaveHighlight={handleSaveHighlight}
                         />
                       )}
@@ -1211,17 +1270,24 @@ export default function ReadingListView({
         {/* VOCABULARY CARDS LIST */}
         <div className="flex flex-col gap-4">
           {listWords.map((item) => (
-            <VocabCard
+            <div
               key={item.id}
-              vocab={item}
-              vocabList={vocabList}
-              onPronounce={onPronounce}
-              onEdit={onEditVocab}
-              onDelete={onDeleteVocab}
-              onSelectRelatedWord={onSelectRelatedWord}
-              onOpenRelatedGroup={onOpenRelatedGroup}
-              showReadingList={false}
-            />
+              data-vocab-word={(item.word || '').trim().toLowerCase()}
+              onMouseEnter={() => setHoveredVocabWord(item.word || '')}
+              onMouseLeave={() => setHoveredVocabWord('')}
+              className="rounded-2xl transition-all"
+            >
+              <VocabCard
+                vocab={item}
+                vocabList={vocabList}
+                onPronounce={onPronounce}
+                onEdit={onEditVocab}
+                onDelete={onDeleteVocab}
+                onSelectRelatedWord={onSelectRelatedWord}
+                onOpenRelatedGroup={onOpenRelatedGroup}
+                showReadingList={false}
+              />
+            </div>
           ))}
 
           {listWords.length === 0 && (

@@ -4,6 +4,9 @@ import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { Extension } from '@tiptap/core';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 const HIGHLIGHT_SWATCHES = [
   { label: 'Vàng (Từ mới)', value: '#fef08a' },
@@ -110,19 +113,170 @@ export function getHighlightRangeAtPos(doc, pos) {
   return from !== null && to !== null ? { from, to } : null;
 }
 
+export const autoVocabPluginKey = new PluginKey('autoVocabHighlight');
+
+/**
+ * Mở rộng các biến thể hình thái học của từ vựng tiếng Anh (nguyên mẫu, số nhiều, quá khứ -ed, tiếp diễn -ing,...)
+ * để bài đọc có thể nhận diện và highlight chính xác dù từ được lưu dưới dạng nguyên mẫu hay thì chia.
+ */
+function expandWordVariants(word) {
+  const w = (word || '').trim().toLowerCase();
+  if (!w || w.length < 2) return [w];
+  const variants = new Set([w]);
+
+  // 1. Nếu từ đang lưu có đuôi -ed (VD: started -> start, starts, starting)
+  if (w.endsWith('ed') && w.length > 3) {
+    const base = w.slice(0, -2);
+    variants.add(base);
+    variants.add(base + 's');
+    variants.add(base + 'ing');
+    if (base.endsWith('i') && base.length > 2) {
+      variants.add(base.slice(0, -1) + 'y'); // studied -> study
+    }
+    if (w.endsWith('ied') && w.length > 4) {
+      variants.add(w.slice(0, -3) + 'y');
+    }
+  }
+
+  // 2. Nếu từ đang lưu có đuôi -ing (VD: starting -> start, started, starts)
+  if (w.endsWith('ing') && w.length > 4) {
+    const base = w.slice(0, -3);
+    variants.add(base);
+    variants.add(base + 'ed');
+    variants.add(base + 's');
+    variants.add(base + 'e'); // making -> make
+  }
+
+  // 3. Nếu từ đang lưu có đuôi -es hoặc -s (VD: watches -> watch)
+  if (w.endsWith('es') && w.length > 3) {
+    variants.add(w.slice(0, -2));
+  } else if (w.endsWith('s') && w.length > 3) {
+    variants.add(w.slice(0, -1));
+  }
+
+  // 4. Mở rộng từ dạng nguyên mẫu sang các thì chia thông dụng
+  variants.add(w + 's');
+  variants.add(w + 'es');
+  variants.add(w + 'ed');
+  variants.add(w + 'ing');
+
+  // Đuôi -e: compete -> competed, competing
+  if (w.endsWith('e')) {
+    variants.add(w + 'd');
+    variants.add(w.slice(0, -1) + 'ing');
+  }
+
+  // Đuôi -y: study -> studies, studied, studying
+  if (w.endsWith('y') && w.length > 2) {
+    variants.add(w.slice(0, -1) + 'ies');
+    variants.add(w.slice(0, -1) + 'ied');
+  }
+
+  return Array.from(variants).filter((v) => v && v.length >= 2);
+}
+
+/**
+ * Xây dựng tập hợp Decoration ProseMirror để tự động highlight màu đỏ
+ * tất cả các từ vựng thuộc danh sách bài đọc đang có trong document.
+ */
+export function buildVocabDecorations(doc, vocabs = [], activeWord = '') {
+  if (!doc || !vocabs || vocabs.length === 0) return DecorationSet.empty;
+
+  const decorations = [];
+  const vocabMap = new Map();
+  const wordToPrimaryMap = new Map();
+
+  for (const v of vocabs) {
+    const rawWord = (typeof v === 'string' ? v : v?.word || '').trim();
+    if (rawWord.length > 0) {
+      const lower = rawWord.toLowerCase();
+      vocabMap.set(lower, v);
+      wordToPrimaryMap.set(lower, lower);
+
+      const variants = expandWordVariants(lower);
+      for (const variant of variants) {
+        if (!wordToPrimaryMap.has(variant)) {
+          wordToPrimaryMap.set(variant, lower);
+        }
+      }
+    }
+  }
+
+  const searchWords = Array.from(wordToPrimaryMap.keys()).sort((a, b) => b.length - a.length);
+  if (searchWords.length === 0) return DecorationSet.empty;
+
+  // Thoát các ký tự đặc biệt trong regex
+  const escaped = searchWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
+  const activeLower = (activeWord || '').trim().toLowerCase();
+
+  doc.descendants((node, pos) => {
+    if (!node.isText) return;
+
+    const text = node.text;
+    let match;
+    regex.lastIndex = 0;
+
+    while ((match = regex.exec(text)) !== null) {
+      const matchedText = match[0];
+      const matchedLower = matchedText.toLowerCase();
+      const primaryWord = wordToPrimaryMap.get(matchedLower) || matchedLower;
+      const from = pos + match.index;
+      const to = from + matchedText.length;
+
+      const vocabItem = vocabMap.get(primaryWord) || {};
+      const meaning = typeof vocabItem === 'object' ? (vocabItem.meaning || vocabItem.vietnameseDefinition || '') : '';
+      const tooltip = meaning ? `${matchedText}: ${meaning}` : `Từ vựng trong bài: ${matchedText}`;
+
+      const isActive =
+        activeLower &&
+        (primaryWord === activeLower || matchedLower === activeLower);
+
+      decorations.push(
+        Decoration.inline(from, to, {
+          class: `auto-vocab-highlight ${isActive ? 'is-active-vocab' : ''}`,
+          'data-vocab-word': primaryWord,
+          'data-vocab-text': matchedText,
+          title: tooltip,
+        })
+      );
+    }
+  });
+
+  return DecorationSet.create(doc, decorations);
+}
+
 export default function ReadingPassageReader({
   content = '',
   quickHighlightColor = '#fef08a',
   isQuickHighlightActive = false,
   onSaveHighlight,
+  vocabs = [],
+  activeVocabWord = '',
+  onSelectVocabWord,
 }) {
   const containerRef = useRef(null);
   const [bubblePos, setBubblePos] = useState(null);
   const onSaveHighlightRef = useRef(onSaveHighlight);
+  const vocabsRef = useRef(vocabs);
+  const activeWordRef = useRef(activeVocabWord);
+  const onSelectVocabRef = useRef(onSelectVocabWord);
 
   useEffect(() => {
     onSaveHighlightRef.current = onSaveHighlight;
   }, [onSaveHighlight]);
+
+  useEffect(() => {
+    vocabsRef.current = vocabs;
+  }, [vocabs]);
+
+  useEffect(() => {
+    activeWordRef.current = activeVocabWord;
+  }, [activeVocabWord]);
+
+  useEffect(() => {
+    onSelectVocabRef.current = onSelectVocabWord;
+  }, [onSelectVocabWord]);
 
   const editor = useEditor({
     extensions: [
@@ -138,10 +292,58 @@ export default function ReadingPassageReader({
       }),
       TextStyle,
       Color,
+      Extension.create({
+        name: 'autoVocabHighlight',
+        addProseMirrorPlugins() {
+          return [
+            new Plugin({
+              key: autoVocabPluginKey,
+              state: {
+                init(config, instance) {
+                  return buildVocabDecorations(instance.doc, vocabsRef.current, activeWordRef.current);
+                },
+                apply(tr, oldSet, oldState, newState) {
+                  const meta = tr.getMeta(autoVocabPluginKey);
+                  if (meta !== undefined) {
+                    return buildVocabDecorations(
+                      newState.doc,
+                      meta.vocabs ?? vocabsRef.current,
+                      meta.activeWord ?? activeWordRef.current
+                    );
+                  }
+                  if (tr.docChanged) {
+                    return buildVocabDecorations(newState.doc, vocabsRef.current, activeWordRef.current);
+                  }
+                  return oldSet;
+                },
+              },
+              props: {
+                decorations(state) {
+                  return (
+                    autoVocabPluginKey.getState(state) ||
+                    buildVocabDecorations(state.doc, vocabsRef.current, activeWordRef.current)
+                  );
+                },
+              },
+            }),
+          ];
+        },
+      }),
     ],
     content: content || '',
     editable: false,
     editorProps: {
+      handleClick: (view, pos, event) => {
+        const target = event.target;
+        if (target && target.classList.contains('auto-vocab-highlight')) {
+          const word = target.getAttribute('data-vocab-word');
+          if (word && onSelectVocabRef.current) {
+            onSelectVocabRef.current(word);
+            return true;
+          }
+        }
+        return false;
+      },
       handleDoubleClick: (view, pos, event) => {
         const highlightRange = getHighlightRangeAtPos(view.state.doc, pos);
         if (highlightRange) {
@@ -154,6 +356,20 @@ export default function ReadingPassageReader({
       },
     },
   });
+
+  // Cập nhật lại các khối auto highlight khi vocabs hoặc activeVocabWord thay đổi
+  useEffect(() => {
+    vocabsRef.current = vocabs;
+    activeWordRef.current = activeVocabWord;
+    if (editor && !editor.isDestroyed && editor.view) {
+      editor.view.dispatch(
+        editor.state.tr.setMeta(autoVocabPluginKey, {
+          vocabs,
+          activeWord: activeVocabWord,
+        })
+      );
+    }
+  }, [editor, vocabs, activeVocabWord]);
 
   // Đồng bộ nội dung khi content thay đổi từ bên ngoài
   useEffect(() => {
@@ -342,6 +558,25 @@ export default function ReadingPassageReader({
         }
         .tiptap-reader mark:hover {
           filter: brightness(0.92);
+        }
+
+        /* Auto Highlight từ vựng sang màu đỏ trong bài đọc (chỉ màu chữ đỏ, không khung chữ nhật/nền) */
+        .tiptap-reader .auto-vocab-highlight {
+          color: #dc2626 !important;
+          font-weight: 700;
+          cursor: pointer;
+          transition: color 0.15s ease;
+          display: inline;
+        }
+        .tiptap-reader .auto-vocab-highlight:hover {
+          color: #b91c1c !important;
+          text-decoration: underline;
+        }
+        .tiptap-reader .auto-vocab-highlight.is-active-vocab {
+          color: #b91c1c !important;
+          text-decoration: underline;
+          text-decoration-thickness: 2px;
+          font-weight: 800;
         }
       `}</style>
 

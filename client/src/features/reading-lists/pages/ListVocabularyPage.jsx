@@ -821,9 +821,58 @@ export default function ListVocabularyPage({
     }
   };
 
+  // Trích xuất danh sách tên bài đọc sạch sẽ cho danh sách (xử lý cả list.passages và legacy list.passage)
+  const getPassageTitles = (list) => {
+    if (!list) return [];
+
+    const rawPassages = Array.isArray(list.passages) && list.passages.length > 0
+      ? list.passages
+      : (list.passage ? [{ id: 'legacy', title: '', content: list.passage }] : []);
+
+    if (rawPassages.length === 0) return [];
+
+    return rawPassages.map((p, idx) => {
+      let title = (p.title || '').trim();
+      const content = p.content || '';
+
+      // Nếu tiêu đề chưa có hoặc là tiêu đề mặc định ("Nội dung bài đọc", "Bài đọc 1"...),
+      // ưu tiên trích xuất tiêu đề thực tế từ heading/strong đầu tiên của nội dung bài đọc
+      const isGeneric = !title || title.toLowerCase() === 'nội dung bài đọc' || /^bài đọc\s*\d*$/i.test(title);
+
+      if (isGeneric && content) {
+        // 1. Thử trích xuất từ thẻ tiêu đề h1-h6 hoặc thẻ in đậm strong/b đầu tiên
+        const headingMatch = content.match(/<(?:h[1-6]|strong|b)[^>]*>(.*?)<\/(?:h[1-6]|strong|b)>/i);
+        if (headingMatch && headingMatch[1]) {
+          const clean = headingMatch[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (clean && clean.length > 1) {
+            return clean;
+          }
+        }
+
+        // 2. Thử trích xuất đoạn văn p đầu tiên
+        const pMatch = content.match(/<p[^>]*>(.*?)<\/p>/i);
+        if (pMatch && pMatch[1]) {
+          const clean = pMatch[1].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+          if (clean && clean.length > 1) {
+            return clean.length > 60 ? clean.slice(0, 60) + '...' : clean;
+          }
+        }
+
+        // 3. Fallback text thuần không dính HTML
+        const plainText = content.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        if (plainText) {
+          return plainText.length > 50 ? plainText.slice(0, 50) + '...' : plainText;
+        }
+      }
+
+      return title || `Bài đọc ${idx + 1}`;
+    });
+  };
+
   const renderCard = (list, customOnSelect = null, dragProps = null) => {
     const displayCode = list.code || list.shortTitle || 'LIST';
     const displayTitle = list.title || 'Danh sách từ vựng';
+    const passageTitles = getPassageTitles(list);
 
     return (
       <div
@@ -915,7 +964,7 @@ export default function ListVocabularyPage({
             {list.sourceReference ? (
               <div className="inline-flex items-center gap-1.5 text-slate-600 truncate" title={`Nguồn: ${list.sourceReference}`}>
                 <span className="material-symbols-outlined text-[15px] text-slate-400 shrink-0">
-                  menu_book
+                  bookmark
                 </span>
                 <span className="truncate font-medium">{list.sourceReference}</span>
               </div>
@@ -936,16 +985,37 @@ export default function ListVocabularyPage({
             )}
           </div>
 
-          {/* Passage Preview Snippet (Fixed height h-[64px] with clear boundary) */}
+          {/* Reading Passages Slot: Hiển thị biểu tượng Cuốn sách kèm tên bài đọc */}
           <div className="mt-3">
-            {list.passage ? (
-              <div className="h-[64px] p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 line-clamp-2 leading-relaxed font-serif italic flex items-center">
-                <span className="line-clamp-2">"{list.passage}"</span>
+            {passageTitles.length > 0 ? (
+              <div
+                className="h-[52px] px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-2.5 text-xs text-slate-800 font-bold overflow-hidden"
+                title={passageTitles.join(' • ')}
+              >
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <span className="material-symbols-outlined text-[18px] text-crimson-primary shrink-0">
+                    menu_book
+                  </span>
+                  <span className="truncate text-slate-800 font-bold" title={passageTitles[0]}>
+                    {passageTitles[0]}
+                  </span>
+                </div>
+
+                {passageTitles.length > 1 && (
+                  <span
+                    className="text-xs text-slate-500 font-semibold shrink-0 whitespace-nowrap pl-1"
+                    title={passageTitles.slice(1).join(' • ')}
+                  >
+                    + {passageTitles.length - 1} Bài khác
+                  </span>
+                )}
               </div>
             ) : (
-              <div className="h-[64px] px-3 rounded-xl bg-slate-50/60 border border-dashed border-slate-200 text-[11px] text-slate-400 italic flex items-center justify-center gap-1.5 select-none">
-                <span className="material-symbols-outlined text-[15px] text-slate-400/80 shrink-0">description</span>
-                <span>Chưa có nội dung ngữ cảnh</span>
+              <div className="h-[52px] px-3 rounded-xl bg-slate-50/60 border border-dashed border-slate-200 text-[11px] text-slate-400 italic flex items-center justify-center gap-1.5 select-none">
+                <span className="material-symbols-outlined text-[15px] text-slate-400/80 shrink-0">
+                  menu_book
+                </span>
+                <span>Chưa có bài đọc</span>
               </div>
             )}
           </div>
@@ -970,6 +1040,7 @@ export default function ListVocabularyPage({
   const renderRow = (list, customOnSelect = null, dragProps = null) => {
     const displayCode = list.code || list.shortTitle || 'LIST';
     const displayTitle = list.title || 'Danh sách từ vựng';
+    const passageTitles = getPassageTitles(list);
 
     return (
       <div
@@ -1030,21 +1101,38 @@ export default function ListVocabularyPage({
           {/* Source Reference / Note preview */}
           {list.sourceReference ? (
             <span
-              className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium truncate max-w-[220px] hidden lg:inline-flex"
+              className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium truncate max-w-[200px] hidden lg:inline-flex"
               title={`Nguồn: ${list.sourceReference}`}
             >
-              <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">menu_book</span>
+              <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">bookmark</span>
               <span className="truncate">{list.sourceReference}</span>
             </span>
           ) : list.note ? (
             <span
-              className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium truncate max-w-[220px] hidden lg:inline-flex"
+              className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium truncate max-w-[200px] hidden lg:inline-flex"
               title={`Ghi chú: ${list.note}`}
             >
               <span className="material-symbols-outlined text-[14px] text-slate-400 shrink-0">sticky_note_2</span>
               <span className="truncate">{list.note}</span>
             </span>
           ) : null}
+
+          {/* Reading passage title preview with Book icon */}
+          {passageTitles.length > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-slate-700 font-semibold truncate max-w-[240px] hidden xl:inline-flex"
+              title={`Bài đọc: ${passageTitles.join(', ')}`}
+            >
+              <span className="material-symbols-outlined text-[15px] text-crimson-primary shrink-0">menu_book</span>
+              <span className="truncate">{passageTitles[0]}</span>
+              {passageTitles.length > 1 && (
+                <span className="inline-flex items-center gap-0.5 text-[10.5px] text-slate-500 font-semibold shrink-0">
+                  <span className="material-symbols-outlined text-[12px] text-slate-400 font-bold">add</span>
+                  <span>{passageTitles.length - 1} Bài khác</span>
+                </span>
+              )}
+            </span>
+          )}
         </div>
 
         {/* Right Section: Vocab count + Actions (Edit, Delete, Vào học từ) */}
