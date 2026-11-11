@@ -173,6 +173,92 @@ export default function ReadingListView({
     [passageList, readingList, onUpdateReadingList, showNotification]
   );
 
+  // Trạng thái kéo thả để sắp xếp thứ tự các bài đọc
+  const [draggedPassageIndex, setDraggedPassageIndex] = React.useState(null);
+  const [dragOverPassageIndex, setDragOverPassageIndex] = React.useState(null);
+  const dragOccurredRef = React.useRef(false);
+
+  const handlePassageDragStart = (e, index) => {
+    if (isInEditPassageMode) {
+      e.preventDefault();
+      return;
+    }
+    handleTabMouseLeave();
+    dragOccurredRef.current = false;
+    setDraggedPassageIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handlePassageDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedPassageIndex === null || draggedPassageIndex === index) return;
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverPassageIndex !== index) {
+      setDragOverPassageIndex(index);
+    }
+  };
+
+  const handlePassageDragLeave = (e, index) => {
+    if (dragOverPassageIndex === index) {
+      setDragOverPassageIndex(null);
+    }
+  };
+
+  const handlePassageDrop = async (e, targetIndex) => {
+    e.preventDefault();
+    setDragOverPassageIndex(null);
+    if (draggedPassageIndex === null || draggedPassageIndex === targetIndex) {
+      setDraggedPassageIndex(null);
+      return;
+    }
+
+    dragOccurredRef.current = true;
+    const currentActivePassage = passageList[activePassageIndex];
+
+    const updatedPassages = [...passageList];
+    const [moved] = updatedPassages.splice(draggedPassageIndex, 1);
+    updatedPassages.splice(targetIndex, 0, moved);
+
+    // Giữ nguyên bài đọc đang xem active sau khi hoán đổi vị trí
+    const newActiveIdx = updatedPassages.findIndex(
+      (p) => p === currentActivePassage || (p.id && p.id === currentActivePassage?.id)
+    );
+    if (newActiveIdx !== -1) {
+      setActivePassageIndex(newActiveIdx);
+    }
+
+    setDraggedPassageIndex(null);
+
+    const payload = {
+      title: readingList.title,
+      code: readingList.code,
+      sourceReference: readingList.sourceReference,
+      note: readingList.note,
+      folderId: readingList.folderId,
+      passages: updatedPassages.map((p, idx) => ({
+        id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+        title: p.title,
+        content: p.content,
+        wordCount: p.wordCount,
+        sortOrder: idx,
+      })),
+      passage: updatedPassages[0]?.content || null,
+    };
+
+    if (onUpdateReadingList && readingList?.id) {
+      await onUpdateReadingList(readingList.id, payload, { silent: true });
+    }
+  };
+
+  const handlePassageDragEnd = () => {
+    setDraggedPassageIndex(null);
+    setDragOverPassageIndex(null);
+    setTimeout(() => {
+      dragOccurredRef.current = false;
+    }, 150);
+  };
+
   // Trạng thái soạn thảo TipTap inline ngay tại bài đọc
   const [isEditingPassage, setIsEditingPassage] = React.useState(false);
   const [isCreatingPassage, setIsCreatingPassage] = React.useState(false);
@@ -921,15 +1007,6 @@ export default function ReadingListView({
                 <span className="font-headline font-bold text-sm text-text-high-contrast truncate">
                   Tài liệu liên quan
                 </span>
-                {readingListVocabs.length > 0 && (
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-crimson-primary text-[11px] font-bold border border-red-200/80 shrink-0"
-                    title={`Đang tự động highlight màu đỏ ${readingListVocabs.length} từ vựng thuộc bài đọc này`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-crimson-primary" />
-                    <span>Auto-highlight {readingListVocabs.length} từ</span>
-                  </span>
-                )}
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -961,53 +1038,85 @@ export default function ReadingListView({
               <div className="flex flex-col bg-white">
                 {/* Tabs bài đọc (nếu có từ 2 bài trở lên hoặc đang tạo bài mới) */}
                 {(passageList.length > 1 || (isCreatingPassage && passageList.length > 0)) && (
-                  <div className="px-5 pt-2.5 pb-0 bg-slate-50/50 border-b border-slate-200/70 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
-                    {passageList.map((p, idx) => {
-                      const isActive = !isCreatingPassage && activePassageIndex === idx;
-                      const passageTitle = p.title || `Bài đọc ${idx + 1}`;
-                      return (
-                        <button
-                          key={p.id || idx}
-                          type="button"
-                          title=""
-                          onClick={() => {
-                            if (isCreatingPassage) {
-                              setIsCreatingPassage(false);
-                              setIsEditingPassage(false);
-                            }
-                            setActivePassageIndex(idx);
-                            handleTabMouseLeave();
-                          }}
-                          onMouseEnter={(e) => handleTabMouseEnter(e, passageTitle)}
-                          onMouseLeave={handleTabMouseLeave}
-                          className={`w-40 sm:w-44 px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 border-t-2 border-x-2 border-b-0 -mb-px ${
-                            isActive
-                              ? 'bg-white text-crimson-primary border-border-crimson-tint z-10 shadow-xs'
-                              : 'bg-slate-100/60 text-slate-600 border-slate-200/80 hover:text-slate-900 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                        >
-                          <span className={`material-symbols-outlined text-[17px] shrink-0 ${
-                            isActive ? 'text-crimson-primary' : 'text-slate-400 group-hover:text-slate-600'
-                          }`}>
-                            article
-                          </span>
-                          <span title="" className="line-clamp-1 flex-1 text-left">
-                            {passageTitle}
-                          </span>
-                        </button>
-                      );
-                    })}
+                  <div className="px-5 pt-2.5 pb-0 bg-slate-50/50 border-b border-slate-200/70 flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar">
+                    <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar flex-1 min-w-0">
+                      {passageList.map((p, idx) => {
+                        const isActive = !isCreatingPassage && activePassageIndex === idx;
+                        const isBeingDragged = draggedPassageIndex === idx;
+                        const isDragOver = dragOverPassageIndex === idx;
+                        const passageTitle = p.title || `Bài đọc ${idx + 1}`;
 
-                    {/* Tab bài đọc mới đang thêm */}
-                    {isCreatingPassage && (
-                      <div className="w-40 sm:w-44 px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border-t-2 border-x-2 border-b-0 -mb-px bg-white text-crimson-primary border-border-crimson-tint z-10 shadow-xs">
-                        <span className="material-symbols-outlined text-[17px] text-crimson-primary shrink-0">
-                          note_add
-                        </span>
-                        <span className="line-clamp-1 flex-1 text-left">
-                          {editingPassageTitle.trim() || `Bài đọc ${passageList.length + 1}`}
-                        </span>
-                      </div>
+                        return (
+                          <button
+                            key={p.id || idx}
+                            type="button"
+                            title=""
+                            draggable={!isInEditPassageMode && passageList.length > 1}
+                            onDragStart={(e) => handlePassageDragStart(e, idx)}
+                            onDragOver={(e) => handlePassageDragOver(e, idx)}
+                            onDragLeave={(e) => handlePassageDragLeave(e, idx)}
+                            onDrop={(e) => handlePassageDrop(e, idx)}
+                            onDragEnd={handlePassageDragEnd}
+                            onClick={() => {
+                              if (dragOccurredRef.current) return;
+                              if (isCreatingPassage) {
+                                setIsCreatingPassage(false);
+                                setIsEditingPassage(false);
+                              }
+                              setActivePassageIndex(idx);
+                              handleTabMouseLeave();
+                            }}
+                            onMouseEnter={(e) => {
+                              if (draggedPassageIndex === null) {
+                                handleTabMouseEnter(e, passageTitle);
+                              }
+                            }}
+                            onMouseLeave={handleTabMouseLeave}
+                            className={`w-40 sm:w-44 px-3.5 py-2 rounded-t-xl text-xs font-bold transition-colors flex items-center gap-2 shrink-0 border-t-2 border-x-2 border-b-0 -mb-px select-none ${
+                              isBeingDragged
+                                ? 'opacity-40 cursor-grabbing'
+                                : isDragOver
+                                ? (isActive
+                                    ? 'bg-white text-crimson-primary border-border-crimson-tint'
+                                    : 'bg-slate-200/70 text-slate-800 border-slate-300')
+                                : isActive
+                                ? 'bg-white text-crimson-primary border-border-crimson-tint z-10 shadow-xs cursor-pointer'
+                                : 'bg-slate-100/60 text-slate-600 border-slate-200/80 hover:text-slate-900 hover:bg-slate-100 hover:border-slate-300 cursor-pointer'
+                            }`}
+                          >
+                            <span
+                              className={`material-symbols-outlined text-[17px] shrink-0 ${
+                                isActive ? 'text-crimson-primary' : 'text-slate-400 group-hover:text-slate-600'
+                              }`}
+                            >
+                              article
+                            </span>
+                            <span title="" className="line-clamp-1 flex-1 text-left">
+                              {passageTitle}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                      {/* Tab bài đọc mới đang thêm */}
+                      {isCreatingPassage && (
+                        <div className="w-40 sm:w-44 px-3.5 py-2 rounded-t-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border-t-2 border-x-2 border-b-0 -mb-px bg-white text-crimson-primary border-border-crimson-tint z-10 shadow-xs select-none">
+                          <span className="material-symbols-outlined text-[17px] text-crimson-primary shrink-0">
+                            note_add
+                          </span>
+                          <span className="line-clamp-1 flex-1 text-left">
+                            {editingPassageTitle.trim() || `Bài đọc ${passageList.length + 1}`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Subtle hint when multiple passages */}
+                    {passageList.length > 1 && !isInEditPassageMode && (
+                      <span className="text-[11px] text-slate-400 font-medium hidden lg:inline-flex items-center gap-1 shrink-0 pb-1.5 select-none pl-2">
+                        <span className="material-symbols-outlined text-[14px]">swap_horiz</span>
+                        <span>Kéo thả tab để đổi thứ tự</span>
+                      </span>
                     )}
                   </div>
                 )}

@@ -185,6 +185,52 @@ export default function AddReadingListModal({
     );
   };
 
+  // Trạng thái kéo thả để sắp xếp bài đọc trong modal
+  const [draggedModalPassageIndex, setDraggedModalPassageIndex] = useState(null);
+  const [dragOverModalPassageIndex, setDragOverModalPassageIndex] = useState(null);
+
+  const handleModalPassageDragStart = (e, index) => {
+    setDraggedModalPassageIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleModalPassageDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedModalPassageIndex === null || draggedModalPassageIndex === index) return;
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverModalPassageIndex !== index) {
+      setDragOverModalPassageIndex(index);
+    }
+  };
+
+  const handleModalPassageDragLeave = (e, index) => {
+    if (dragOverModalPassageIndex === index) {
+      setDragOverModalPassageIndex(null);
+    }
+  };
+
+  const handleModalPassageDrop = (e, targetIndex) => {
+    e.preventDefault();
+    setDragOverModalPassageIndex(null);
+    if (draggedModalPassageIndex === null || draggedModalPassageIndex === targetIndex) {
+      setDraggedModalPassageIndex(null);
+      return;
+    }
+    setPassages((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(draggedModalPassageIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+    setDraggedModalPassageIndex(null);
+  };
+
+  const handleModalPassageDragEnd = () => {
+    setDraggedModalPassageIndex(null);
+    setDragOverModalPassageIndex(null);
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
@@ -612,7 +658,19 @@ export default function AddReadingListModal({
                   passages.map((p, idx) => (
                     <div
                       key={p.id || idx}
-                      className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition-all"
+                      draggable={passages.length > 1}
+                      onDragStart={(e) => handleModalPassageDragStart(e, idx)}
+                      onDragOver={(e) => handleModalPassageDragOver(e, idx)}
+                      onDragLeave={(e) => handleModalPassageDragLeave(e, idx)}
+                      onDrop={(e) => handleModalPassageDrop(e, idx)}
+                      onDragEnd={handleModalPassageDragEnd}
+                      className={`rounded-xl border transition-colors overflow-hidden ${
+                        draggedModalPassageIndex === idx
+                          ? 'opacity-40 border-dashed border-slate-300'
+                          : dragOverModalPassageIndex === idx
+                          ? 'bg-slate-50 border-slate-300'
+                          : 'border-slate-200 bg-white shadow-2xs'
+                      }`}
                     >
                       {/* Card Header bài đọc */}
                       <div className="px-3.5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between gap-2">

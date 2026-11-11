@@ -1522,26 +1522,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-canvas-slate text-text-body font-body antialiased">
-      {/* Backend Connection Status Badge */}
-      <div className="fixed bottom-3 right-3 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg backdrop-blur-md bg-white/95 border border-slate-200">
-        <span
-          className={`w-2 h-2 rounded-full ${
-            isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
-          }`}
-        />
-        <span className="text-slate-700">
-          {isBackendConnected ? 'Spring Boot: Online (:8080)' : 'Dữ liệu cục bộ (Chưa bật Backend)'}
-        </span>
-        {!isBackendConnected && (
-          <button
-            onClick={loadBackendData}
-            title="Thử kết nối lại"
-            className="text-[11px] text-crimson-primary hover:underline font-bold ml-1"
-          >
-            Kết nối lại
-          </button>
-        )}
-      </div>
+      {/* Nút Floating Action Button (FAB) thêm từ vựng mới */}
+      <button
+        type="button"
+        onClick={handleOpenAddModal}
+        title="Thêm từ vựng mới"
+        aria-label="Thêm từ vựng mới"
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-crimson-primary hover:bg-crimson-dark text-white flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-4 focus:ring-red-300/50"
+      >
+        <svg
+          className="w-7 h-7 text-white transition-transform duration-200 group-hover:rotate-90"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
 
       {/* Sidebar Navigation */}
       <Sidebar
