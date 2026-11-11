@@ -199,20 +199,11 @@ export default function AddVocabModal({
   };
 
   const handleRemoveMeaning = (idx) => {
+    setActiveSynonymDropdownIdx(null);
+    setActiveWordAutocomplete({ idx: null, field: null, query: '' });
     setMeanings((prev) => {
       if (prev.length <= 1) {
-        return [
-          {
-            id: Date.now(),
-            text: '',
-            example: '',
-            note: '',
-            synonyms: '',
-            closeMeanings: '',
-            showSynonyms: false,
-            showCloseMeanings: false,
-          },
-        ];
+        return prev;
       }
       return prev.filter((_, i) => i !== idx);
     });
@@ -2089,17 +2080,34 @@ export default function AddVocabModal({
                             )}
                           </div>
 
-                          {/* Nút xóa nét nghĩa bổ sung nếu có từ 2 nét nghĩa trở lên */}
-                          {idx > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMeaning(idx)}
-                              className="w-11 h-11 flex items-center justify-center rounded-xl bg-white hover:bg-red-50 text-slate-400 hover:text-crimson-primary border border-slate-200 hover:border-red-200 transition-all cursor-pointer shrink-0 shadow-2xs"
-                              title="Xóa nét nghĩa này"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
-                            </button>
-                          )}
+                          {/* Nút xóa nét nghĩa (Luôn hiển thị ở mọi nét nghĩa, vô hiệu hóa nếu chỉ còn 1 nghĩa) */}
+                          {(() => {
+                            const isOnlyOne = meanings.length <= 1;
+                            return (
+                              <button
+                                type="button"
+                                disabled={isOnlyOne}
+                                onClick={() => !isOnlyOne && handleRemoveMeaning(idx)}
+                                className={`w-11 h-11 flex items-center justify-center rounded-xl border shrink-0 shadow-2xs transition-all ${
+                                  isOnlyOne
+                                    ? 'bg-slate-50 text-slate-300 border-slate-200/70 cursor-not-allowed opacity-50 select-none'
+                                    : 'bg-white hover:bg-red-50 text-slate-400 hover:text-crimson-primary border border-slate-200 hover:border-red-200 cursor-pointer active:scale-95'
+                                }`}
+                                title={
+                                  isOnlyOne
+                                    ? 'Tối thiểu phải có 1 nét nghĩa (không thể xóa)'
+                                    : `Xóa nét nghĩa #${idx + 1}`
+                                }
+                                aria-label={
+                                  isOnlyOne
+                                    ? 'Nét nghĩa duy nhất không thể xóa'
+                                    : `Xóa nét nghĩa #${idx + 1}`
+                                }
+                              >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            );
+                          })()}
                         </div>
 
                         {/* Hàng 2: Input cho Từ có nét nghĩa tương đương (nếu được kích hoạt) */}
