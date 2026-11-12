@@ -198,6 +198,41 @@ export default function App() {
   // State cho Hộp thoại cuộn xem toàn bộ danh sách các từ đồng nghĩa / nét nghĩa tương đương
   const [relatedGroupModalData, setRelatedGroupModalData] = useState(null);
 
+  // Trạng thái thu nhỏ thanh điều hướng bên trái (Sidebar)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Phím tắt bàn phím tiện lợi (Ctrl+B hoặc Cmd+B) để thu nhỏ / mở rộng sidebar
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        const target = e.target;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+          return;
+        }
+        e.preventDefault();
+        handleToggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleToggleSidebar]);
+
   const handleOpenRelatedGroup = (words, sourceWord, type = 'close') => {
     if (!Array.isArray(words) || words.length === 0) return;
     setRelatedGroupModalData({ words, sourceWord, type });
@@ -1572,10 +1607,23 @@ export default function App() {
         onMoveReadingListToFolder={handleMoveReadingListToFolder}
         showNotification={showNotification}
         onNavigateHome={() => navigateTo('home')}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={handleToggleSidebar}
       />
 
-      {/* Main Content Area */}
-      <div className="pl-[260px]">
+      {/* Backdrop overlay khi Sidebar đang mở trên thiết bị màn hình nhỏ (<lg) */}
+      {!isSidebarCollapsed && (
+        <div
+          className="fixed inset-0 bg-slate-900/30 backdrop-blur-2xs z-45 lg:hidden transition-opacity duration-300"
+          onClick={handleToggleSidebar}
+          aria-label="Đóng thanh điều hướng"
+        />
+      )}
+
+      {/* Main Content Area: Tự động co giãn mượt mà khi thu nhỏ / mở rộng Sidebar */}
+      <div className={`transition-all duration-300 ease-in-out ${
+        isSidebarCollapsed ? 'pl-0' : 'pl-0 lg:pl-[260px]'
+      }`}>
         {/* Top Header */}
         <Header
           searchTerm={searchTerm}
@@ -1592,6 +1640,8 @@ export default function App() {
             setSelectedReadingListId(null);
             setSelectedCategory(null);
           }}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={handleToggleSidebar}
         />
 
         {/* Dynamic Page Views */}

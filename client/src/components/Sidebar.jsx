@@ -27,6 +27,8 @@ export default function Sidebar({
   onMoveReadingListToFolder,
   showNotification,
   onNavigateHome,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
 }) {
   const activeReadingListRef = useRef(null);
   const activeCategoryRef = useRef(null);
@@ -816,10 +818,14 @@ export default function Sidebar({
   }, [selectedCategory, currentView]);
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden border-r border-slate-line">
+    <aside
+      className={`fixed left-0 top-0 h-full w-[260px] bg-card-white shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between overflow-hidden border-r border-slate-line transition-transform duration-300 ease-in-out ${
+        isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+      }`}
+    >
       <div ref={sidebarNavScrollRef} className="flex flex-col flex-1 overflow-y-auto">
         {/* Brand Header */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-line/60">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-line/60 shrink-0">
           <div 
             className="flex items-center gap-2.5 cursor-pointer" 
             onClick={() => { setCurrentView('master'); setSelectedReadingListId(null); }}
@@ -836,6 +842,21 @@ export default function Sidebar({
               </span>
             </div>
           </div>
+
+          {/* Nút thu nhỏ Sidebar (Collapse Button) */}
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              title="Thu nhỏ thanh điều hướng (Ctrl+B)"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-all cursor-pointer active:scale-95 group"
+              aria-label="Thu nhỏ thanh điều hướng"
+            >
+              <span className="material-symbols-outlined text-[20px] transition-transform duration-300 inline-block group-hover:-translate-x-0.5">
+                menu_open
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Navigation Sections */}

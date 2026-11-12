@@ -11,6 +11,8 @@ export default function Header({
   onOpenAuthModal,
   onLogout,
   onNavigateProfile,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -44,29 +46,68 @@ export default function Header({
   };
 
   return (
-    <header className="fixed top-0 left-[260px] right-0 h-16 bg-card-white/90 backdrop-blur-xl border-b border-slate-line/80 z-40 flex items-center justify-between px-6 gap-4">
-      {/* Left side: Clean Section Breadcrumb / App Title */}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="font-bold text-text-high-contrast flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-crimson-primary animate-pulse" />
-          LexiconVocab LMS
-        </span>
-        <span className="material-symbols-outlined text-[14px] text-text-disabled">chevron_right</span>
-        <span className="text-crimson-primary font-semibold">
-          {currentView === 'profile'
-            ? 'Hồ sơ người dùng & Sơ đồ năng lực'
-            : currentView === 'word-families'
-            ? 'Word Families (Gia đình từ)'
-            : currentView === 'list-vocabulary'
-            ? 'List Vocabulary (Danh sách từ vựng)'
-            : currentView === 'reading-list'
-            ? 'Reading List'
-            : currentView === 'topic-vocabulary'
-            ? 'Topic Vocabulary'
-            : currentView === 'category'
-            ? 'Topic Vocabulary'
-            : 'Kho từ vựng trung tâm'}
-        </span>
+    <header className={`fixed top-0 right-0 h-16 bg-card-white/90 backdrop-blur-xl border-b border-slate-line/80 z-40 flex items-center justify-between px-4 sm:px-6 gap-3 sm:gap-4 transition-all duration-300 ease-in-out ${
+      isSidebarCollapsed ? 'left-0' : 'left-0 lg:left-[260px]'
+    }`}>
+      {/* Left side: Hamburger Toggle & Clean Section Breadcrumb / App Title */}
+      <div className="flex items-center gap-2.5 sm:gap-3 text-xs min-w-0">
+        {/* Nút 3 gạch ngang: CHỈ xuất hiện trên header khi thanh nav bên trái ĐANG THU NHỎ */}
+        {isSidebarCollapsed && onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            title="Mở rộng thanh điều hướng (Ctrl+B)"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-text-high-contrast hover:text-crimson-primary hover:bg-surface-crimson-subtle border border-slate-200/80 bg-white shadow-2xs transition-all cursor-pointer active:scale-95 shrink-0 animate-in fade-in zoom-in-95 duration-200 group"
+            aria-label="Mở rộng thanh điều hướng"
+          >
+            {/* Icon xoay 180 độ theo chiều ngang (scaleX(-1)) hướng mũi tên sang phải để mở sidebar */}
+            <span
+              className="material-symbols-outlined text-[22px] transition-transform duration-300 inline-block group-hover:scale-105"
+              style={{ transform: 'scaleX(-1)' }}
+            >
+              menu_open
+            </span>
+          </button>
+        )}
+
+        {/* Khi Sidebar bị thu nhỏ: Hiển thị thêm Logo LexiconVocab nhỏ gọn cạnh nút 3 gạch */}
+        {isSidebarCollapsed && (
+          <div 
+            className="hidden sm:flex items-center gap-2 cursor-pointer pr-2.5 border-r border-slate-200/80 shrink-0 animate-in fade-in duration-200"
+            onClick={onToggleSidebar}
+            title="Mở thanh điều hướng"
+          >
+            <div className="w-7 h-7 rounded-lg bg-crimson-primary flex items-center justify-center text-white shadow-2xs">
+              <span className="material-symbols-outlined text-[16px]">menu_book</span>
+            </div>
+            <span className="font-headline font-bold text-sm text-text-high-contrast tracking-tight">
+              LexiconVocab
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2 min-w-0 truncate">
+          <span className="font-bold text-text-high-contrast flex items-center gap-1.5 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-crimson-primary animate-pulse" />
+            <span className={isSidebarCollapsed ? 'inline' : 'hidden md:inline'}>LexiconVocab LMS</span>
+          </span>
+          <span className="material-symbols-outlined text-[14px] text-text-disabled shrink-0">chevron_right</span>
+          <span className="text-crimson-primary font-semibold truncate">
+            {currentView === 'profile'
+              ? 'Hồ sơ người dùng & Sơ đồ năng lực'
+              : currentView === 'word-families'
+              ? 'Word Families (Gia đình từ)'
+              : currentView === 'list-vocabulary'
+              ? 'List Vocabulary (Danh sách từ vựng)'
+              : currentView === 'reading-list'
+              ? 'Reading List'
+              : currentView === 'topic-vocabulary'
+              ? 'Topic Vocabulary'
+              : currentView === 'category'
+              ? 'Topic Vocabulary'
+              : 'Kho từ vựng trung tâm'}
+          </span>
+        </div>
       </div>
 
       {/* Right Controls & User Profile */}
