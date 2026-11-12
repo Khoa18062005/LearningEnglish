@@ -18,10 +18,10 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:no-reply@linearvocab.com}")
+    @Value("${spring.mail.username:no-reply@lexiconvocab.com}")
     private String fromEmail;
 
-    @Value("${app.name:LinearVocab LMS}")
+    @Value("${app.name:LexiconVocab LMS}")
     private String appName;
 
     public EmailServiceImpl(@Autowired(required = false) JavaMailSender mailSender) {
@@ -83,11 +83,11 @@ public class EmailServiceImpl implements EmailService {
             <body>
               <div class="card">
                 <div class="header">
-                  <h1>LinearVocab LMS</h1>
+                  <h1>LexiconVocab LMS</h1>
                   <p>Hệ thống Học & Quản lý Từ vựng Tiếng Anh Tư Duy</p>
                 </div>
                 <div class="body">
-                  <p>Xin chào bạn,<br>Bạn vừa yêu cầu mã xác thực OTP để tiến hành đăng ký tài khoản trên hệ thống <strong>LinearVocab LMS</strong>.</p>
+                  <p>Xin chào bạn,<br>Bạn vừa yêu cầu mã xác thực OTP để tiến hành đăng ký tài khoản trên hệ thống <strong>LexiconVocab LMS</strong>.</p>
                   <p>Vui lòng sử dụng mã xác thực gồm 6 chữ số dưới đây:</p>
                   
                   <div class="otp-box">
@@ -99,7 +99,7 @@ public class EmailServiceImpl implements EmailService {
                   <p style="margin-top: 20px; font-size: 12px; color: #64748B;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>
                 </div>
                 <div class="footer">
-                  © 2026 LinearVocab LMS. Mọi quyền được bảo lưu.
+                  © 2026 LexiconVocab LMS. Mọi quyền được bảo lưu.
                 </div>
               </div>
             </body>

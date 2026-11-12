@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * CompetencyDetailModal: Hiển thị báo cáo chi tiết khi người dùng nhấn "Chi tiết >"
  * Cung cấp phân tích sâu từng trục kỹ năng, điểm mạnh, điểm cần cải thiện
- * và lộ trình luyện tập tiếp theo theo phương pháp Linearthinking.
+ * và lộ trình luyện tập tiếp theo theo phương pháp Lexicon.
  */
 export default function CompetencyDetailModal({
   isOpen,
@@ -37,11 +37,11 @@ export default function CompetencyDetailModal({
       application: 84,
       status: 'Xuất sắc',
       statusColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-      description: 'Ứng dụng chính xác các mẫu câu phức tạp theo chuẩn cấu trúc Linearthinking.',
+      description: 'Ứng dụng chính xác các mẫu câu phức tạp theo chuẩn cấu trúc Lexicon.',
       recommendation: 'Tiếp tục phát huy trong việc viết đoạn văn diễn dịch và quy nạp.',
     },
     {
-      name: 'Đọc hiểu Linearthinking',
+      name: 'Đọc hiểu Lexicon',
       comprehension: 90,
       application: 82,
       status: 'Xuất sắc',
@@ -104,7 +104,7 @@ export default function CompetencyDetailModal({
                 Báo cáo chi tiết Sơ đồ năng lực
               </h2>
               <p className="text-xs text-slate-500">
-                Phân tích chuyên sâu 8 trụ cột ngôn ngữ theo phương pháp Linearthinking
+                Phân tích chuyên sâu 8 trụ cột ngôn ngữ theo phương pháp Lexicon
               </p>
             </div>
           </div>

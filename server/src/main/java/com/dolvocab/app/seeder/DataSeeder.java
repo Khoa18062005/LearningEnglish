@@ -16,6 +16,6 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("LinearVocab DataSeeder: Mock data seeding đã được tắt. Hệ thống sẵn sàng cho dữ liệu thực.");
+        log.info("LexiconVocab DataSeeder: Mock data seeding đã được tắt. Hệ thống sẵn sàng cho dữ liệu thực.");
     }
 }

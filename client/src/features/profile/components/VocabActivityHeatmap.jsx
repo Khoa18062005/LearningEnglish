@@ -18,7 +18,7 @@ export default function VocabActivityHeatmap({
   const currentYear = 2026;
   const [selectedYear, setSelectedYear] = useState(2026);
   const [useSampleData, setUseSampleData] = useState(true);
-  const [colorTheme] = useState('crimson'); // 'crimson' (LinearVocab Red mặc định)
+  const [colorTheme] = useState('crimson'); // 'crimson' (LexiconVocab Red mặc định)
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [hoveredCell, setHoveredCell] = useState(null);
   const [hoveredScale, setHoveredScale] = useState(null);
@@ -222,7 +222,7 @@ export default function VocabActivityHeatmap({
       0: '#F1F5F9', // Xám nền trung tính
       1: '#FECDD3', // Đỏ hồng phấn nhẹ
       2: '#FB7185', // Đỏ san hô tươi
-      3: '#E11D48', // Đỏ thắm LinearVocab
+      3: '#E11D48', // Đỏ thắm LexiconVocab
       4: '#9F1239', // Đỏ bordeaux thẫm
       activeYear: 'bg-gradient-to-r from-[#c41b26] to-[#d3212c] text-white shadow-sm hover:brightness-110',
       badgeWord: 'text-rose-300',

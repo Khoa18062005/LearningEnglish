@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 
 /**
  * CompetencyRadarChart: Sơ đồ cơ cấu kho từ vựng 9 chiều (Nonagon Radar Matrix)
- * Thiết kế chuẩn UI học thuật DOL English & Linearthinking.
+ * Thiết kế chuẩn UI học thuật DOL English & Lexicon.
  * 
  * 9 Trục thể hiện 9 trường thông tin:
  * 1. Danh từ (Nouns)

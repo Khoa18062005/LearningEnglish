@@ -1360,14 +1360,15 @@ export default function App() {
 
         // 3. Clean up localStorage
         try {
-          const STORAGE_KEY = 'linearvocab_family_config';
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) {
-            const cfg = JSON.parse(raw);
-            if (id) delete cfg[String(id)];
-            if (rootWord) delete cfg[rootWord.toLowerCase()];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
-          }
+          ['lexiconvocab_family_config', 'linearvocab_family_config'].forEach((STORAGE_KEY) => {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const cfg = JSON.parse(raw);
+              if (id) delete cfg[String(id)];
+              if (rootWord) delete cfg[rootWord.toLowerCase()];
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+            }
+          });
         } catch (e) {
           console.error('Cannot clean up family config in localStorage', e);
         }

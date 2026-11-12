@@ -829,7 +829,7 @@ export default function Sidebar({
             </div>
             <div className="flex flex-col">
               <span className="font-headline font-bold text-base text-text-high-contrast leading-none tracking-tight">
-                LinearVocab
+                LexiconVocab
               </span>
               <span className="text-[10px] font-semibold text-text-muted mt-0.5 tracking-wider uppercase">
                 VOCABULARY LEARNING LMS

@@ -1186,7 +1186,7 @@ export default function ListVocabularyPage({
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-150">
-      {/* 1. Hero Banner: List Vocabulary (Linearthinking) */}
+      {/* 1. Hero Banner: List Vocabulary (Lexicon) */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 p-6 sm:p-7 lg:p-8 text-white transition-all">
         {/* Decorative glowing halos in background */}
         <div className="absolute -left-12 -top-12 w-80 h-80 bg-white/15 rounded-full blur-2xl pointer-events-none" />
@@ -1271,7 +1271,7 @@ export default function ListVocabularyPage({
               <div className="absolute inset-0 bg-white/20 rounded-full blur-xl scale-75 animate-pulse group-hover/mascot:scale-110 transition-transform duration-300 pointer-events-none" />
               <img
                 src={astronautImg}
-                alt="LinearVocab Mascot"
+                alt="LexiconVocab Mascot"
                 className="relative z-10 w-32 sm:w-36 lg:w-40 max-h-36 sm:max-h-40 object-contain drop-shadow-xl transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 hover:rotate-2 select-none"
               />
             </div>

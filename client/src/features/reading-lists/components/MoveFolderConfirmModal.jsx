@@ -132,7 +132,7 @@ function CloseIcon({ className = 'w-4 h-4' }) {
 
 /**
  * MoveFolderConfirmModal: Hộp thoại xác nhận chuyển thư mục / danh sách từ vựng.
- * Thiết kế đồng bộ theo LinearVocab LMS Design System (Primary #991b1b, rounded-xl container, rounded-lg buttons).
+ * Thiết kế đồng bộ theo LexiconVocab LMS Design System (Primary #991b1b, rounded-xl container, rounded-lg buttons).
  *
  * @param {MoveFolderConfirmModalProps} props
  */

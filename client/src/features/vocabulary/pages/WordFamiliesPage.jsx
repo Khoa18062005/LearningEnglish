@@ -2,11 +2,12 @@ import React, { useMemo, useState, useEffect } from 'react';
 import astronautImg from '../../../assets/Chibi_PhiHanhGia.png';
 
 // Local storage key for persisting custom representative root word and member ordering
-const STORAGE_KEY = 'linearvocab_family_config';
+const STORAGE_KEY = 'lexiconvocab_family_config';
+const LEGACY_STORAGE_KEY = 'linearvocab_family_config';
 
 const loadSavedConfig = () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch (e) {
     return {};
@@ -246,7 +247,7 @@ export default function WordFamiliesPage({
                 WORD FAMILIES
               </span>
               <span className="text-white/80 text-xs font-semibold">
-                Phương pháp Linearthinking
+                Phương pháp Lexicon
               </span>
             </div>
 
@@ -255,7 +256,7 @@ export default function WordFamiliesPage({
             </h1>
 
             <p className="text-xs text-white/90 leading-relaxed font-normal">
-              Học từ vựng theo cụm gốc từ (Root &amp; Affixes) theo phương pháp Linearthinking giúp bạn mở rộng vốn từ gấp 4 lần.
+              Học từ vựng theo cụm gốc từ (Root &amp; Affixes) theo phương pháp Lexicon giúp bạn mở rộng vốn từ gấp 4 lần.
             </p>
 
             <div className="flex items-center gap-2.5 mt-2 flex-wrap">

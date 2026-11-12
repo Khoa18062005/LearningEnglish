@@ -221,7 +221,7 @@ export default function CategoryView({
                 </div>
 
                 <p className="text-xs text-white/90 leading-relaxed font-normal mt-0.5">
-                  {category.description || 'Bộ từ vựng thuộc chủ đề phân loại theo phương pháp LinearThinking, phân tích ngữ cảnh, mẫu câu và collocations tương ứng.'}
+                  {category.description || 'Bộ từ vựng thuộc chủ đề phân loại theo phương pháp Lexicon, phân tích ngữ cảnh, mẫu câu và collocations tương ứng.'}
                 </p>
               </div>
 

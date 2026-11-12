@@ -81,9 +81,9 @@ export default function LoginPage({
                 </div>
               </div>
 
-              {/* Chữ Linear Vocab LMS màu đỏ */}
+              {/* Chữ Lexicon Vocab LMS màu đỏ */}
               <h2 className="text-crimson-primary font-black text-xl sm:text-2xl tracking-tight uppercase font-sans">
-                Linear Vocab LMS
+                Lexicon Vocab LMS
               </h2>
 
               {/* Tiêu đề Đăng nhập căn center */}
@@ -262,7 +262,7 @@ export default function LoginPage({
         <div className="hidden lg:flex lg:w-1/2 items-center justify-center py-4 w-full h-full min-h-[650px]">
           <div className="w-full max-w-[620px] h-full flex">
             <AuthBanner
-              title="LinearVocab LMS"
+              title="LexiconVocab LMS"
               onNavigateHome={onNavigateHome}
               description={
                 <>

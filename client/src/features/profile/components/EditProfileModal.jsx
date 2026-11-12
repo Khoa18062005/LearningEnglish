@@ -7,7 +7,7 @@ import { authApi } from '../../../api/authApi';
 /**
  * EditProfileModal: Modal chỉnh sửa thông tin cá nhân
  * Cho phép học viên cập nhật các trường: Họ tên, Ngày sinh, Giới tính, Tỉnh/Thành phố, Phường/Xã, Ảnh đại diện.
- * Thiết kế đồng bộ hoàn hảo với template DOL / LinearVocab và UserProfileCard.
+ * Thiết kế đồng bộ hoàn hảo với template DOL / LexiconVocab và UserProfileCard.
  */
 export default function EditProfileModal({
   isOpen,

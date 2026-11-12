@@ -33,7 +33,7 @@ export default function ProfileHeaderSection({
             Hồ sơ học viên & Ma trận năng lực
           </span>
           <span className="text-[11px] text-slate-400 hidden sm:inline">
-            (LinearVocab LMS Standard)
+            (LexiconVocab LMS Standard)
           </span>
         </div>
 

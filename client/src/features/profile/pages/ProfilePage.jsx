@@ -14,7 +14,7 @@ import astronautImg from '../../../assets/Chibi_PhiHanhGia.png';
  * Bố cục:
  * - Góc bên trái: Thông tin cá nhân (các thông tin dùng để đăng ký tài khoản)
  * - Bên phải trên cùng: Bảng sơ đồ năng lực (Radar chart chuẩn hóa, siêu đẹp)
- * - Tích hợp thống kê học tập, lộ trình Linearthinking và các modal tương tác
+ * - Tích hợp thống kê học tập, lộ trình Lexicon và các modal tương tác
  */
 export default function ProfilePage({
   currentUser,
@@ -55,7 +55,7 @@ export default function ProfilePage({
           Yêu cầu đăng nhập tài khoản
         </h2>
         <p className="text-slate-500 text-xs sm:text-sm max-w-md mb-6 leading-relaxed">
-          Bạn cần đăng nhập để truy cập Hồ sơ cá nhân và Sơ đồ năng lực Linearthinking.
+          Bạn cần đăng nhập để truy cập Hồ sơ cá nhân và Sơ đồ năng lực Lexicon.
         </p>
         <button
           type="button"
@@ -143,7 +143,7 @@ export default function ProfilePage({
                     USER PROFILE
                   </span>
                   <span className="text-white/80 text-xs font-semibold">
-                    Ma trận năng lực Linearthinking
+                    Ma trận năng lực Lexicon
                   </span>
                 </div>
 
@@ -153,7 +153,7 @@ export default function ProfilePage({
 
                 {/* Welcome Greeting */}
                 <p className="text-white/90 text-xs sm:text-sm font-medium tracking-wide mt-0.5 drop-shadow-2xs">
-                  Hello <span className="font-bold text-white">{userData.fullName || 'Nguyen Quoc Khoa'}</span>, Thanks for using Linear Vocabulary!
+                  Hello <span className="font-bold text-white">{userData.fullName || 'Nguyen Quoc Khoa'}</span>, Thanks for using Lexicon Vocabulary!
                 </p>
               </div>
 

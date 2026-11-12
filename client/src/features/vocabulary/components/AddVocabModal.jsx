@@ -1659,7 +1659,7 @@ export default function AddVocabModal({
                   {initialVocab ? `Chỉnh Sửa Từ Vựng: ${initialVocab.word}` : 'Thêm Từ Vựng Mới'}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full bg-surface-crimson-soft text-crimson-dark text-[10px] font-extrabold uppercase tracking-wider border border-border-crimson-tint/60">
-                  LinearVocab™
+                  LexiconVocab™
                 </span>
               </div>
               <p className="text-xs text-text-muted mt-0.5">

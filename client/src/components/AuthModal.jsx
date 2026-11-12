@@ -154,7 +154,7 @@ export default function AuthModal({
               </h2>
               <p className="text-xs text-text-muted mt-0.5">
                 {mode === 'login' 
-                  ? 'Chào mừng bạn quay lại hệ thống LinearVocab' 
+                  ? 'Chào mừng bạn quay lại hệ thống LexiconVocab' 
                   : 'Tham gia học tập và đồng bộ từ vựng cá nhân'}
               </p>
             </div>

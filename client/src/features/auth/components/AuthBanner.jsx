@@ -1,7 +1,7 @@
 import astronautImg from '@/assets/Chibi_PhiHanhGia_LoginRegister.png';
 
 export default function AuthBanner({
-  title = 'LinearVocab LMS',
+  title = 'LexiconVocab LMS',
   description = (
     <>
       Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
@@ -57,12 +57,12 @@ export default function AuthBanner({
         <a
           href="/"
           onClick={handleGoHome}
-          title="Bấm vào phi hành gia để quay về trang chủ LinearVocab"
+          title="Bấm vào phi hành gia để quay về trang chủ LexiconVocab"
           className="group relative z-10 flex flex-col items-center cursor-pointer transition-transform duration-300 ease-out hover:scale-105 active:scale-95 will-change-transform select-none"
         >
           <img
             src={astronautImg}
-            alt="LinearVocab Mascot 3D - Bấm để quay về trang chủ"
+            alt="LexiconVocab Mascot 3D - Bấm để quay về trang chủ"
             className="w-52 sm:w-64 lg:w-80 xl:w-[340px] max-h-[380px] lg:max-h-[440px] xl:max-h-[480px] object-contain transition-transform duration-300 group-hover:-translate-y-1.5"
             style={{
               filter: 'drop-shadow(0px 16px 20px rgba(0, 0, 0, 0.42))',

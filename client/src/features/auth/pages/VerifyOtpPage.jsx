@@ -203,7 +203,7 @@ export default function VerifyOtpPage({
       if (res && res.accessToken) {
         localStorage.setItem('access_token', res.accessToken);
         localStorage.setItem('current_user', JSON.stringify(res.user));
-        onRegisterSuccess(res.user, 'Xác thực OTP và đăng ký tài khoản thành công! Chào mừng bạn đến với LinearVocab LMS.');
+        onRegisterSuccess(res.user, 'Xác thực OTP và đăng ký tài khoản thành công! Chào mừng bạn đến với LexiconVocab LMS.');
       }
     } catch (err) {
       console.error('Lỗi xác thực đăng ký:', err);
@@ -352,7 +352,7 @@ export default function VerifyOtpPage({
           <div className="w-full max-w-[620px] h-full flex">
             <AuthBanner
               showLogo={true}
-              title="LinearVocab LMS"
+              title="LexiconVocab LMS"
               onNavigateHome={onNavigateHome}
               description={
                 <>

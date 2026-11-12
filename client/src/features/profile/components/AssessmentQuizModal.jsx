@@ -31,7 +31,7 @@ export default function AssessmentQuizModal({
     {
       id: 2,
       category: 'Cấu trúc & Pattern câu',
-      question: 'Theo cấu trúc Linearthinking, mẫu câu nào thể hiện rõ mối quan hệ nguyên nhân - kết quả logic?',
+      question: 'Theo cấu trúc Lexicon, mẫu câu nào thể hiện rõ mối quan hệ nguyên nhân - kết quả logic?',
       options: [
         { key: 'A', text: 'He was late because of heavy traffic, so he missed the flight.', isCorrect: false },
         { key: 'B', text: 'Heavy traffic prevented him from arriving on time, resulting in a missed flight.', isCorrect: true },
@@ -54,7 +54,7 @@ export default function AssessmentQuizModal({
     },
     {
       id: 4,
-      category: 'Tư duy Paraphrase Linearthinking',
+      category: 'Tư duy Paraphrase Lexicon',
       question: 'Paraphrase câu "Many students find it difficult to balance study and part-time jobs":',
       options: [
         { key: 'A', text: 'Studying and doing part-time work is hard for students.', isCorrect: false },

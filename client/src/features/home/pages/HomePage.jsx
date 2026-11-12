@@ -170,18 +170,18 @@ export default function HomePage({
 
           <div className="mt-2.5 sm:mt-4 flex items-center justify-center gap-2">
             <span className="text-4xl sm:text-6xl lg:text-7xl font-black text-crimson-primary tracking-tight font-sans">
-              Linear Vocab
+              Lexicon Vocab
             </span>
             <span className="text-rose-400 text-2xl sm:text-3xl font-bold select-none animate-pulse">
               ✦
             </span>
           </div>
 
-          {/* Stats Bar (Linearthinking | 4,000+ | 20,000+) - Chuẩn phong cách dolenglish.vn */}
+          {/* Stats Bar (Lexicon | 4,000+ | 20,000+) - Chuẩn phong cách dolenglish.vn */}
           <div className="mt-8 sm:mt-11 max-w-3xl mx-auto flex items-center justify-center divide-x divide-slate-200 text-center px-4 relative z-10">
             <div className="px-4 sm:px-8">
               <p className="text-lg sm:text-2xl font-black text-[#1E293B] tracking-tight">
-                Linearthinking
+                Lexicon
               </p>
               <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">
                 TIẾNG ANH TƯ DUY
@@ -258,13 +258,13 @@ export default function HomePage({
               LV
             </div>
             <div>
-              <p className="text-white font-bold text-sm">Linear Vocab - Ghi từ vựng thông minh</p>
-              <p className="text-slate-500 text-[11px] mt-0.5">Hệ thống Kho từ vựng & Phương pháp tư duy Linear Thinking</p>
+              <p className="text-white font-bold text-sm">Lexicon Vocab - Ghi từ vựng thông minh</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">Hệ thống Kho từ vựng & Phương pháp tư duy Lexicon</p>
             </div>
           </div>
 
           <p className="text-slate-500 text-center sm:text-right">
-            © 2026 Linear Vocab. All rights reserved.
+            © 2026 Lexicon Vocab. All rights reserved.
           </p>
         </div>
       </footer>

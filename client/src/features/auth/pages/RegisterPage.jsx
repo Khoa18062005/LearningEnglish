@@ -684,7 +684,7 @@ export default function RegisterPage({
             <AuthBanner
               showLogo={true}
               className="h-full flex-1"
-              title="LinearVocab LMS"
+              title="LexiconVocab LMS"
               onNavigateHome={onNavigateHome}
               description={
                 <>

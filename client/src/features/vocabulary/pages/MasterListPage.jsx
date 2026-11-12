@@ -320,7 +320,7 @@ export default function MasterListPage({
                 MASTER VOCABULARY
               </span>
               <span className="text-white/80 text-xs font-semibold">
-                Phương pháp Linearthinking
+                Phương pháp Lexicon
               </span>
             </div>
 
@@ -329,7 +329,7 @@ export default function MasterListPage({
             </h1>
 
             <p className="text-xs text-white/90 leading-relaxed font-normal">
-              Hệ thống cấu trúc từ vựng ma trận theo phương pháp Linearthinking. Phân bổ đa tầng nghĩa, ngữ cảnh collocation và mẫu câu ứng dụng chuẩn hóa.
+              Hệ thống cấu trúc từ vựng ma trận theo phương pháp Lexicon. Phân bổ đa tầng nghĩa, ngữ cảnh collocation và mẫu câu ứng dụng chuẩn hóa.
             </p>
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -509,7 +509,7 @@ export default function MasterListPage({
                 ? 'Nhấn vào biểu tượng bookmark (🔖) ở góc phải của bất kỳ thẻ từ vựng nào để lưu vào danh sách cần ôn tập.'
                 : searchTerm || (selectedPos && selectedPos !== 'all') || selectedCategory
                 ? 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các bộ lọc từ loại/chủ đề (Topic Vocabulary).'
-                : 'Kho từ vựng của bạn đang trống. Hãy thêm các từ vựng mới để bắt đầu học tập và quản trị theo phương pháp Linearthinking.'}
+                : 'Kho từ vựng của bạn đang trống. Hãy thêm các từ vựng mới để bắt đầu học tập và quản trị theo phương pháp Lexicon.'}
             </p>
             {activeSortBy === 'starred' || activeSortBy === 'bookmarked' ? (
               <button

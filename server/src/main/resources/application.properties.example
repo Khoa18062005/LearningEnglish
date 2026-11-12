@@ -30,7 +30,7 @@ spring.mail.properties.mail.smtp.timeout=5000
 spring.mail.properties.mail.smtp.writetimeout=5000
 
 # App Info
-app.name=LinearVocab LMS
+app.name=LexiconVocab LMS
 app.jwt.secret=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 app.jwt.expiration-ms=86400000
 

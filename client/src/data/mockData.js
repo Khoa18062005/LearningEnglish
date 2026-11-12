@@ -1,5 +1,5 @@
 /**
- * Dữ liệu khởi tạo (Initial State) cho LinearVocab
+ * Dữ liệu khởi tạo (Initial State) cho LexiconVocab
  * Đã làm sạch toàn bộ dữ liệu Mock (Vocabulary, Reading Lists, Categories).
  * Khi kết nối Spring Boot Backend, dữ liệu thực sẽ được nạp qua API.
  */
