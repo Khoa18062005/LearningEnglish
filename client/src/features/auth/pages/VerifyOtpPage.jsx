@@ -214,12 +214,10 @@ export default function VerifyOtpPage({
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-center py-6 sm:py-8 lg:py-10 selection:bg-surface-crimson-soft selection:text-crimson-dark">
-      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
-        
-        {/* Left Form Column */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
-          <div className="max-w-[460px] w-full lg:-translate-x-7 xl:-translate-x-9">
+    <div className="h-screen w-full overflow-hidden bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#B91C1C_50%)] flex flex-col lg:flex-row selection:bg-surface-crimson-soft selection:text-crimson-dark">
+      {/* Left Form Column */}
+      <div className="w-full lg:w-1/2 h-full overflow-y-auto overscroll-contain flex flex-col items-center justify-center py-8 px-6 sm:px-10 lg:px-12 bg-white">
+        <div className="max-w-[460px] w-full my-auto">
 
             {/* Header Section */}
             <div className="text-center mb-6">
@@ -347,25 +345,22 @@ export default function VerifyOtpPage({
           </div>
         </div>
 
-        {/* Right Hero Card Column */}
-        <div className="hidden lg:flex lg:w-1/2 items-center justify-center py-4 w-full h-full min-h-[680px]">
-          <div className="w-full max-w-[620px] h-full flex">
-            <AuthBanner
-              showLogo={true}
-              title="LexiconVocab LMS"
-              onNavigateHome={onNavigateHome}
-              description={
-                <>
-                  Bảo vệ tài khoản an toàn với xác thực OTP 2 lớp.
-                  <br />
-                  Chỉ còn một bước nữa để bắt đầu hành trình nâng tầm vốn từ vựng tư duy!
-                </>
-              }
-            />
-          </div>
+        {/* Right Hero Card Column: Cố định 100% chiều cao nửa phải, không khoảng trắng dư thừa */}
+        <div className="hidden lg:flex lg:w-1/2 h-full overflow-hidden shrink-0">
+          <AuthBanner
+            showLogo={true}
+            className="w-full h-full"
+            title="LexiconVocab LMS"
+            onNavigateHome={onNavigateHome}
+            description={
+              <>
+                Bảo vệ tài khoản an toàn với xác thực OTP 2 lớp.
+                <br />
+                Chỉ còn một bước nữa để bắt đầu hành trình nâng tầm vốn từ vựng tư duy!
+              </>
+            }
+          />
         </div>
-
       </div>
-    </div>
   );
 }

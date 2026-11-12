@@ -26,7 +26,7 @@ export default function AuthBanner({
   return (
     <div
       style={style}
-      className={`relative w-full h-full min-h-[520px] rounded-[28px] lg:rounded-[36px] bg-gradient-to-b from-[#E31E24] to-[#B91C1C] p-8 lg:p-12 xl:p-14 flex flex-col justify-between overflow-hidden shadow-[0_20px_50px_rgba(227,30,36,0.25)] text-white select-none ${className}`}
+      className={`relative w-full h-full min-h-[520px] bg-gradient-to-b from-[#E31E24] to-[#B91C1C] p-8 lg:p-12 xl:p-14 flex flex-col justify-between overflow-hidden text-white select-none ${className}`}
     >
       {/* Background Decorative Soft Light */}
       <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/10 blur-2xl pointer-events-none" />

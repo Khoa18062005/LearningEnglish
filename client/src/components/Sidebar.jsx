@@ -833,14 +833,9 @@ export default function Sidebar({
             <div className="w-9 h-9 rounded-xl bg-crimson-primary flex items-center justify-center text-white shadow-sm shadow-red-200">
               <span className="material-symbols-outlined text-[20px]">menu_book</span>
             </div>
-            <div className="flex flex-col">
-              <span className="font-headline font-bold text-base text-text-high-contrast leading-none tracking-tight">
-                LexiconVocab
-              </span>
-              <span className="text-[10px] font-semibold text-text-muted mt-0.5 tracking-wider uppercase">
-                VOCABULARY LEARNING LMS
-              </span>
-            </div>
+            <span className="font-headline font-bold text-base text-text-high-contrast leading-none tracking-tight">
+              LexiconVocab
+            </span>
           </div>
 
           {/* Nút thu nhỏ Sidebar (Collapse Button) */}

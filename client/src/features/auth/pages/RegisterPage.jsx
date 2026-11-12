@@ -300,14 +300,13 @@ export default function RegisterPage({
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-center py-6 sm:py-8 lg:py-10 selection:bg-surface-crimson-soft selection:text-crimson-dark">
-      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center lg:items-start justify-center gap-8 lg:gap-14 my-auto">
-        {/* Left Form Column */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
-          <div
-            ref={formContainerRef}
-            className="max-w-[460px] w-full lg:-translate-x-7 xl:-translate-x-9"
-          >
+    <div className="h-screen w-full overflow-hidden bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#B91C1C_50%)] flex flex-col lg:flex-row selection:bg-surface-crimson-soft selection:text-crimson-dark">
+      {/* Left Form Column: Cuộn độc lập, ngăn chặn overscroll ra ngoài window */}
+      <div className="w-full lg:w-1/2 h-full overflow-y-auto overscroll-contain flex flex-col items-center justify-start py-8 sm:py-10 px-6 sm:px-10 lg:px-12 bg-white custom-scrollbar">
+        <div
+          ref={formContainerRef}
+          className="max-w-[460px] w-full my-auto py-2"
+        >
             {/* Centered Header Section */}
             <div className="text-center mb-6">
               {/* Tiêu đề Đăng ký tài khoản */}
@@ -675,28 +674,22 @@ export default function RegisterPage({
           </div>
         </div>
 
-        {/* Right Hero Card Column */}
-        <div className="hidden lg:flex lg:w-1/2 justify-center py-4 w-full">
-          <div
-            className="w-full max-w-[620px] flex flex-col transition-[height] duration-150"
-            style={formHeight ? { height: `${formHeight}px` } : { minHeight: '750px' }}
-          >
-            <AuthBanner
-              showLogo={true}
-              className="h-full flex-1"
-              title="LexiconVocab LMS"
-              onNavigateHome={onNavigateHome}
-              description={
-                <>
-                  Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
-                  <br />
-                  rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
-                </>
-              }
-            />
-          </div>
+        {/* Right Hero Card Column: Cố định 100% chiều cao nửa phải, không khoảng trắng dư thừa */}
+        <div className="hidden lg:flex lg:w-1/2 h-full overflow-hidden shrink-0">
+          <AuthBanner
+            showLogo={true}
+            className="w-full h-full"
+            title="LexiconVocab LMS"
+            onNavigateHome={onNavigateHome}
+            description={
+              <>
+                Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
+                <br />
+                rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
+              </>
+            }
+          />
         </div>
-      </div>
 
       {/* Loading Modal Overlay khi đang tạo mã OTP & gửi email */}
       {loading && (

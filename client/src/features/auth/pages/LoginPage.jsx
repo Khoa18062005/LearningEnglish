@@ -67,11 +67,10 @@ export default function LoginPage({
   };
 
   return (
-    <div className="min-h-screen w-full bg-white flex flex-col justify-center py-6 sm:py-8 lg:py-10 selection:bg-surface-crimson-soft selection:text-crimson-dark">
-      <div className="w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-14">
-        {/* Left Form Column */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center py-4">
-          <div className="max-w-[420px] w-full lg:-translate-x-7 xl:-translate-x-9">
+    <div className="h-screen w-full overflow-hidden bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#B91C1C_50%)] flex flex-col lg:flex-row selection:bg-surface-crimson-soft selection:text-crimson-dark">
+      {/* Left Form Column */}
+      <div className="w-full lg:w-1/2 h-full overflow-y-auto overscroll-contain flex flex-col items-center justify-center py-8 px-6 sm:px-10 lg:px-12 bg-white">
+        <div className="max-w-[420px] w-full my-auto">
             {/* Centered Brand & Header Section */}
             <div className="text-center mb-7">
               {/* Logo Cuốn Sách vô giữa */}
@@ -258,23 +257,21 @@ export default function LoginPage({
           </div>
         </div>
 
-        {/* Right Hero Card Column */}
-        <div className="hidden lg:flex lg:w-1/2 items-center justify-center py-4 w-full h-full min-h-[650px]">
-          <div className="w-full max-w-[620px] h-full flex">
-            <AuthBanner
-              title="LexiconVocab LMS"
-              onNavigateHome={onNavigateHome}
-              description={
-                <>
-                  Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
-                  <br />
-                  rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
-                </>
-              }
-            />
-          </div>
+        {/* Right Hero Card Column: Cố định 100% chiều cao và chiều ngang nửa phải, không khoảng trắng dư thừa */}
+        <div className="hidden lg:flex lg:w-1/2 h-full overflow-hidden shrink-0">
+          <AuthBanner
+            className="w-full h-full"
+            title="LexiconVocab LMS"
+            onNavigateHome={onNavigateHome}
+            description={
+              <>
+                Tham gia chương trình học từ vựng tư duy để học hỏi từ các chuyên gia,
+                <br />
+                rèn luyện kỹ năng thực tế và chuẩn bị vững vàng cho tương lai.
+              </>
+            }
+          />
         </div>
       </div>
-    </div>
   );
 }

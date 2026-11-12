@@ -1462,7 +1462,7 @@ export default function App() {
   // Trang riêng: Đăng nhập
   if (currentView === 'login') {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="h-screen w-full overflow-hidden bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#B91C1C_50%)]">
         <LoginPage
           onNavigateRegister={() => navigateTo('register')}
           onNavigateHome={() => navigateTo('home')}
@@ -1489,7 +1489,7 @@ export default function App() {
   // Trang riêng: Đăng ký
   if (currentView === 'register') {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="h-screen w-full overflow-hidden bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#B91C1C_50%)]">
         <RegisterPage
           initialData={pendingRegistrationData}
           onNavigateLogin={() => navigateTo('login')}
@@ -1528,7 +1528,7 @@ export default function App() {
   // Trang riêng: Xác thực OTP 6 số
   if (currentView === 'verify-otp') {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="h-screen w-full overflow-hidden bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#B91C1C_50%)]">
         <VerifyOtpPage
           registrationData={pendingRegistrationData}
           onNavigateHome={() => navigateTo('home')}
