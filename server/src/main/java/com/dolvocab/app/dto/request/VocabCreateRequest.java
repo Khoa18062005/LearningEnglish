@@ -37,7 +37,7 @@ public class VocabCreateRequest {
     private List<MeaningDetailItemRequest> meaningDetails = new ArrayList<>();
 
     // Word Family
-    private Long wordFamilyId;
+    private String wordFamilyId;
     private String rootWord;
     @Builder.Default
     private List<String> wordFamily = new ArrayList<>();
@@ -49,7 +49,7 @@ public class VocabCreateRequest {
 
     // Categories
     @Builder.Default
-    private List<Long> categoryIds = new ArrayList<>();
+    private List<String> categoryIds = new ArrayList<>();
     @Builder.Default
     private List<String> categories = new ArrayList<>();
 

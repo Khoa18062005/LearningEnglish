@@ -1,24 +1,15 @@
 package com.dolvocab.app.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-@Entity
-@Table(
-    name = "categories",
-    indexes = {
-        @Index(name = "idx_category_user", columnList = "user_id")
-    },
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_category", columnNames = {"user_id", "name"})
-    }
-)
+@Document(collection = "categories")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -27,29 +18,20 @@ import java.util.List;
 public class Category {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Field(targetType = FieldType.OBJECT_ID)
+    private String userId;
 
-    @Column(nullable = false, length = 150)
     private String name;
 
-    @Column(name = "color_code", length = 20)
+    private String nameLower;
+
     @Builder.Default
     private String colorCode = "#E31E24";
 
-    @Column(length = 255)
     private String description;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @CreatedDate
     private LocalDateTime createdAt;
-
-    @ManyToMany(mappedBy = "categories")
-    @JsonIgnore
-    @Builder.Default
-    private List<Vocabulary> vocabularies = new ArrayList<>();
 }

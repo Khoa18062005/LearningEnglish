@@ -2,16 +2,17 @@ package com.dolvocab.app.entity;
 
 import com.dolvocab.app.entity.enums.Gender;
 import com.dolvocab.app.entity.enums.Role;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "users")
+@Document(collection = "users")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,52 +21,90 @@ import java.time.LocalDateTime;
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Indexed(unique = true)
     private String email;
 
-    @Column(nullable = false)
     private String password;
 
-    @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
 
-    @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
     @Builder.Default
     private Gender gender = Gender.OTHER;
 
-    // Địa chỉ theo cấu trúc 2 cấp (Provinces Open API v2 sau sáp nhập)
-    @Column(name = "province_code")
-    private Integer provinceCode;
+    @Builder.Default
+    private Address address = new Address();
 
-    @Column(name = "province_name", length = 100)
-    private String provinceName;
-
-    @Column(name = "ward_code")
-    private Integer wardCode;
-
-    @Column(name = "ward_name", length = 100)
-    private String wardName;
-
-    @Column(name = "address_detail", length = 255)
-    private String addressDetail;
-
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
     @Builder.Default
     private Role role = Role.ROLE_USER;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @CreatedDate
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class Address {
+        private Integer provinceCode;
+        private String provinceName;
+        private Integer wardCode;
+        private String wardName;
+        private String detail;
+    }
+
+    // Helper methods tương thích ngược với code cũ
+    public Integer getProvinceCode() {
+        return address != null ? address.getProvinceCode() : null;
+    }
+
+    public void setProvinceCode(Integer provinceCode) {
+        ensureAddress().setProvinceCode(provinceCode);
+    }
+
+    public String getProvinceName() {
+        return address != null ? address.getProvinceName() : null;
+    }
+
+    public void setProvinceName(String provinceName) {
+        ensureAddress().setProvinceName(provinceName);
+    }
+
+    public Integer getWardCode() {
+        return address != null ? address.getWardCode() : null;
+    }
+
+    public void setWardCode(Integer wardCode) {
+        ensureAddress().setWardCode(wardCode);
+    }
+
+    public String getWardName() {
+        return address != null ? address.getWardName() : null;
+    }
+
+    public void setWardName(String wardName) {
+        ensureAddress().setWardName(wardName);
+    }
+
+    public String getAddressDetail() {
+        return address != null ? address.getDetail() : null;
+    }
+
+    public void setAddressDetail(String addressDetail) {
+        ensureAddress().setDetail(addressDetail);
+    }
+
+    private Address ensureAddress() {
+        if (this.address == null) {
+            this.address = new Address();
+        }
+        return this.address;
+    }
 }

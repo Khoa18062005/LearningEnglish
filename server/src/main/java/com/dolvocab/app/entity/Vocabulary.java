@@ -1,25 +1,18 @@
 package com.dolvocab.app.entity;
 
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
+import org.springframework.data.mongodb.core.mapping.FieldType;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
-@Entity
-@Table(
-    name = "vocabularies",
-    indexes = {
-        @Index(name = "idx_vocab_word", columnList = "word"),
-        @Index(name = "idx_vocab_user", columnList = "user_id"),
-        @Index(name = "idx_vocab_pos", columnList = "pos")
-    }
-)
+@Document(collection = "vocabularies")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,82 +21,64 @@ import java.util.Set;
 public class Vocabulary {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Field(targetType = FieldType.OBJECT_ID)
+    private String userId;
 
-    @Column(nullable = false, length = 150)
     private String word;
 
-    @Column(name = "pos", length = 30)
+    private String wordLower;
+
     private String pos;
 
-    @Column(length = 100)
     private String phonetic;
 
-    @Column(name = "audio_url", length = 500)
     private String audioUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "word_family_id")
-    private WordFamily wordFamily;
+    @Field(targetType = FieldType.OBJECT_ID)
+    private String wordFamilyId;
 
-    @Column(name = "general_note", columnDefinition = "TEXT")
     private String generalNote;
 
-    @Column(columnDefinition = "TEXT")
     private String meaning;
 
-    @Column(name = "close_meanings", length = 500)
     private String closeMeanings;
 
-    @Column(name = "synonyms", length = 500)
     private String synonyms;
 
-    @Column(name = "meaning_details_json", columnDefinition = "TEXT")
     private String meaningDetailsJson;
 
-    @ManyToMany
-    @JoinTable(
-        name = "vocab_categories",
-        joinColumns = @JoinColumn(name = "vocab_id"),
-        inverseJoinColumns = @JoinColumn(name = "category_id")
-    )
     @Builder.Default
-    private Set<Category> categories = new HashSet<>();
+    private List<Object> meaningDetails = new ArrayList<>();
 
-    @ManyToMany
-    @JoinTable(
-        name = "note_list_vocabs",
-        joinColumns = @JoinColumn(name = "vocab_id"),
-        inverseJoinColumns = @JoinColumn(name = "note_list_id")
-    )
+    @Field(targetType = FieldType.OBJECT_ID)
     @Builder.Default
-    private Set<NoteList> noteLists = new HashSet<>();
+    private List<String> categoryIds = new ArrayList<>();
 
-    @OneToMany(mappedBy = "vocabulary", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("displayOrder ASC")
+    @Field(targetType = FieldType.OBJECT_ID)
+    @Builder.Default
+    private List<String> noteListIds = new ArrayList<>();
+
     @Builder.Default
     private List<VocabForm> forms = new ArrayList<>();
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
+    @CreatedDate
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
+    @LastModifiedDate
     private LocalDateTime updatedAt;
 
     public void addForm(VocabForm form) {
+        if (forms == null) {
+            forms = new ArrayList<>();
+        }
         forms.add(form);
-        form.setVocabulary(this);
     }
 
     public void removeForm(VocabForm form) {
-        forms.remove(form);
-        form.setVocabulary(null);
+        if (forms != null) {
+            forms.remove(form);
+        }
     }
 }

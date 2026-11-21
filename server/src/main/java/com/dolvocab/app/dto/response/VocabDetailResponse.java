@@ -15,7 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 public class VocabDetailResponse {
 
-    private Long id;
+    private String id;
     private String word;
     private String phonetic;
     private String audioUrl;
@@ -32,7 +32,7 @@ public class VocabDetailResponse {
     private List<MeaningDetailResponse> meaningDetails = new ArrayList<>();
 
     // Word family information
-    private Long wordFamilyId;
+    private String wordFamilyId;
     private String rootWord;
     @Builder.Default
     private List<String> wordFamily = new ArrayList<>();
@@ -49,7 +49,7 @@ public class VocabDetailResponse {
     private List<CategoryResponse> categoryObjects = new ArrayList<>();
 
     // Reading lists
-    private Long readingListId;
+    private String readingListId;
     private String readingListName;
     @Builder.Default
     private List<NoteListResponse> noteLists = new ArrayList<>();
@@ -70,7 +70,7 @@ public class VocabDetailResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VocabFormResponse {
-        private Long id;
+        private String id;
         private String partOfSpeech;
         private String countability;
         private Integer displayOrder;
@@ -83,7 +83,7 @@ public class VocabDetailResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class VocabSenseResponse {
-        private Long id;
+        private String id;
         private String pattern;
         private String collocation;
         private String synonyms;

@@ -17,7 +17,7 @@ public class CursorResponse<T> {
     @Builder.Default
     private List<T> items = new ArrayList<>();
 
-    private Long nextCursor;
+    private String nextCursor;
     private boolean hasMore;
     private long totalCount;
 }

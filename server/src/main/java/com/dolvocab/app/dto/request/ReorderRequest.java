@@ -12,5 +12,5 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReorderRequest {
-    private List<Long> ids;
+    private List<String> ids;
 }

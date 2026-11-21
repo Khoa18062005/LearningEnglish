@@ -1,18 +1,15 @@
 spring.application.name=learning-english-backend
 server.port=8080
 
-# MySQL DataSource configuration
-spring.datasource.url=jdbc:mysql://localhost:3306/dol_vocab_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
-spring.datasource.username=${MYSQL_USERNAME:root}
-spring.datasource.password=${MYSQL_PASSWORD:your_password_here}
-spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+# MongoDB Configuration
+spring.data.mongodb.uri=${MONGODB_URI:mongodb://localhost:27017/lexicon_vocab?replicaSet=rs0&directConnection=true}
+spring.data.mongodb.auto-index-creation=false
 
-# JPA / Hibernate configuration
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
-spring.jpa.open-in-view=true
+# MySQL DataSource configuration (Tuỳ chọn: dùng khi chạy profile migrate để chuyển dữ liệu từ MySQL)
+# spring.datasource.url=jdbc:mysql://localhost:3306/dol_vocab_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
+# spring.datasource.username=${MYSQL_USERNAME:root}
+# spring.datasource.password=${MYSQL_PASSWORD:your_password_here}
+# spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
 # =======================================================
 # Spring Mail Configuration (Gmail SMTP)

@@ -1,31 +1,55 @@
 package com.dolvocab.app.repository;
 
 import com.dolvocab.app.entity.Vocabulary;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface VocabularyRepository extends JpaRepository<Vocabulary, Long>, JpaSpecificationExecutor<Vocabulary> {
+public interface VocabularyRepository extends MongoRepository<Vocabulary, String>, VocabularyQueryRepository {
 
-    List<Vocabulary> findAllByUserId(Long userId);
+    List<Vocabulary> findAllByUserId(String userId);
 
-    Optional<Vocabulary> findByIdAndUserId(Long id, Long userId);
+    Optional<Vocabulary> findByIdAndUserId(String id, String userId);
 
-    List<Vocabulary> findAllByWordIgnoreCaseAndUserId(String word, Long userId);
+    List<Vocabulary> findAllByWordLowerAndUserId(String wordLower, String userId);
 
-    Optional<Vocabulary> findFirstByWordIgnoreCaseAndUserId(String word, Long userId);
+    Optional<Vocabulary> findFirstByWordLowerAndUserId(String wordLower, String userId);
 
-    Optional<Vocabulary> findByWordIgnoreCaseAndUserId(String word, Long userId);
+    Optional<Vocabulary> findByWordLowerAndUserId(String wordLower, String userId);
 
-    Optional<Vocabulary> findByWordIgnoreCaseAndPosIgnoreCaseAndUserId(String word, String pos, Long userId);
+    Optional<Vocabulary> findByWordLowerAndPosIgnoreCaseAndUserId(String wordLower, String pos, String userId);
 
-    boolean existsByWordIgnoreCaseAndUserId(String word, Long userId);
+    boolean existsByWordLowerAndUserId(String wordLower, String userId);
 
-    boolean existsByIdAndUserId(Long id, Long userId);
+    boolean existsByIdAndUserId(String id, String userId);
 
-    void deleteByIdAndUserId(Long id, Long userId);
+    void deleteByIdAndUserId(String id, String userId);
+
+    // Default methods tương thích ngược
+    default List<Vocabulary> findAllByWordIgnoreCaseAndUserId(String word, String userId) {
+        return findAllByWordLowerAndUserId(word != null ? word.trim().toLowerCase() : null, userId);
+    }
+
+    default Optional<Vocabulary> findFirstByWordIgnoreCaseAndUserId(String word, String userId) {
+        return findFirstByWordLowerAndUserId(word != null ? word.trim().toLowerCase() : null, userId);
+    }
+
+    default Optional<Vocabulary> findByWordIgnoreCaseAndUserId(String word, String userId) {
+        return findByWordLowerAndUserId(word != null ? word.trim().toLowerCase() : null, userId);
+    }
+
+    default Optional<Vocabulary> findByWordIgnoreCaseAndPosIgnoreCaseAndUserId(String word, String pos, String userId) {
+        return findByWordLowerAndPosIgnoreCaseAndUserId(
+                word != null ? word.trim().toLowerCase() : null,
+                pos != null ? pos.trim().toLowerCase() : null,
+                userId
+        );
+    }
+
+    default boolean existsByWordIgnoreCaseAndUserId(String word, String userId) {
+        return existsByWordLowerAndUserId(word != null ? word.trim().toLowerCase() : null, userId);
+    }
 }

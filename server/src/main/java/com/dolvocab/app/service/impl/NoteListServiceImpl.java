@@ -9,21 +9,26 @@ import com.dolvocab.app.entity.NoteList;
 import com.dolvocab.app.entity.ReadingPassage;
 import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
+import com.dolvocab.app.exception.ConflictException;
+import com.dolvocab.app.exception.ResourceNotFoundException;
 import com.dolvocab.app.repository.NoteFolderRepository;
 import com.dolvocab.app.repository.NoteListRepository;
-import com.dolvocab.app.repository.ReadingPassageRepository;
+import com.dolvocab.app.repository.VocabularyRepository;
 import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.NoteListService;
+import com.dolvocab.app.utils.ObjectIdValidator;
 import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.core.BulkOperations;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,8 +36,9 @@ public class NoteListServiceImpl implements NoteListService {
 
     private final NoteListRepository noteListRepository;
     private final NoteFolderRepository noteFolderRepository;
-    private final ReadingPassageRepository readingPassageRepository;
+    private final VocabularyRepository vocabularyRepository;
     private final SecurityUtils securityUtils;
+    private final MongoTemplate mongoTemplate;
 
     private int countWords(String text) {
         if (text == null || text.isBlank()) return 0;
@@ -57,7 +63,7 @@ public class NoteListServiceImpl implements NoteListService {
             }
         } else if (fallbackLegacyPassage != null && !fallbackLegacyPassage.trim().isEmpty()) {
             list.add(ReadingPassageResponse.builder()
-                    .id(-1L)
+                    .id(new ObjectId().toHexString())
                     .title("Nội dung bài đọc")
                     .content(fallbackLegacyPassage)
                     .wordCount(countWords(fallbackLegacyPassage))
@@ -67,7 +73,7 @@ public class NoteListServiceImpl implements NoteListService {
         return list;
     }
 
-    private NoteListResponse toResponse(NoteList list, long count) {
+    private NoteListResponse toResponse(NoteList list, long count, NoteFolder folder) {
         String code = list.getCode();
         String title = list.getTitle();
         String shortTitle = (code != null && !code.trim().isEmpty()) ? code.trim() : title;
@@ -75,9 +81,9 @@ public class NoteListServiceImpl implements NoteListService {
                 ? code.trim() + ": " + title
                 : title;
 
-        Long folderId = list.getFolder() != null ? list.getFolder().getId() : null;
-        String folderCode = list.getFolder() != null ? list.getFolder().getCode() : null;
-        String folderName = list.getFolder() != null ? list.getFolder().getName() : null;
+        String folderId = list.getFolderId();
+        String folderCode = folder != null ? folder.getCode() : null;
+        String folderName = folder != null ? folder.getName() : null;
 
         List<ReadingPassageResponse> passageResponses = mapPassagesToResponse(list.getPassages(), list.getPassage());
 
@@ -104,86 +110,40 @@ public class NoteListServiceImpl implements NoteListService {
     @Transactional(readOnly = true)
     public List<NoteListResponse> getAllNoteLists() {
         User currentUser = securityUtils.getCurrentUser();
-        List<Object[]> rows = noteListRepository.findNoteListsWithVocabCountByUserId(currentUser.getId());
+        List<NoteList> lists = noteListRepository.findAllByUserIdOrdered(currentUser.getId());
+        Map<String, Long> countMap = vocabularyRepository.countVocabulariesGroupedByNoteListIds(currentUser.getId());
+
+        List<NoteFolder> folders = noteFolderRepository.findAllByUserIdOrdered(currentUser.getId());
+        Map<String, NoteFolder> folderMap = folders.stream()
+                .collect(Collectors.toMap(NoteFolder::getId, f -> f, (existing, replacing) -> existing));
+
         List<NoteListResponse> responses = new ArrayList<>();
-
-        // Nạp toàn bộ passages của user để group theo noteListId (tránh N+1 query)
-        List<ReadingPassage> userPassages = readingPassageRepository.findAllByUserIdOrdered(currentUser.getId());
-        Map<Long, List<ReadingPassageResponse>> passagesByListId = new HashMap<>();
-        for (ReadingPassage rp : userPassages) {
-            Long listId = rp.getNoteList().getId();
-            passagesByListId.computeIfAbsent(listId, k -> new ArrayList<>()).add(
-                    ReadingPassageResponse.builder()
-                            .id(rp.getId())
-                            .title(rp.getTitle())
-                            .content(rp.getContent())
-                            .wordCount(rp.getWordCount() != null ? rp.getWordCount() : countWords(rp.getContent()))
-                            .sortOrder(rp.getSortOrder())
-                            .createdAt(rp.getCreatedAt())
-                            .updatedAt(rp.getUpdatedAt())
-                            .build()
-            );
+        for (NoteList nl : lists) {
+            long count = countMap.getOrDefault(nl.getId(), 0L);
+            NoteFolder folder = nl.getFolderId() != null ? folderMap.get(nl.getFolderId()) : null;
+            responses.add(toResponse(nl, count, folder));
         }
 
-        for (Object[] row : rows) {
-            Long id = (Long) row[0];
-            String title = (String) row[1];
-            String code = (String) row[2];
-            String source = (String) row[3];
-            String legacyPassage = (String) row[4];
-            String note = (String) row[5];
-            LocalDateTime createdAt = (LocalDateTime) row[6];
-            long count = ((Number) row[7]).longValue();
-            Long folderId = row.length > 8 ? (Long) row[8] : null;
-            String folderCode = row.length > 9 ? (String) row[9] : null;
-            String folderName = row.length > 10 ? (String) row[10] : null;
-            Integer sortOrder = row.length > 11 && row[11] != null ? ((Number) row[11]).intValue() : null;
-
-            String shortTitle = (code != null && !code.trim().isEmpty()) ? code.trim() : title;
-            String fullTitle = (code != null && !code.trim().isEmpty() && !code.trim().equalsIgnoreCase(title))
-                    ? code.trim() + ": " + title
-                    : title;
-
-            List<ReadingPassageResponse> listPassages = passagesByListId.getOrDefault(id, new ArrayList<>());
-            if (listPassages.isEmpty() && legacyPassage != null && !legacyPassage.trim().isEmpty()) {
-                listPassages.add(ReadingPassageResponse.builder()
-                        .id(-1L)
-                        .title("Nội dung bài đọc")
-                        .content(legacyPassage)
-                        .wordCount(countWords(legacyPassage))
-                        .sortOrder(0)
-                        .build());
-            }
-
-            responses.add(NoteListResponse.builder()
-                    .id(id)
-                    .title(title)
-                    .code(code)
-                    .shortTitle(shortTitle)
-                    .fullTitle(fullTitle)
-                    .sourceReference(source)
-                    .passage(legacyPassage)
-                    .passages(listPassages)
-                    .note(note)
-                    .createdAt(createdAt)
-                    .count(count)
-                    .folderId(folderId)
-                    .folderCode(folderCode)
-                    .folderName(folderName)
-                    .sortOrder(sortOrder)
-                    .build());
-        }
         return responses;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public NoteListResponse getNoteListById(Long id) {
+    public NoteListResponse getNoteListById(String id) {
+        ObjectIdValidator.validate(id, "Reading List");
         User currentUser = securityUtils.getCurrentUser();
         NoteList list = noteListRepository.findByIdAndUserId(id, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Reading List với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Reading List với ID: " + id));
 
-        return toResponse(list, list.getVocabularies().size());
+        Map<String, Long> countMap = vocabularyRepository.countVocabulariesGroupedByNoteListIds(currentUser.getId());
+        long count = countMap.getOrDefault(list.getId(), 0L);
+
+        NoteFolder folder = null;
+        if (list.getFolderId() != null) {
+            folder = noteFolderRepository.findByIdAndUserId(list.getFolderId(), currentUser.getId()).orElse(null);
+        }
+
+        return toResponse(list, count, folder);
     }
 
     @Override
@@ -202,24 +162,32 @@ public class NoteListServiceImpl implements NoteListService {
         } else {
             code = code.trim();
             if (noteListRepository.findByCodeIgnoreCaseAndUserId(code, currentUser.getId()).isPresent()) {
-                throw new RuntimeException("Mã danh sách '" + code + "' đã tồn tại!");
+                throw new ConflictException("Mã danh sách '" + code + "' đã tồn tại!");
             }
         }
 
+        String folderId = null;
         NoteFolder folder = null;
-        if (request.getFolderId() != null) {
-            folder = noteFolderRepository.findByIdAndUserId(request.getFolderId(), currentUser.getId())
-                    .orElse(null);
+        if (request.getFolderId() != null && !request.getFolderId().isBlank()) {
+            ObjectIdValidator.validate(request.getFolderId(), "thư mục");
+            folder = noteFolderRepository.findByIdAndUserId(request.getFolderId(), currentUser.getId()).orElse(null);
+            if (folder != null) {
+                folderId = folder.getId();
+            }
         }
 
+        long count = noteListRepository.countByUserId(currentUser.getId());
+
         NoteList list = NoteList.builder()
-                .user(currentUser)
-                .folder(folder)
+                .userId(currentUser.getId())
+                .folderId(folderId)
                 .title(request.getTitle().trim())
                 .code(code)
+                .codeLower(code.toLowerCase())
                 .sourceReference(request.getSourceReference() != null ? request.getSourceReference().trim() : null)
                 .passage(request.getPassage() != null ? request.getPassage().trim() : null)
                 .note(request.getNote() != null ? request.getNote().trim() : null)
+                .sortOrder((int) count)
                 .build();
 
         if (request.getPassages() != null && !request.getPassages().isEmpty()) {
@@ -231,8 +199,10 @@ public class NoteListServiceImpl implements NoteListService {
                     String pTitle = hasTitle ? pr.getTitle().trim() : ("Bài đọc " + (order + 1));
                     String pContent = pr.getContent() != null ? pr.getContent() : "";
                     int wc = (pr.getWordCount() != null && pr.getWordCount() > 0) ? pr.getWordCount() : countWords(pContent);
+                    String pid = (pr.getId() != null && ObjectId.isValid(pr.getId())) ? pr.getId() : new ObjectId().toHexString();
+
                     ReadingPassage rp = ReadingPassage.builder()
-                            .noteList(list)
+                            .id(pid)
                             .title(pTitle)
                             .content(pContent)
                             .wordCount(wc)
@@ -245,39 +215,47 @@ public class NoteListServiceImpl implements NoteListService {
         }
 
         NoteList saved = noteListRepository.save(list);
-        return toResponse(saved, 0);
+        return toResponse(saved, 0, folder);
     }
 
     @Override
     @Transactional
-    public NoteListResponse updateNoteList(Long id, NoteListCreateRequest request) {
+    public NoteListResponse updateNoteList(String id, NoteListCreateRequest request) {
+        ObjectIdValidator.validate(id, "Reading List");
         User currentUser = securityUtils.getCurrentUser();
         NoteList list = noteListRepository.findByIdAndUserId(id, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Reading List với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Reading List với ID: " + id));
 
         list.setTitle(request.getTitle().trim());
         if (request.getCode() != null && !request.getCode().trim().isEmpty()) {
             String newCode = request.getCode().trim();
-            java.util.Optional<NoteList> existing = noteListRepository.findByCodeIgnoreCaseAndUserId(newCode, currentUser.getId());
+            Optional<NoteList> existing = noteListRepository.findByCodeIgnoreCaseAndUserId(newCode, currentUser.getId());
             if (existing.isPresent() && !existing.get().getId().equals(id)) {
-                throw new RuntimeException("Mã danh sách '" + newCode + "' đã tồn tại!");
+                throw new ConflictException("Mã danh sách '" + newCode + "' đã tồn tại!");
             }
             list.setCode(newCode);
+            list.setCodeLower(newCode.toLowerCase());
         }
         list.setSourceReference(request.getSourceReference() != null ? request.getSourceReference().trim() : null);
         list.setPassage(request.getPassage() != null ? request.getPassage().trim() : null);
         list.setNote(request.getNote() != null ? request.getNote().trim() : null);
 
-        if (request.getFolderId() != null) {
-            NoteFolder folder = noteFolderRepository.findByIdAndUserId(request.getFolderId(), currentUser.getId())
-                    .orElse(null);
-            list.setFolder(folder);
+        NoteFolder folder = null;
+        if (request.getFolderId() != null && !request.getFolderId().isBlank()) {
+            ObjectIdValidator.validate(request.getFolderId(), "thư mục");
+            folder = noteFolderRepository.findByIdAndUserId(request.getFolderId(), currentUser.getId()).orElse(null);
+            list.setFolderId(folder != null ? folder.getId() : null);
         } else {
-            list.setFolder(null);
+            list.setFolderId(null);
         }
 
         // Cập nhật danh sách passages nếu có gửi trong request
         if (request.getPassages() != null) {
+            // Giữ lại bài đọc cũ theo ID để bảo toàn ID và createdAt khi cập nhật
+            java.util.Map<String, ReadingPassage> existingById = new java.util.HashMap<>();
+            for (ReadingPassage old : list.getPassages()) {
+                if (old.getId() != null) existingById.put(old.getId(), old);
+            }
             list.getPassages().clear();
             int order = 0;
             for (ReadingPassageRequest pr : request.getPassages()) {
@@ -287,13 +265,20 @@ public class NoteListServiceImpl implements NoteListService {
                     String pTitle = hasTitle ? pr.getTitle().trim() : ("Bài đọc " + (order + 1));
                     String pContent = pr.getContent() != null ? pr.getContent() : "";
                     int wc = (pr.getWordCount() != null && pr.getWordCount() > 0) ? pr.getWordCount() : countWords(pContent);
+                    // Chỉ giữ ID nếu bài đọc đó thực sự thuộc danh sách này; ngược lại sinh ID mới
+                    ReadingPassage previous = pr.getId() != null ? existingById.get(pr.getId()) : null;
+                    String pid = previous != null ? previous.getId() : new ObjectId().toHexString();
+
                     ReadingPassage rp = ReadingPassage.builder()
-                            .noteList(list)
+                            .id(pid)
                             .title(pTitle)
                             .content(pContent)
                             .wordCount(wc)
                             .sortOrder(pr.getSortOrder() != null ? pr.getSortOrder() : order)
                             .build();
+                    if (previous != null && previous.getCreatedAt() != null) {
+                        rp.setCreatedAt(previous.getCreatedAt());
+                    }
                     list.getPassages().add(rp);
                     order++;
                 }
@@ -301,40 +286,48 @@ public class NoteListServiceImpl implements NoteListService {
         }
 
         NoteList saved = noteListRepository.save(list);
-        return toResponse(saved, list.getVocabularies().size());
+        Map<String, Long> countMap = vocabularyRepository.countVocabulariesGroupedByNoteListIds(currentUser.getId());
+        long count = countMap.getOrDefault(saved.getId(), 0L);
+
+        return toResponse(saved, count, folder);
     }
 
     @Override
     @Transactional
-    public void deleteNoteList(Long id) {
+    public void deleteNoteList(String id) {
+        ObjectIdValidator.validate(id, "Reading List");
         User currentUser = securityUtils.getCurrentUser();
         NoteList list = noteListRepository.findByIdAndUserId(id, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Reading List với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Reading List với ID: " + id));
 
-        // Disconnect many-to-many references from vocabularies
-        if (list.getVocabularies() != null) {
-            for (Vocabulary v : list.getVocabularies()) {
-                v.getNoteLists().remove(list);
-            }
-        }
+        // M4-05: Cascade pull noteListId from vocabularies
+        Query pullQuery = Query.query(Criteria.where("userId").is(new ObjectId(currentUser.getId())));
+        Update pullUpdate = new Update()
+                .pull("noteListIds", new ObjectId(id));
+        mongoTemplate.updateMulti(pullQuery, pullUpdate, Vocabulary.class);
 
         noteListRepository.delete(list);
     }
 
     @Override
     @Transactional
-    public void reorderNoteLists(List<Long> listIds) {
+    public void reorderNoteLists(List<String> listIds) {
         if (listIds == null || listIds.isEmpty()) return;
         User currentUser = securityUtils.getCurrentUser();
+
+        BulkOperations ops = mongoTemplate.bulkOps(BulkOperations.BulkMode.UNORDERED, NoteList.class);
+        boolean hasOps = false;
         for (int i = 0; i < listIds.size(); i++) {
-            Long listId = listIds.get(i);
-            if (listId == null) continue;
-            var listOpt = noteListRepository.findByIdAndUserId(listId, currentUser.getId());
-            if (listOpt.isPresent()) {
-                NoteList list = listOpt.get();
-                list.setSortOrder(i);
-                noteListRepository.save(list);
+            String listId = listIds.get(i);
+            if (listId != null && ObjectId.isValid(listId)) {
+                Query query = Query.query(Criteria.where("_id").is(new ObjectId(listId))
+                        .and("userId").is(new ObjectId(currentUser.getId())));
+                ops.updateOne(query, Update.update("sortOrder", i));
+                hasOps = true;
             }
+        }
+        if (hasOps) {
+            ops.execute();
         }
     }
 
@@ -342,27 +335,33 @@ public class NoteListServiceImpl implements NoteListService {
     @Transactional
     public NoteList getOrCreateNoteList(String identifier, String title, User user) {
         if (identifier != null && !identifier.trim().isEmpty()) {
-            try {
-                Long id = Long.parseLong(identifier.trim());
-                return noteListRepository.findByIdAndUserId(id, user.getId()).orElse(null);
-            } catch (NumberFormatException ignored) {
-                var byCode = noteListRepository.findByCodeIgnoreCaseAndUserId(identifier.trim(), user.getId());
-                if (byCode.isPresent()) return byCode.get();
-
-                var byTitle = noteListRepository.findByTitleIgnoreCaseAndUserId(identifier.trim(), user.getId());
-                if (byTitle.isPresent()) return byTitle.get();
+            String trimmed = identifier.trim();
+            if (ObjectId.isValid(trimmed)) {
+                var byId = noteListRepository.findByIdAndUserId(trimmed, user.getId());
+                if (byId.isPresent()) return byId.get();
             }
+            var byCode = noteListRepository.findByCodeIgnoreCaseAndUserId(trimmed, user.getId());
+            if (byCode.isPresent()) return byCode.get();
+
+            var byTitle = noteListRepository.findByTitleIgnoreCaseAndUserId(trimmed, user.getId());
+            if (byTitle.isPresent()) return byTitle.get();
         }
 
         if (title != null && !title.trim().isEmpty()) {
             return noteListRepository.findByTitleIgnoreCaseAndUserId(title.trim(), user.getId())
-                    .orElseGet(() -> noteListRepository.save(
-                            NoteList.builder()
-                                    .user(user)
-                                    .title(title.trim())
-                                    .code(String.format("LIST %02d", noteListRepository.countByUserId(user.getId()) + 1))
-                                    .build()
-                    ));
+                    .orElseGet(() -> {
+                        long count = noteListRepository.countByUserId(user.getId());
+                        String code = String.format("LIST %02d", count + 1);
+                        return noteListRepository.save(
+                                NoteList.builder()
+                                        .userId(user.getId())
+                                        .title(title.trim())
+                                        .code(code)
+                                        .codeLower(code.toLowerCase())
+                                        .sortOrder((int) count)
+                                        .build()
+                        );
+                    });
         }
 
         return null;

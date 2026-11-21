@@ -22,14 +22,14 @@ public class VocabularyController {
 
     @GetMapping("/cursor")
     public ResponseEntity<ApiResponse<CursorResponse<VocabDetailResponse>>> getVocabulariesCursor(
-            @RequestParam(required = false) Long cursor,
+            @RequestParam(required = false) String cursor,
             @RequestParam(required = false, defaultValue = "10") Integer limit,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) List<Long> categoryIds,
+            @RequestParam(required = false) List<String> categoryIds,
             @RequestParam(required = false) String categoryName,
-            @RequestParam(required = false) Long noteListId,
+            @RequestParam(required = false) String noteListId,
             @RequestParam(required = false) String pos,
-            @RequestParam(required = false) Long wordFamilyId) {
+            @RequestParam(required = false) String wordFamilyId) {
 
         CursorResponse<VocabDetailResponse> result = vocabularyService.getVocabulariesCursor(
                 cursor, limit, keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
@@ -40,11 +40,11 @@ public class VocabularyController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<VocabDetailResponse>>> getVocabularies(
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) List<Long> categoryIds,
+            @RequestParam(required = false) List<String> categoryIds,
             @RequestParam(required = false) String categoryName,
-            @RequestParam(required = false) Long noteListId,
+            @RequestParam(required = false) String noteListId,
             @RequestParam(required = false) String pos,
-            @RequestParam(required = false) Long wordFamilyId) {
+            @RequestParam(required = false) String wordFamilyId) {
 
         List<VocabDetailResponse> list = vocabularyService.getVocabularies(
                 keyword, categoryIds, categoryName, noteListId, pos, wordFamilyId
@@ -53,7 +53,7 @@ public class VocabularyController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<VocabDetailResponse>> getVocabById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<VocabDetailResponse>> getVocabById(@PathVariable String id) {
         VocabDetailResponse detail = vocabularyService.getVocabById(id);
         return ResponseEntity.ok(ApiResponse.success(detail));
     }
@@ -68,14 +68,14 @@ public class VocabularyController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<VocabDetailResponse>> updateVocabulary(
-            @PathVariable Long id,
+            @PathVariable String id,
             @Valid @RequestBody VocabCreateRequest request) {
         VocabDetailResponse updated = vocabularyService.updateVocabulary(id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật từ vựng thành công", updated));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteVocabulary(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteVocabulary(@PathVariable String id) {
         vocabularyService.deleteVocabulary(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa từ vựng thành công", null));
     }

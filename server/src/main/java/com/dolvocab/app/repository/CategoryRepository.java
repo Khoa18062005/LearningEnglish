@@ -1,29 +1,28 @@
 package com.dolvocab.app.repository;
 
 import com.dolvocab.app.entity.Category;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CategoryRepository extends JpaRepository<Category, Long> {
+public interface CategoryRepository extends MongoRepository<Category, String> {
 
-    List<Category> findAllByUserIdOrderByNameAsc(Long userId);
+    List<Category> findAllByUserIdOrderByNameAsc(String userId);
 
-    Optional<Category> findByIdAndUserId(Long id, Long userId);
+    Optional<Category> findByIdAndUserId(String id, String userId);
 
-    Optional<Category> findByNameIgnoreCaseAndUserId(String name, Long userId);
+    Optional<Category> findByNameLowerAndUserId(String nameLower, String userId);
 
-    boolean existsByNameIgnoreCaseAndUserId(String name, Long userId);
+    boolean existsByNameLowerAndUserId(String nameLower, String userId);
 
-    @Query("SELECT c.id, c.name, c.colorCode, c.description, COUNT(v.id) " +
-           "FROM Category c LEFT JOIN c.vocabularies v " +
-           "WHERE c.user.id = :userId " +
-           "GROUP BY c.id, c.name, c.colorCode, c.description " +
-           "ORDER BY c.name ASC")
-    List<Object[]> findCategoriesWithVocabCountByUserId(@Param("userId") Long userId);
+    default Optional<Category> findByNameIgnoreCaseAndUserId(String name, String userId) {
+        return findByNameLowerAndUserId(name != null ? name.trim().toLowerCase() : null, userId);
+    }
+
+    default boolean existsByNameIgnoreCaseAndUserId(String name, String userId) {
+        return existsByNameLowerAndUserId(name != null ? name.trim().toLowerCase() : null, userId);
+    }
 }
