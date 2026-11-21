@@ -2,12 +2,17 @@ package com.dolvocab.app;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication
+/**
+ * DataSourceAutoConfiguration bị loại trừ vì ứng dụng dùng MongoDB.
+ * DataSource MySQL chỉ được tạo thủ công trong MigrationConfig (profile "migrate").
+ */
+@SpringBootApplication(exclude = DataSourceAutoConfiguration.class)
 @EnableScheduling
 @EnableAsync
 public class LearningEnglishApplication {

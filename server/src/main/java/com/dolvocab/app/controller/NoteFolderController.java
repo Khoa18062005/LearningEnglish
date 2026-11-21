@@ -1,6 +1,7 @@
 package com.dolvocab.app.controller;
 
 import com.dolvocab.app.dto.request.NoteFolderRequest;
+import com.dolvocab.app.dto.request.ReorderRequest;
 import com.dolvocab.app.dto.response.ApiResponse;
 import com.dolvocab.app.dto.response.NoteFolderResponse;
 import com.dolvocab.app.service.NoteFolderService;
@@ -10,7 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/note-folders")
@@ -26,7 +29,7 @@ public class NoteFolderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<NoteFolderResponse>> getFolderById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<NoteFolderResponse>> getFolderById(@PathVariable String id) {
         NoteFolderResponse response = noteFolderService.getFolderById(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -41,44 +44,37 @@ public class NoteFolderController {
 
     @PutMapping("/reorder")
     public ResponseEntity<ApiResponse<Void>> reorderFolders(@RequestBody Object body) {
-        List<Long> ids = parseIds(body);
+        List<String> ids = parseIds(body);
         noteFolderService.reorderFolders(ids);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thứ tự thư mục thành công", null));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<NoteFolderResponse>> updateFolder(
-            @PathVariable Long id,
+            @PathVariable String id,
             @Valid @RequestBody NoteFolderRequest request) {
         NoteFolderResponse updated = noteFolderService.updateFolder(id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thư mục danh sách thành công", updated));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteFolder(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteFolder(@PathVariable String id) {
         noteFolderService.deleteFolder(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa thư mục danh sách thành công", null));
     }
 
-    @SuppressWarnings("unchecked")
-    private List<Long> parseIds(Object body) {
-        List<Long> ids = new java.util.ArrayList<>();
+    private List<String> parseIds(Object body) {
+        List<String> ids = new ArrayList<>();
         if (body instanceof List<?> rawList) {
             for (Object item : rawList) {
-                if (item instanceof Number n) ids.add(n.longValue());
-                else if (item != null) {
-                    try { ids.add(Long.parseLong(item.toString())); } catch (Exception ignored) {}
-                }
+                if (item != null) ids.add(item.toString());
             }
-        } else if (body instanceof java.util.Map<?, ?> map) {
+        } else if (body instanceof Map<?, ?> map) {
             Object rawIds = map.get("ids");
             if (rawIds == null) rawIds = map.get("folderIds");
             if (rawIds instanceof List<?> rawList) {
                 for (Object item : rawList) {
-                    if (item instanceof Number n) ids.add(n.longValue());
-                    else if (item != null) {
-                        try { ids.add(Long.parseLong(item.toString())); } catch (Exception ignored) {}
-                    }
+                    if (item != null) ids.add(item.toString());
                 }
             }
         }

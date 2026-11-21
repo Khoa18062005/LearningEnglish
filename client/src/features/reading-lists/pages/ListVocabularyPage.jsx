@@ -153,7 +153,7 @@ export default function ListVocabularyPage({
     const sorted = [...result];
     switch (sortBy) {
       case 'newest':
-        sorted.sort((a, b) => (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) || (Number(b.id || 0) - Number(a.id || 0)));
+        sorted.sort((a, b) => (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) || String(b.id || '').localeCompare(String(a.id || '')));
         break;
       case 'most-vocabs':
         sorted.sort((a, b) => b.vocabCount - a.vocabCount);
@@ -162,7 +162,7 @@ export default function ListVocabularyPage({
         sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
         break;
       case 'oldest':
-        sorted.sort((a, b) => (new Date(a.createdAt || 0) - new Date(b.createdAt || 0)) || (Number(a.id || 0) - Number(b.id || 0)));
+        sorted.sort((a, b) => (new Date(a.createdAt || 0) - new Date(b.createdAt || 0)) || String(a.id || '').localeCompare(String(b.id || '')));
         break;
       case 'custom':
       default:

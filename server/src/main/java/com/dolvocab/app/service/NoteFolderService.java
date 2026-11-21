@@ -7,9 +7,9 @@ import java.util.List;
 
 public interface NoteFolderService {
     List<NoteFolderResponse> getAllFolders();
-    NoteFolderResponse getFolderById(Long id);
+    NoteFolderResponse getFolderById(String id);
     NoteFolderResponse createFolder(NoteFolderRequest request);
-    NoteFolderResponse updateFolder(Long id, NoteFolderRequest request);
-    void deleteFolder(Long id);
-    void reorderFolders(List<Long> folderIds);
+    NoteFolderResponse updateFolder(String id, NoteFolderRequest request);
+    void deleteFolder(String id);
+    void reorderFolders(List<String> folderIds);
 }

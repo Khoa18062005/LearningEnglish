@@ -10,29 +10,29 @@ public interface VocabularyService {
 
     List<VocabDetailResponse> getVocabularies(
             String keyword,
-            List<Long> categoryIds,
+            List<String> categoryIds,
             String categoryName,
-            Long noteListId,
+            String noteListId,
             String pos,
-            Long wordFamilyId
+            String wordFamilyId
     );
 
     CursorResponse<VocabDetailResponse> getVocabulariesCursor(
-            Long cursor,
+            String cursor,
             Integer limit,
             String keyword,
-            List<Long> categoryIds,
+            List<String> categoryIds,
             String categoryName,
-            Long noteListId,
+            String noteListId,
             String pos,
-            Long wordFamilyId
+            String wordFamilyId
     );
 
-    VocabDetailResponse getVocabById(Long id);
+    VocabDetailResponse getVocabById(String id);
 
     VocabDetailResponse createVocabulary(VocabCreateRequest request);
 
-    VocabDetailResponse updateVocabulary(Long id, VocabCreateRequest request);
+    VocabDetailResponse updateVocabulary(String id, VocabCreateRequest request);
 
-    void deleteVocabulary(Long id);
+    void deleteVocabulary(String id);
 }

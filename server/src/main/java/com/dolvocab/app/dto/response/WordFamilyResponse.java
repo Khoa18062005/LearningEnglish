@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WordFamilyResponse {
-    private Long id;
+    private String id;
     private String rootWord;
     private String description;
     private String memberOrder;
@@ -26,7 +26,7 @@ public class WordFamilyResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MemberVocabResponse {
-        private Long id;
+        private String id;
         private String word;
         private String pos;
         private String posLabel;

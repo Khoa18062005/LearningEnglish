@@ -26,7 +26,7 @@ public class WordFamilyController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<WordFamilyResponse>> getWordFamilyById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<WordFamilyResponse>> getWordFamilyById(@PathVariable String id) {
         WordFamilyResponse res = wordFamilyService.getWordFamilyById(id);
         return ResponseEntity.ok(ApiResponse.success(res));
     }
@@ -41,7 +41,7 @@ public class WordFamilyController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<WordFamilyResponse>> updateWordFamily(
-            @PathVariable Long id,
+            @PathVariable String id,
             @RequestBody Map<String, Object> body
     ) {
         String rootWord = (String) body.get("rootWord");
@@ -53,7 +53,7 @@ public class WordFamilyController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteWordFamily(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteWordFamily(@PathVariable String id) {
         wordFamilyService.deleteWordFamily(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }

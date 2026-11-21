@@ -1,20 +1,10 @@
 package com.dolvocab.app.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(
-    name = "reading_passages",
-    indexes = {
-        @Index(name = "idx_reading_passage_note_list", columnList = "note_list_id")
-    }
-)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,34 +12,22 @@ import java.time.LocalDateTime;
 @Builder
 public class ReadingPassage {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Builder.Default
+    private String id = new ObjectId().toHexString();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "note_list_id", nullable = false)
-    @JsonIgnore
-    private NoteList noteList;
-
-    @Column(nullable = false, length = 255)
     private String title;
 
-    @Column(columnDefinition = "LONGTEXT")
     private String content;
 
-    @Column(name = "word_count")
     @Builder.Default
     private Integer wordCount = 0;
 
-    @Column(name = "sort_order")
     @Builder.Default
     private Integer sortOrder = 0;
 
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Builder.Default
+    private LocalDateTime updatedAt = LocalDateTime.now();
 }

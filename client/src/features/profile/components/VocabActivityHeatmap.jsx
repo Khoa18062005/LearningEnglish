@@ -49,6 +49,13 @@ export default function VocabActivityHeatmap({
         return d.toISOString().split('T')[0];
       }
     }
+    if (typeof item.id === 'string' && /^[0-9a-fA-F]{24}$/.test(item.id)) {
+      const timestamp = parseInt(item.id.substring(0, 8), 16) * 1000;
+      const d = new Date(timestamp);
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+    }
     if (typeof item.id === 'number' && item.id > 1650000000000 && item.id < 2000000000000) {
       const d = new Date(item.id);
       if (!isNaN(d.getTime())) {

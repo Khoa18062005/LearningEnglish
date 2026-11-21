@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NoteListResponse {
-    private Long id;
+    private String id;
     private String title;
     private String code;
     private String sourceReference;
@@ -22,7 +22,7 @@ public class NoteListResponse {
     private LocalDateTime createdAt;
     private String shortTitle;
     private String fullTitle;
-    private Long folderId;
+    private String folderId;
     private String folderCode;
     private String folderName;
     private Integer sortOrder;

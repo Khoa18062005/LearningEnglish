@@ -1,27 +1,28 @@
 package com.dolvocab.app.repository;
 
 import com.dolvocab.app.entity.NoteFolder;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface NoteFolderRepository extends JpaRepository<NoteFolder, Long> {
+public interface NoteFolderRepository extends MongoRepository<NoteFolder, String> {
 
-    @Query("SELECT f FROM NoteFolder f WHERE f.user.id = :userId ORDER BY COALESCE(f.sortOrder, 999999) ASC, f.id ASC")
-    List<NoteFolder> findAllByUserIdOrdered(@Param("userId") Long userId);
+    List<NoteFolder> findAllByUserIdOrderBySortOrderAscIdAsc(String userId);
 
-    List<NoteFolder> findAllByUserIdOrderByIdAsc(Long userId);
+    List<NoteFolder> findAllByUserIdOrderByIdAsc(String userId);
 
-    Optional<NoteFolder> findByIdAndUserId(Long id, Long userId);
+    Optional<NoteFolder> findByIdAndUserId(String id, String userId);
 
-    Optional<NoteFolder> findByCodeIgnoreCaseAndUserId(String code, Long userId);
+    Optional<NoteFolder> findByCodeIgnoreCaseAndUserId(String code, String userId);
 
-    long countByUserId(Long userId);
+    long countByUserId(String userId);
 
-    boolean existsByIdAndUserId(Long id, Long userId);
+    boolean existsByIdAndUserId(String id, String userId);
+
+    default List<NoteFolder> findAllByUserIdOrdered(String userId) {
+        return findAllByUserIdOrderBySortOrderAscIdAsc(userId);
+    }
 }

@@ -9,10 +9,10 @@ import java.util.List;
 
 public interface NoteListService {
     List<NoteListResponse> getAllNoteLists();
-    NoteListResponse getNoteListById(Long id);
+    NoteListResponse getNoteListById(String id);
     NoteListResponse createNoteList(NoteListCreateRequest request);
-    NoteListResponse updateNoteList(Long id, NoteListCreateRequest request);
-    void deleteNoteList(Long id);
-    void reorderNoteLists(List<Long> listIds);
+    NoteListResponse updateNoteList(String id, NoteListCreateRequest request);
+    void deleteNoteList(String id);
+    void reorderNoteLists(List<String> listIds);
     NoteList getOrCreateNoteList(String identifier, String title, User user);
 }

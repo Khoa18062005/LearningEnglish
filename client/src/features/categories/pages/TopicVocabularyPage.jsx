@@ -73,7 +73,7 @@ export default function TopicVocabularyPage({
         sorted.sort(
           (a, b) =>
             (new Date(b.createdAt || 0) - new Date(a.createdAt || 0)) ||
-            (Number(b.id || 0) - Number(a.id || 0))
+            String(b.id || '').localeCompare(String(a.id || ''))
         );
         break;
       case 'most-vocabs':
@@ -87,7 +87,7 @@ export default function TopicVocabularyPage({
         sorted.sort(
           (a, b) =>
             (new Date(a.createdAt || 0) - new Date(b.createdAt || 0)) ||
-            (Number(a.id || 0) - Number(b.id || 0))
+            String(a.id || '').localeCompare(String(b.id || ''))
         );
         break;
     }

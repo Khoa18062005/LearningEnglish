@@ -13,7 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NoteFolderResponse {
-    private Long id;
+    private String id;
     private String code;
     private String name;
     private String description;

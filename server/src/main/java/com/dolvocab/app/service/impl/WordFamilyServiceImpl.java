@@ -5,10 +5,17 @@ import com.dolvocab.app.entity.User;
 import com.dolvocab.app.entity.Vocabulary;
 import com.dolvocab.app.entity.WordFamily;
 import com.dolvocab.app.entity.enums.PartOfSpeech;
+import com.dolvocab.app.exception.ResourceNotFoundException;
 import com.dolvocab.app.repository.WordFamilyRepository;
 import com.dolvocab.app.security.SecurityUtils;
 import com.dolvocab.app.service.WordFamilyService;
+import com.dolvocab.app.utils.ObjectIdValidator;
 import lombok.RequiredArgsConstructor;
+import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +29,14 @@ public class WordFamilyServiceImpl implements WordFamilyService {
 
     private final WordFamilyRepository wordFamilyRepository;
     private final SecurityUtils securityUtils;
+    private final MongoTemplate mongoTemplate;
 
     @Override
     @Transactional(readOnly = true)
     public List<WordFamilyResponse> getAllWordFamilies() {
         User currentUser = securityUtils.getCurrentUser();
         List<WordFamily> families = wordFamilyRepository.findAllByUserIdOrderByRootWordAsc(currentUser.getId());
-        return families.stream().map(this::mapToResponse).toList();
+        return families.stream().map(wf -> mapToResponse(wf, currentUser.getId())).toList();
     }
 
     @Override
@@ -37,12 +45,12 @@ public class WordFamilyServiceImpl implements WordFamilyService {
         User currentUser = securityUtils.getCurrentUser();
         List<WordFamily> families = wordFamilyRepository.findAllByUserIdOrderByRootWordAsc(currentUser.getId());
         if (keyword == null || keyword.trim().isEmpty()) {
-            return families.stream().map(this::mapToResponse).toList();
+            return families.stream().map(wf -> mapToResponse(wf, currentUser.getId())).toList();
         }
 
         String q = keyword.trim().toLowerCase();
         return families.stream()
-                .map(this::mapToResponse)
+                .map(wf -> mapToResponse(wf, currentUser.getId()))
                 .filter(wf -> (wf.getRootWord() != null && wf.getRootWord().toLowerCase().contains(q)) ||
                         (wf.getWords() != null && wf.getWords().stream().anyMatch(w -> w != null && w.toLowerCase().contains(q))))
                 .toList();
@@ -50,11 +58,12 @@ public class WordFamilyServiceImpl implements WordFamilyService {
 
     @Override
     @Transactional(readOnly = true)
-    public WordFamilyResponse getWordFamilyById(Long id) {
+    public WordFamilyResponse getWordFamilyById(String id) {
+        ObjectIdValidator.validate(id, "Word Family");
         User currentUser = securityUtils.getCurrentUser();
         WordFamily wf = wordFamilyRepository.findByIdAndUserId(id, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
-        return mapToResponse(wf);
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Word Family với ID: " + id));
+        return mapToResponse(wf, currentUser.getId());
     }
 
     @Override
@@ -64,11 +73,14 @@ public class WordFamilyServiceImpl implements WordFamilyService {
             return null;
         }
 
-        return wordFamilyRepository.findByRootWordIgnoreCaseAndUserId(rootWord.trim(), user.getId())
+        String trimmed = rootWord.trim();
+        String lower = trimmed.toLowerCase();
+        return wordFamilyRepository.findByRootWordLowerAndUserId(lower, user.getId())
                 .orElseGet(() -> wordFamilyRepository.save(
                         WordFamily.builder()
-                                .user(user)
-                                .rootWord(rootWord.trim())
+                                .userId(user.getId())
+                                .rootWord(trimmed)
+                                .rootWordLower(lower)
                                 .description(description)
                                 .build()
                 ));
@@ -79,77 +91,88 @@ public class WordFamilyServiceImpl implements WordFamilyService {
     public WordFamilyResponse createWordFamily(String rootWord, String description) {
         User currentUser = securityUtils.getCurrentUser();
         WordFamily wf = getOrCreateWordFamily(rootWord, description, currentUser);
-        return mapToResponse(wf);
+        return mapToResponse(wf, currentUser.getId());
     }
 
     @Override
     @Transactional
-    public WordFamilyResponse updateWordFamily(Long id, String rootWord, String description, List<String> memberOrder) {
+    public WordFamilyResponse updateWordFamily(String id, String rootWord, String description, List<String> memberOrder) {
+        ObjectIdValidator.validate(id, "Word Family");
         User currentUser = securityUtils.getCurrentUser();
         WordFamily wf = wordFamilyRepository.findByIdAndUserId(id, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Word Family với ID: " + id));
 
         if (rootWord != null && !rootWord.trim().isEmpty()) {
             wf.setRootWord(rootWord.trim());
+            wf.setRootWordLower(rootWord.trim().toLowerCase());
         }
         if (description != null) {
             wf.setDescription(description);
         }
         if (memberOrder != null) {
-            wf.setMemberOrder(String.join(",", memberOrder));
+            wf.setMemberOrder(memberOrder.stream()
+                    .filter(org.bson.types.ObjectId::isValid)
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList()));
         }
 
         WordFamily saved = wordFamilyRepository.save(wf);
-        return mapToResponse(saved);
+        return mapToResponse(saved, currentUser.getId());
     }
 
     @Override
     @Transactional
-    public void deleteWordFamily(Long id) {
+    public void deleteWordFamily(String id) {
+        ObjectIdValidator.validate(id, "Word Family");
         User currentUser = securityUtils.getCurrentUser();
         WordFamily wf = wordFamilyRepository.findByIdAndUserId(id, currentUser.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Word Family với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy Word Family với ID: " + id));
 
-        if (wf.getVocabularies() != null) {
-            for (Vocabulary v : wf.getVocabularies()) {
-                v.setWordFamily(null);
-            }
-        }
+        // M4-05: Cascade unset wordFamilyId on vocabularies
+        Query unsetQuery = Query.query(Criteria.where("userId").is(new ObjectId(currentUser.getId()))
+                .and("wordFamilyId").is(new ObjectId(id)));
+        mongoTemplate.updateMulti(unsetQuery, new Update().unset("wordFamilyId"), Vocabulary.class);
+
         wordFamilyRepository.delete(wf);
     }
 
-    private WordFamilyResponse mapToResponse(WordFamily wf) {
+    private WordFamilyResponse mapToResponse(WordFamily wf, String userId) {
         List<String> words = new ArrayList<>();
         List<WordFamilyResponse.MemberVocabResponse> memberVocabs = new ArrayList<>();
 
-        if (wf.getVocabularies() != null) {
-            for (Vocabulary v : wf.getVocabularies()) {
-                words.add(v.getWord());
+        // Fetch vocabularies belonging to this word family
+        Query vocabQuery = Query.query(Criteria.where("userId").is(new ObjectId(userId))
+                .and("wordFamilyId").is(new ObjectId(wf.getId())));
+        List<Vocabulary> vocabularies = mongoTemplate.find(vocabQuery, Vocabulary.class);
 
-                String pos = "v";
-                String posLabel = "Verb";
-                if (!v.getForms().isEmpty()) {
-                    pos = formatPosBadge(v.getForms().get(0).getPartOfSpeech());
-                    posLabel = formatPosLabel(v.getForms().get(0).getPartOfSpeech());
-                }
+        for (Vocabulary v : vocabularies) {
+            words.add(v.getWord());
 
-                memberVocabs.add(WordFamilyResponse.MemberVocabResponse.builder()
-                        .id(v.getId())
-                        .word(v.getWord())
-                        .pos(pos)
-                        .posLabel(posLabel)
-                        .meaning(v.getMeaning())
-                        .phonetic(v.getPhonetic())
-                        .build());
+            String pos = "v";
+            String posLabel = "Verb";
+            if (v.getForms() != null && !v.getForms().isEmpty()) {
+                pos = formatPosBadge(v.getForms().get(0).getPartOfSpeech());
+                posLabel = formatPosLabel(v.getForms().get(0).getPartOfSpeech());
             }
+
+            memberVocabs.add(WordFamilyResponse.MemberVocabResponse.builder()
+                    .id(v.getId())
+                    .word(v.getWord())
+                    .pos(pos)
+                    .posLabel(posLabel)
+                    .meaning(v.getMeaning())
+                    .phonetic(v.getPhonetic())
+                    .build());
         }
 
         // Apply custom ordering if memberOrder exists
-        if (wf.getMemberOrder() != null && !wf.getMemberOrder().trim().isEmpty()) {
-            List<String> orderList = Arrays.asList(wf.getMemberOrder().split(","));
+        List<String> orderList = wf.getMemberOrder();
+        if (orderList != null && !orderList.isEmpty()) {
             memberVocabs.sort((a, b) -> {
                 int indexA = orderList.indexOf(a.getWord());
+                if (indexA == -1) indexA = orderList.indexOf(a.getId());
                 int indexB = orderList.indexOf(b.getWord());
+                if (indexB == -1) indexB = orderList.indexOf(b.getId());
                 if (indexA == -1 && indexB == -1) return 0;
                 if (indexA == -1) return 1;
                 if (indexB == -1) return -1;
@@ -165,11 +188,13 @@ public class WordFamilyServiceImpl implements WordFamilyService {
             });
         }
 
+        String memberOrderStr = orderList != null ? String.join(",", orderList) : "";
+
         return WordFamilyResponse.builder()
                 .id(wf.getId())
                 .rootWord(wf.getRootWord())
                 .description(wf.getDescription())
-                .memberOrder(wf.getMemberOrder())
+                .memberOrder(memberOrderStr)
                 .words(words)
                 .memberVocabs(memberVocabs)
                 .build();

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReadingPassageResponse {
-    private Long id;
+    private String id;
     private String title;
     private String content;
     private Integer wordCount;

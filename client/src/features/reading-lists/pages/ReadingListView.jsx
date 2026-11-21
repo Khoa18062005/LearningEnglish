@@ -142,7 +142,7 @@ export default function ReadingListView({
           note: readingList.note,
           folderId: readingList.folderId,
           passages: remainingPassages.map((p, idx) => ({
-            id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+            id: p.id && p.id !== -1 && p.id !== '-1' ? String(p.id) : null,
             title: p.title,
             content: p.content,
             wordCount: p.wordCount,
@@ -237,7 +237,7 @@ export default function ReadingListView({
       note: readingList.note,
       folderId: readingList.folderId,
       passages: updatedPassages.map((p, idx) => ({
-        id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+        id: p.id && p.id !== -1 && p.id !== '-1' ? String(p.id) : null,
         title: p.title,
         content: p.content,
         wordCount: p.wordCount,
@@ -334,7 +334,8 @@ export default function ReadingListView({
         note: readingList.note,
         folderId: readingList.folderId,
         passages: updatedPassages.map((p, idx) => ({
-          id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+          // ID bài đọc là ObjectId (chuỗi 24 ký tự hex); ID tạm phía client không gửi lên
+          id: typeof p.id === 'string' && /^[a-f0-9]{24}$/i.test(p.id) ? p.id : null,
           title: p.title,
           content: p.content,
           wordCount: p.wordCount,
@@ -453,7 +454,7 @@ export default function ReadingListView({
       note: readingList.note,
       folderId: readingList.folderId,
       passages: updatedPassages.map((p, idx) => ({
-        id: typeof p.id === 'number' && p.id > 0 ? p.id : null,
+        id: p.id && p.id !== -1 && p.id !== '-1' ? String(p.id) : null,
         title: p.title,
         content: p.content,
         wordCount: p.wordCount,

@@ -68,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public void verifyRegistrationOtp(String rawEmail, String rawOtpCode) {
         String normalizedEmail = rawEmail.trim().toLowerCase();
         String otpCode = rawOtpCode != null ? rawOtpCode.trim() : "";
@@ -77,11 +77,19 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy mã OTP cho email này. Vui lòng yêu cầu gửi mã mới."));
 
         if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
+            otpVerificationRepository.delete(otp);
             throw new IllegalArgumentException("Mã OTP đã hết hiệu lực (quá thời hạn 3 phút). Vui lòng nhấn 'Gửi lại mã' để nhận mã mới.");
         }
 
+        if (otp.getAttempts() != null && otp.getAttempts() >= 5) {
+            otpVerificationRepository.delete(otp);
+            throw new IllegalArgumentException("Mã OTP đã bị khóa do nhập sai quá 5 lần. Vui lòng yêu cầu gửi lại mã mới.");
+        }
+
         if (!otp.getOtpCode().equals(otpCode)) {
-            throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại email.");
+            otp.setAttempts((otp.getAttempts() == null ? 0 : otp.getAttempts()) + 1);
+            otpVerificationRepository.save(otp);
+            throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại email (lần thử " + otp.getAttempts() + "/5).");
         }
     }
 
@@ -117,17 +125,21 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 4. Tạo User kèm địa chỉ (cấu trúc 2 cấp sau sáp nhập)
+        User.Address address = User.Address.builder()
+                .provinceCode(request.getProvinceCode())
+                .provinceName(request.getProvinceName() != null ? request.getProvinceName().trim() : null)
+                .wardCode(request.getWardCode())
+                .wardName(request.getWardName() != null ? request.getWardName().trim() : null)
+                .detail(request.getAddressDetail() != null ? request.getAddressDetail().trim() : null)
+                .build();
+
         User user = User.builder()
                 .email(normalizedEmail)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName().trim())
                 .dateOfBirth(request.getDateOfBirth())
                 .gender(request.getGender())
-                .provinceCode(request.getProvinceCode())
-                .provinceName(request.getProvinceName() != null ? request.getProvinceName().trim() : null)
-                .wardCode(request.getWardCode())
-                .wardName(request.getWardName() != null ? request.getWardName().trim() : null)
-                .addressDetail(request.getAddressDetail() != null ? request.getAddressDetail().trim() : null)
+                .address(address)
                 .role(Role.ROLE_USER)
                 .build();
 

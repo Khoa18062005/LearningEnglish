@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReadingPassageRequest {
-    private Long id;
+    private String id;
     private String title;
     private String content;
     private Integer wordCount;

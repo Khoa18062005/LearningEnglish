@@ -6,3 +6,9 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Tài liệu nội bộ (báo cáo review, kế hoạch nâng cấp) - không đẩy lên Git
+agent/
+
+# Cấu hình IDE của DataGrip
+Lexicon_Database/.idea/
