@@ -1,6 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TipTapEditor from '../../../components/TipTapEditor';
 
+// Gợi ý mã danh sách theo mã thư mục: thư mục "AV5" -> "AV5 - 01", "AV5 - 02"...
+// Thư mục không có mã (hoặc không chọn thư mục) -> "LIST 01".
+// Lấy số nhỏ nhất chưa bị dùng, so sánh không phân biệt hoa thường.
+function suggestListCode(folder, existingLists) {
+  const prefix = (folder?.code || '').trim().toUpperCase();
+  const usedCodes = new Set(
+    existingLists
+      .map((l) => (l.code || l.shortTitle || '').trim().toUpperCase())
+      .filter(Boolean)
+  );
+  const format = (n) => {
+    const num = String(n).padStart(2, '0');
+    return prefix ? `${prefix} - ${num}` : `LIST ${num}`;
+  };
+  let n = 1;
+  while (usedCodes.has(format(n))) n++;
+  return format(n);
+}
+
 export default function AddReadingListModal({
   isOpen,
   onClose,
@@ -12,6 +31,8 @@ export default function AddReadingListModal({
   initialData = null,
 }) {
   const [code, setCode] = useState('');
+  // true khi mã đang là gợi ý tự động; người dùng tự gõ mã thì không ghi đè nữa
+  const [isCodeAutoSuggested, setIsCodeAutoSuggested] = useState(false);
   const [title, setTitle] = useState('');
   const [folderId, setFolderId] = useState(defaultFolderId || initialData?.folderId || '');
   const [isFolderDropdownOpen, setIsFolderDropdownOpen] = useState(false);
@@ -39,11 +60,21 @@ export default function AddReadingListModal({
     (f) => String(f.id) === String(folderId)
   );
 
+  // Đổi thư mục; khi tạo mới và mã vẫn là gợi ý tự động thì gợi ý lại theo thư mục mới
+  const changeFolder = (newFolderId) => {
+    setFolderId(newFolderId);
+    if (!initialData && isCodeAutoSuggested) {
+      const folder = existingFolders.find((f) => String(f.id) === String(newFolderId));
+      setCode(suggestListCode(folder, existingLists));
+    }
+  };
+
   // Auto-generate suggested list code on open or populate with initialData
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
         setCode(initialData.code || initialData.shortTitle || '');
+        setIsCodeAutoSuggested(false);
         setTitle(initialData.title || '');
         setFolderId(initialData.folderId ? String(initialData.folderId) : (defaultFolderId ? String(defaultFolderId) : ''));
         setSourceReference(initialData.sourceReference || '');
@@ -76,19 +107,12 @@ export default function AddReadingListModal({
           setShowPassages(false);
         }
       } else {
-        // Tự động tìm mã LIST XX tiếp theo chưa từng được sử dụng
-        const existingCodes = new Set(
-          existingLists
-            .map((l) => (l.code || l.shortTitle || '').trim().toUpperCase())
-            .filter(Boolean)
+        // Gợi ý mã theo thư mục mặc định (VD: "AV5 - 01"), không có thư mục thì "LIST 01"
+        const defaultFolder = existingFolders.find(
+          (f) => String(f.id) === String(defaultFolderId)
         );
-        let candidateNum = 1;
-        let formatted = candidateNum < 10 ? `LIST 0${candidateNum}` : `LIST ${candidateNum}`;
-        while (existingCodes.has(formatted.toUpperCase())) {
-          candidateNum++;
-          formatted = candidateNum < 10 ? `LIST 0${candidateNum}` : `LIST ${candidateNum}`;
-        }
-        setCode(formatted);
+        setCode(suggestListCode(defaultFolder, existingLists));
+        setIsCodeAutoSuggested(true);
         setTitle('');
         setFolderId(defaultFolderId ? String(defaultFolderId) : '');
         setSourceReference('');
@@ -237,7 +261,7 @@ export default function AddReadingListModal({
     if (e && e.preventDefault) e.preventDefault();
 
     if (!code.trim()) {
-      setErrorMessage('Vui lòng nhập mã danh sách (ví dụ: LIST 01, CAM 18).');
+      setErrorMessage('Vui lòng nhập mã danh sách (ví dụ: AV5 - 01, LIST 01).');
       return;
     }
 
@@ -383,7 +407,7 @@ export default function AddReadingListModal({
                       tabIndex={0}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setFolderId('');
+                        changeFolder('');
                       }}
                       title="Bỏ chọn thư mục (Chuyển thành danh sách riêng lẻ)"
                       className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer mr-0.5"
@@ -426,7 +450,7 @@ export default function AddReadingListModal({
                   <button
                     type="button"
                     onClick={() => {
-                      setFolderId('');
+                      changeFolder('');
                       setIsFolderDropdownOpen(false);
                     }}
                     className={`w-full px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 text-left text-xs transition-colors cursor-pointer ${
@@ -462,7 +486,7 @@ export default function AddReadingListModal({
                         key={f.id}
                         type="button"
                         onClick={() => {
-                          setFolderId(String(f.id));
+                          changeFolder(String(f.id));
                           setIsFolderDropdownOpen(false);
                         }}
                         className={`w-full px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 text-left text-xs transition-colors cursor-pointer ${
@@ -529,9 +553,10 @@ export default function AddReadingListModal({
                   value={code}
                   onChange={(e) => {
                     setCode(e.target.value);
+                    setIsCodeAutoSuggested(false);
                     if (errorMessage) setErrorMessage('');
                   }}
-                  placeholder="VD: LIST 01"
+                  placeholder={`VD: ${selectedFolder?.code ? `${selectedFolder.code.trim().toUpperCase()} - 01` : 'LIST 01'}`}
                   className={`w-full h-11 px-3.5 pr-8 bg-white rounded-xl text-sm font-bold transition-all outline-none ${
                     isCodeDuplicate
                       ? 'text-red-600 border-2 border-red-500 bg-red-50/40 focus:border-red-600 focus:ring-4 focus:ring-red-500/10'

@@ -115,10 +115,14 @@ export default function App() {
       const tab = params.get('tab') || params.get('view');
       const listParam = params.get('list') || params.get('listId');
       const catParam = params.get('category') || params.get('cat');
+      const folderParam = params.get('folder');
 
       if (listParam) {
         const parsedListId = listParam;
         return { view: 'reading-list', listId: parsedListId, category: null };
+      }
+      if (folderParam) {
+        return { view: 'folder', listId: null, category: null, folderId: folderParam };
       }
       if (catParam) {
         return { view: 'category', listId: null, category: decodeURIComponent(catParam) };
@@ -141,10 +145,14 @@ export default function App() {
         const savedView = sessionStorage.getItem('last_vocab_view');
         const savedListId = sessionStorage.getItem('last_vocab_list_id');
         const savedCat = sessionStorage.getItem('last_vocab_category');
+        const savedFolderId = sessionStorage.getItem('last_vocab_folder_id');
 
         if (savedView === 'reading-list' && savedListId) {
           const parsedSavedId = savedListId;
           return { view: 'reading-list', listId: parsedSavedId, category: null };
+        }
+        if (savedView === 'folder' && savedFolderId) {
+          return { view: 'folder', listId: null, category: null, folderId: savedFolderId };
         }
         if (savedView === 'category' && savedCat) {
           return { view: 'category', listId: null, category: savedCat };
@@ -173,6 +181,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState(initialNav.view);
   const [selectedReadingListId, setSelectedReadingListId] = useState(initialNav.listId);
   const [selectedCategory, setSelectedCategory] = useState(initialNav.category);
+  const [selectedFolderId, setSelectedFolderId] = useState(initialNav.folderId || null);
   const [selectedPos, setSelectedPos] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
@@ -492,7 +501,17 @@ export default function App() {
     if (view === 'master' || view === 'vocab' || view === 'profile' || view === 'list-vocabulary' || view === 'topic-vocabulary') {
       setSelectedReadingListId(null);
       setSelectedCategory(null);
+      setSelectedFolderId(null);
     }
+  };
+
+  // Mở trang tổng quan của một thư mục
+  const handleOpenFolder = (folderId) => {
+    if (folderId == null || folderId === '') return;
+    setSelectedFolderId(String(folderId));
+    setSelectedReadingListId(null);
+    setSelectedCategory(null);
+    setCurrentView('folder');
   };
 
   // Tự động đồng bộ URL trình duyệt và lưu vào sessionStorage khi chuyển đổi Tab/View
@@ -563,6 +582,17 @@ export default function App() {
         sessionStorage.setItem('last_vocab_category', selectedCategory);
         sessionStorage.removeItem('last_vocab_list_id');
       } catch (e) {}
+    } else if (currentView === 'folder' && selectedFolderId) {
+      targetPath = '/vocab';
+      params.set('folder', selectedFolderId);
+      try {
+        sessionStorage.setItem('last_vocab_view', 'folder');
+        sessionStorage.setItem('last_vocab_folder_id', selectedFolderId);
+        sessionStorage.removeItem('last_vocab_list_id');
+        sessionStorage.removeItem('last_vocab_category');
+      } catch {
+        // sessionStorage có thể bị chặn; bỏ qua
+      }
     } else if (currentView === 'master') {
       targetPath = '/vocab';
       try {
@@ -578,12 +608,12 @@ export default function App() {
 
     if (currentFull !== fullTarget) {
       window.history.pushState(
-        { currentView, selectedReadingListId, selectedCategory },
+        { currentView, selectedReadingListId, selectedCategory, selectedFolderId },
         '',
         fullTarget
       );
     }
-  }, [currentView, selectedReadingListId, selectedCategory]);
+  }, [currentView, selectedReadingListId, selectedCategory, selectedFolderId]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -596,6 +626,7 @@ export default function App() {
       setCurrentView(nav.view);
       setSelectedReadingListId(nav.listId);
       setSelectedCategory(nav.category);
+      setSelectedFolderId(nav.folderId || null);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -996,6 +1027,10 @@ export default function App() {
               : l
           )
         );
+        if (currentView === 'folder' && String(selectedFolderId) === String(folderId)) {
+          setCurrentView('list-vocabulary');
+          setSelectedFolderId(null);
+        }
         showToast('Đã xóa thư mục thành công!');
       },
     });
@@ -1450,7 +1485,7 @@ export default function App() {
           currentUser={currentUser}
           onNavigateLogin={() => navigateTo('login')}
           onNavigateRegister={() => navigateTo('register')}
-          onNavigateVocab={() => navigateTo('vocab')}
+          onNavigateVocab={() => navigateTo('profile')}
           onLogout={handleLogout}
           onNavigateProfile={() => {
             setCurrentView('profile');
@@ -1603,6 +1638,8 @@ export default function App() {
         setSelectedReadingListId={setSelectedReadingListId}
         selectedCategory={selectedCategory}
         setSelectedCategory={setSelectedCategory}
+        selectedFolderId={selectedFolderId}
+        onOpenFolder={handleOpenFolder}
         readingLists={readingLists}
         noteFolders={noteFolders}
         categories={categories}
@@ -1657,6 +1694,25 @@ export default function App() {
           }}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebar={handleToggleSidebar}
+          currentFolderName={
+            currentView === 'folder'
+              ? noteFolders.find((f) => String(f.id) === String(selectedFolderId))?.name || null
+              : currentView === 'reading-list' && activeReadingList?.folderId
+              ? noteFolders.find((f) => String(f.id) === String(activeReadingList.folderId))?.name || null
+              : null
+          }
+          currentListTitle={currentView === 'reading-list' ? activeReadingList?.title || null : null}
+          onNavigateFolder={
+            currentView === 'reading-list' && activeReadingList?.folderId
+              ? () => handleOpenFolder(activeReadingList.folderId)
+              : null
+          }
+          onNavigateListVocabulary={() => {
+            setCurrentView('list-vocabulary');
+            setSelectedFolderId(null);
+            setSelectedReadingListId(null);
+            setSelectedCategory(null);
+          }}
         />
 
         {/* Dynamic Page Views */}
@@ -1871,7 +1927,7 @@ export default function App() {
           )}
 
           {currentView === 'list-vocabulary' && (
-            <div className="px-6 lg:px-8 pt-5 pb-8 max-w-[1600px] mx-auto w-full">
+            <div className="px-4 sm:px-6 pt-5 pb-8 w-full">
               <ListVocabularyPage
                 readingLists={readingLists}
                 noteFolders={noteFolders}
@@ -1891,7 +1947,58 @@ export default function App() {
                 onReorderReadingLists={handleReorderReadingLists}
                 onMoveReadingListToFolder={handleMoveReadingListToFolder}
                 showNotification={showNotification}
+                onOpenFolder={handleOpenFolder}
               />
+            </div>
+          )}
+
+          {currentView === 'folder' && (
+            <div className="px-4 sm:px-6 pt-5 pb-8 w-full">
+              {noteFolders.some((f) => String(f.id) === String(selectedFolderId)) ? (
+                <ListVocabularyPage
+                  key={`folder-${selectedFolderId}`}
+                  focusedFolderId={selectedFolderId}
+                  readingLists={readingLists}
+                  noteFolders={noteFolders}
+                  vocabList={vocabList}
+                  onSelectList={(listId) => {
+                    setSelectedReadingListId(listId);
+                    setSelectedCategory(null);
+                    setCurrentView('reading-list');
+                  }}
+                  onOpenAddReadingListModal={handleOpenAddReadingListModal}
+                  onOpenAddFolderModal={handleOpenAddFolderModal}
+                  onOpenAddModal={handleOpenAddModal}
+                  onEditReadingList={handleEditReadingList}
+                  onDeleteReadingList={handleDeleteReadingList}
+                  onEditFolder={handleEditFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onReorderReadingLists={handleReorderReadingLists}
+                  onMoveReadingListToFolder={handleMoveReadingListToFolder}
+                  showNotification={showNotification}
+                />
+              ) : loading ? (
+                <div className="p-16 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
+                  <span className="material-symbols-outlined text-4xl text-crimson-primary animate-spin">progress_activity</span>
+                  <p className="font-bold text-base text-text-high-contrast">Đang tải thư mục...</p>
+                </div>
+              ) : (
+                <div className="p-12 max-w-lg mx-auto text-center flex flex-col items-center justify-center gap-3">
+                  <span className="material-symbols-outlined text-4xl text-text-disabled">folder_off</span>
+                  <p className="font-bold text-base text-text-high-contrast">Không tìm thấy thư mục</p>
+                  <p className="text-xs text-text-muted">Thư mục có thể đã bị xóa hoặc đường dẫn không đúng.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentView('list-vocabulary');
+                      setSelectedFolderId(null);
+                    }}
+                    className="mt-2 px-4 py-2 rounded-lg bg-crimson-primary text-white text-xs font-bold hover:bg-crimson-dark shadow-xs"
+                  >
+                    Về List Vocabulary
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </main>

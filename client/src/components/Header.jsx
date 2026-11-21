@@ -13,6 +13,10 @@ export default function Header({
   onNavigateProfile,
   isSidebarCollapsed = false,
   onToggleSidebar,
+  currentFolderName = null,
+  onNavigateListVocabulary,
+  onNavigateFolder = null,
+  currentListTitle = null,
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -27,17 +31,6 @@ export default function Header({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const getGenderLabel = (gender) => {
-    switch (gender) {
-      case 'MALE':
-        return 'Nam';
-      case 'FEMALE':
-        return 'Nữ';
-      default:
-        return 'Khác';
-    }
-  };
 
   const getUserInitial = () => {
     if (!currentUser || !currentUser.fullName) return 'U';
@@ -92,6 +85,37 @@ export default function Header({
             <span className={isSidebarCollapsed ? 'inline' : 'hidden md:inline'}>LexiconVocab LMS</span>
           </span>
           <span className="material-symbols-outlined text-[14px] text-text-disabled shrink-0">chevron_right</span>
+          {currentView === 'folder' || currentView === 'reading-list' ? (
+            <span className="flex items-center gap-1.5 min-w-0 font-semibold">
+              <button
+                type="button"
+                onClick={onNavigateListVocabulary}
+                className="shrink-0 text-text-muted hover:text-crimson-primary hover:underline underline-offset-4 decoration-2 transition-colors cursor-pointer"
+                title="Về trang List Vocabulary"
+              >
+                List Vocabulary
+              </button>
+              <span className="text-text-disabled shrink-0">/</span>
+              {currentView === 'reading-list' && currentFolderName && onNavigateFolder ? (
+                <button
+                  type="button"
+                  onClick={onNavigateFolder}
+                  className="text-crimson-primary truncate hover:underline underline-offset-4 decoration-2 cursor-pointer"
+                  title={`Về thư mục ${currentFolderName}`}
+                >
+                  {currentFolderName}
+                </button>
+              ) : (
+                <span
+                  className="text-crimson-primary truncate"
+                  title={currentFolderName || currentListTitle || ''}
+                >
+                  {currentFolderName ||
+                    (currentView === 'reading-list' ? currentListTitle || 'Danh sách từ vựng' : 'Thư mục')}
+                </span>
+              )}
+            </span>
+          ) : (
           <span className="text-crimson-primary font-semibold truncate">
             {currentView === 'profile'
               ? 'Hồ sơ người dùng & Sơ đồ năng lực'
@@ -107,6 +131,7 @@ export default function Header({
               ? 'Topic Vocabulary'
               : 'Kho từ vựng trung tâm'}
           </span>
+          )}
         </div>
       </div>
 
@@ -166,28 +191,7 @@ export default function Header({
 
             {/* Profile Dropdown Menu */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.15)] border border-slate-200/90 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                {/* User Info Header */}
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold text-text-high-contrast">
-                    {currentUser.fullName}
-                  </p>
-                  <p className="text-xs text-text-muted truncate mt-0.5">
-                    {currentUser.email}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="px-2 py-0.5 rounded-md bg-surface-crimson-subtle text-crimson-primary text-[10px] font-bold border border-border-crimson-tint">
-                      {getGenderLabel(currentUser.gender)}
-                    </span>
-                    {currentUser.dateOfBirth && (
-                      <span className="text-[11px] text-text-muted flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">cake</span>
-                        {currentUser.dateOfBirth}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-[0_12px_32px_rgba(15,23,42,0.15)] border border-slate-200/90 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div className="px-2 py-1 border-b border-slate-100">
                   <button
                     type="button"
@@ -198,7 +202,7 @@ export default function Header({
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[18px] text-crimson-primary">account_circle</span>
-                    <span>Hồ sơ & Sơ đồ năng lực</span>
+                    <span>Thông tin cá nhân</span>
                   </button>
                 </div>
 
