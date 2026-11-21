@@ -117,7 +117,7 @@ export default function App() {
       const catParam = params.get('category') || params.get('cat');
 
       if (listParam) {
-        const parsedListId = !isNaN(Number(listParam)) ? Number(listParam) : listParam;
+        const parsedListId = listParam;
         return { view: 'reading-list', listId: parsedListId, category: null };
       }
       if (catParam) {
@@ -143,7 +143,7 @@ export default function App() {
         const savedCat = sessionStorage.getItem('last_vocab_category');
 
         if (savedView === 'reading-list' && savedListId) {
-          const parsedSavedId = !isNaN(Number(savedListId)) ? Number(savedListId) : savedListId;
+          const parsedSavedId = savedListId;
           return { view: 'reading-list', listId: parsedSavedId, category: null };
         }
         if (savedView === 'category' && savedCat) {

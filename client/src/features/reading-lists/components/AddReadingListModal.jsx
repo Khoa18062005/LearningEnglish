@@ -257,7 +257,8 @@ export default function AddReadingListModal({
     try {
       const validPassages = passages
         .map((p, idx) => ({
-          id: typeof p.id === 'number' ? p.id : null,
+          // ID bài đọc là ObjectId (chuỗi 24 ký tự hex); ID tạm phía client không gửi lên
+          id: typeof p.id === 'string' && /^[a-f0-9]{24}$/i.test(p.id) ? p.id : null,
           title: (p.title || '').trim() || `Bài đọc ${idx + 1}`,
           content: p.content || '',
           wordCount: p.wordCount || 0,
@@ -270,7 +271,7 @@ export default function AddReadingListModal({
         title: title.trim(),
         sourceReference: sourceReference.trim() || null,
         note: note.trim() || null,
-        folderId: folderId ? Number(folderId) : null,
+        folderId: folderId ? String(folderId) : null,
         passages: validPassages,
         passage: validPassages[0]?.content || null,
       };
