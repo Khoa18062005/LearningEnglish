@@ -86,8 +86,21 @@ public class VocabularySpecification {
 
             // 5. Filter by Part of Speech
             if (pos != null) {
-                Join<Vocabulary, VocabForm> formJoin = root.join("forms", JoinType.INNER);
-                predicates.add(cb.equal(formJoin.get("partOfSpeech"), pos));
+                Join<Vocabulary, VocabForm> formJoin = root.join("forms", JoinType.LEFT);
+                Predicate formMatch = cb.equal(formJoin.get("partOfSpeech"), pos);
+                Predicate vocabPosMatch = cb.equal(cb.lower(root.get("pos")), pos.name().toLowerCase());
+                String shortBadge = switch (pos) {
+                    case N -> "n";
+                    case V -> "v";
+                    case ADJ -> "adj";
+                    case ADV -> "adv";
+                    case PHRASAL_VERB -> "phrasal_verb";
+                    case IDIOM -> "idiom";
+                    case COLLOCATION -> "collocation";
+                    default -> pos.name().toLowerCase();
+                };
+                Predicate shortPosMatch = cb.equal(cb.lower(root.get("pos")), shortBadge);
+                predicates.add(cb.or(formMatch, vocabPosMatch, shortPosMatch));
             }
 
             // 6. Filter by Word Family

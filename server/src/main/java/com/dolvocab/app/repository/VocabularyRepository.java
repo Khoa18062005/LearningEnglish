@@ -15,7 +15,13 @@ public interface VocabularyRepository extends JpaRepository<Vocabulary, Long>, J
 
     Optional<Vocabulary> findByIdAndUserId(Long id, Long userId);
 
+    List<Vocabulary> findAllByWordIgnoreCaseAndUserId(String word, Long userId);
+
+    Optional<Vocabulary> findFirstByWordIgnoreCaseAndUserId(String word, Long userId);
+
     Optional<Vocabulary> findByWordIgnoreCaseAndUserId(String word, Long userId);
+
+    Optional<Vocabulary> findByWordIgnoreCaseAndPosIgnoreCaseAndUserId(String word, String pos, Long userId);
 
     boolean existsByWordIgnoreCaseAndUserId(String word, Long userId);
 

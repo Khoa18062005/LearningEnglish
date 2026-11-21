@@ -16,10 +16,8 @@ import java.util.Set;
     name = "vocabularies",
     indexes = {
         @Index(name = "idx_vocab_word", columnList = "word"),
-        @Index(name = "idx_vocab_user", columnList = "user_id")
-    },
-    uniqueConstraints = {
-        @UniqueConstraint(name = "uk_user_vocab", columnNames = {"user_id", "word"})
+        @Index(name = "idx_vocab_user", columnList = "user_id"),
+        @Index(name = "idx_vocab_pos", columnList = "pos")
     }
 )
 @Getter
@@ -39,6 +37,9 @@ public class Vocabulary {
 
     @Column(nullable = false, length = 150)
     private String word;
+
+    @Column(name = "pos", length = 30)
+    private String pos;
 
     @Column(length = 100)
     private String phonetic;

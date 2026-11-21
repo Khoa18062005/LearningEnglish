@@ -1050,30 +1050,48 @@ export default function AddVocabModal({
     return () => clearTimeout(timer);
   }, [word, isOpen, phonetic, initialVocab, hasPhonetic]);
 
-  // Check duplicate word in real-time
-  const duplicateMatch = useMemo(() => {
+  // Match words by spelling in real-time
+  const matchingWords = useMemo(() => {
     const trimmedWord = word.trim().toLowerCase();
-    if (!trimmedWord || !vocabList?.length) return null;
+    if (!trimmedWord || !vocabList?.length) return [];
 
-    return (
-      vocabList.find((v) => {
-        // If we are editing an existing vocab, ignore the item itself
-        if (initialVocab) {
-          const isSameId =
-            initialVocab.id != null &&
-            v.id != null &&
-            String(v.id) === String(initialVocab.id);
-          const isSameOriginalWord =
-            initialVocab.word &&
-            v.word?.trim().toLowerCase() === initialVocab.word.trim().toLowerCase();
-          if (isSameId || isSameOriginalWord) {
-            return false;
-          }
+    return vocabList.filter((v) => {
+      // If we are editing an existing vocab, ignore the item itself
+      if (initialVocab) {
+        const isSameId =
+          initialVocab.id != null &&
+          v.id != null &&
+          String(v.id) === String(initialVocab.id);
+        if (isSameId) {
+          return false;
         }
-        return v.word?.trim().toLowerCase() === trimmedWord;
+      }
+      return v.word?.trim().toLowerCase() === trimmedWord;
+    });
+  }, [word, vocabList, initialVocab]);
+
+  // Exact duplicate: Same word AND same part of speech
+  const exactDuplicateMatch = useMemo(() => {
+    const currentPosLower = (pos || '').toLowerCase();
+    return (
+      matchingWords.find((v) => {
+        const vPos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+        return vPos === currentPosLower;
       }) || null
     );
-  }, [word, vocabList, initialVocab]);
+  }, [matchingWords, pos]);
+
+  // Same word but different part of speech (e.g. good as 'adj' already exists, currently adding 'n')
+  const differentPosMatches = useMemo(() => {
+    const currentPosLower = (pos || '').toLowerCase();
+    return matchingWords.filter((v) => {
+      const vPos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+      return vPos !== currentPosLower;
+    });
+  }, [matchingWords, pos]);
+
+  // Backward compatibility alias for single check
+  const duplicateMatch = exactDuplicateMatch;
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -1781,7 +1799,7 @@ export default function AddVocabModal({
                         : 'Nhập từ vựng tiếng Anh...'
                     }
                     className={`w-full h-11 pl-3.5 pr-8 bg-slate-50/70 hover:bg-white focus:bg-white rounded-xl text-sm font-semibold text-text-high-contrast border transition-all outline-none ${
-                      duplicateMatch
+                      exactDuplicateMatch
                         ? 'border-amber-400 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'
                         : 'border-slate-200 focus:border-crimson-primary focus:ring-4 focus:ring-crimson-primary/10'
                     }`}
@@ -1803,14 +1821,6 @@ export default function AddVocabModal({
                     </button>
                   )}
                 </div>
-
-                {/* Inline Duplicate Warning if any */}
-                {duplicateMatch && (
-                  <p className="text-[11px] font-medium text-amber-700 flex items-center gap-1 animate-in fade-in">
-                    <span className="material-symbols-outlined text-[14px]">warning</span>
-                    <span>Từ này đã có trong kho từ vựng. Bạn vẫn có thể lưu bổ sung nghĩa mới!</span>
-                  </p>
-                )}
               </div>
 
               {/* Field 3: Phonetic IPA & Native Audio (Only for standard POS, omitted for idiom & phrasal_verb) */}
@@ -1891,6 +1901,29 @@ export default function AddVocabModal({
                       </div>
                     ) : null}
                   </div>
+                </div>
+              )}
+
+              {/* Thông báo tình trạng từ vựng kéo dài 1 hàng ngang thẳng qua luôn cả ô phiên âm */}
+              {exactDuplicateMatch && (
+                <div className="md:col-span-12 -mt-1.5 flex items-center animate-in fade-in">
+                  <p className="text-xs font-medium text-amber-700 flex items-center gap-1.5 leading-normal">
+                    <span className="material-symbols-outlined text-[16px] shrink-0 text-amber-600">warning</span>
+                    <span>
+                      Từ &quot;{word.trim()}&quot; (dạng {currentPosConfig.shortLabel}) đã tồn tại trong kho từ vựng. Bạn vẫn có thể lưu để cập nhật thêm nghĩa!
+                    </span>
+                  </p>
+                </div>
+              )}
+
+              {!exactDuplicateMatch && differentPosMatches.length > 0 && (
+                <div className="md:col-span-12 -mt-1.5 flex items-center animate-in fade-in">
+                  <p className="text-xs font-medium text-blue-700 flex items-center gap-1.5 leading-normal">
+                    <span className="material-symbols-outlined text-[16px] shrink-0 text-blue-600">info</span>
+                    <span>
+                      Từ &quot;{word.trim()}&quot; đã có ở dạng {differentPosMatches.map((m) => m.posLabel || m.pos).join(', ')}. Bạn đang tạo thêm từ dạng {currentPosConfig.shortLabel} độc lập mới!
+                    </span>
+                  </p>
                 </div>
               )}
 
@@ -3787,18 +3820,8 @@ export default function AddVocabModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 sm:px-8 py-4 border-t border-slate-100 bg-white flex flex-wrap items-center justify-between gap-4 shrink-0">
+        <div className="px-6 sm:px-8 py-4 border-t border-slate-100 bg-white flex flex-wrap items-center justify-end gap-4 shrink-0">
           
-          {/* Duplicate check live status */}
-          <div className="flex items-center gap-2 text-xs">
-            {duplicateMatch && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-semibold animate-in fade-in">
-                <span className="material-symbols-outlined text-[16px] text-amber-600">warning</span>
-                <span>Từ &quot;{duplicateMatch.word}&quot; đã tồn tại (Lưu sẽ cập nhật thêm nghĩa)</span>
-              </div>
-            )}
-          </div>
-
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-1.5 text-[11px] text-slate-400 font-medium select-none">
@@ -3823,7 +3846,7 @@ export default function AddVocabModal({
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-crimson-dark to-crimson-primary hover:brightness-105 active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-crimson-primary/20 transition-all flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[18px]">check</span>
-              <span>{initialVocab ? 'Cập Nhật Thay Đổi' : 'Lưu Từ Vựng'}</span>
+              <span>{initialVocab ? 'Cập Nhật Thay Đổi' : exactDuplicateMatch ? 'Cập Nhật Thêm Nghĩa' : 'Lưu Từ Vựng'}</span>
             </button>
           </div>
 

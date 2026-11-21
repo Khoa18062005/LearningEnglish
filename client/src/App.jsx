@@ -398,7 +398,8 @@ export default function App() {
       if (Array.isArray(vocabsData)) {
         const seen = new Set();
         const unique = vocabsData.filter((v) => {
-          const key = v.id || v.word?.toLowerCase();
+          const vPos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+          const key = v.id ? String(v.id) : `${(v.word || '').toLowerCase()}_${vPos}`;
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
@@ -407,11 +408,15 @@ export default function App() {
           const prevMap = new Map();
           (prev || []).forEach((v) => {
             if (v.id) prevMap.set(String(v.id), v);
-            if (v.word) prevMap.set(v.word.toLowerCase(), v);
+            const vPos = (v.pos || v.forms?.[0]?.pos || '').toLowerCase();
+            const wordPosKey = `${(v.word || '').toLowerCase()}_${vPos}`;
+            prevMap.set(wordPosKey, v);
           });
           return unique.map((serverItem) => {
+            const serverPos = (serverItem.pos || serverItem.forms?.[0]?.pos || '').toLowerCase();
             const localItem =
               prevMap.get(String(serverItem.id)) ||
+              prevMap.get(`${(serverItem.word || '').toLowerCase()}_${serverPos}`) ||
               prevMap.get((serverItem.word || '').toLowerCase());
             if (!localItem) return serverItem;
             return {
@@ -693,7 +698,20 @@ export default function App() {
 
   // Add or update vocabulary (syncs to Spring Boot if available)
   const handleSaveVocab = async (vocabData, editId) => {
-    const targetId = editId || editingVocab?.id || (vocabList.find((v) => v.word.toLowerCase() === vocabData.word.toLowerCase())?.id);
+    const vocabDataPos = (vocabData.pos || vocabData.forms?.[0]?.pos || '').toLowerCase();
+
+    // If editId is not provided and editingVocab is not set (i.e. Add New mode),
+    // only match an existing vocab if BOTH word AND pos match exactly.
+    // If the word has a different POS (e.g. good (adj) exists, adding good (n)), targetId must be null to create a new entry!
+    const matchingVocabSamePos = (!editId && !editingVocab?.id)
+      ? vocabList.find(
+          (v) =>
+            (v.word || '').trim().toLowerCase() === (vocabData.word || '').trim().toLowerCase() &&
+            (v.pos || v.forms?.[0]?.pos || '').toLowerCase() === vocabDataPos
+        )
+      : null;
+
+    const targetId = editId || editingVocab?.id || matchingVocabSamePos?.id;
 
     try {
       if (targetId && isBackendConnected) {
@@ -701,12 +719,11 @@ export default function App() {
         const mergedUpdated = safeMergeVocab(vocabData, updated);
         setLastMutation({ type: 'update', data: mergedUpdated, timestamp: Date.now() });
         setVocabList((prev) =>
-          prev.map((v) => (v.id === targetId || v.word.toLowerCase() === vocabData.word.toLowerCase() ? mergedUpdated : v))
+          prev.map((v) => (v.id === targetId ? mergedUpdated : v))
         );
         setSelectedDetailVocab((prev) => {
           if (!prev) return null;
-          const isMatch = (targetId && prev.id === targetId) ||
-            ((prev.word || '').trim().toLowerCase() === (vocabData.word || '').trim().toLowerCase());
+          const isMatch = targetId && prev.id === targetId;
           return isMatch ? { ...prev, ...mergedUpdated } : prev;
         });
         loadBackendData();
@@ -733,16 +750,15 @@ export default function App() {
           );
         }
         setVocabList((prev) => {
-          const exists = prev.some((v) => v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase());
+          const exists = prev.some((v) => v.id === created.id);
           if (exists) {
-            return prev.map((v) => (v.id === created.id || v.word.toLowerCase() === created.word.toLowerCase() ? mergedCreated : v));
+            return prev.map((v) => (v.id === created.id ? mergedCreated : v));
           }
           return [mergedCreated, ...prev];
         });
         setSelectedDetailVocab((prev) => {
           if (!prev) return null;
-          const isMatch = (created.id && prev.id === created.id) ||
-            ((prev.word || '').trim().toLowerCase() === (created.word || '').trim().toLowerCase());
+          const isMatch = created.id && prev.id === created.id;
           return isMatch ? { ...prev, ...mergedCreated } : prev;
         });
         loadBackendData();
@@ -756,10 +772,10 @@ export default function App() {
 
     // Local fallback (when offline or backend not running)
     setVocabList((prev) => {
-      const exists = prev.some((v) => (targetId && v.id === targetId) || v.id === vocabData.id || v.word.toLowerCase() === vocabData.word.toLowerCase());
+      const exists = prev.some((v) => (targetId && v.id === targetId) || (v.id === vocabData.id));
       if (exists) {
         return prev.map((v) =>
-          ((targetId && v.id === targetId) || v.id === vocabData.id || v.word.toLowerCase() === vocabData.word.toLowerCase())
+          ((targetId && v.id === targetId) || (v.id === vocabData.id))
             ? { ...v, ...vocabData, id: v.id }
             : v
         );
@@ -769,8 +785,7 @@ export default function App() {
 
     setSelectedDetailVocab((prev) => {
       if (!prev) return null;
-      const isMatch = (targetId && prev.id === targetId) ||
-        ((prev.word || '').trim().toLowerCase() === (vocabData.word || '').trim().toLowerCase());
+      const isMatch = targetId ? prev.id === targetId : prev.id === vocabData.id;
       return isMatch ? { ...prev, ...vocabData } : prev;
     });
 

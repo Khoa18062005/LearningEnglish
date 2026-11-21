@@ -145,18 +145,41 @@ public class VocabularyServiceImpl implements VocabularyService {
         User currentUser = securityUtils.getCurrentUser();
         String cleanWord = request.getWord().trim();
 
+        // Determine requested part of speech (pos badge e.g. "v", "n", "adj", etc.)
+        String requestPos = request.getPos();
+        if ((requestPos == null || requestPos.trim().isEmpty()) && request.getForms() != null && !request.getForms().isEmpty()) {
+            requestPos = request.getForms().get(0).getPos();
+        }
+        PartOfSpeech parsed = parsePos(requestPos);
+        final PartOfSpeech targetPos = (parsed != null) ? parsed : PartOfSpeech.V;
+        String posBadge = formatPosBadge(targetPos);
+
         Vocabulary vocab;
-        Optional<Vocabulary> existing = vocabularyRepository.findByWordIgnoreCaseAndUserId(cleanWord, currentUser.getId());
-        if (existing.isPresent()) {
-            vocab = existing.get();
+        List<Vocabulary> existingList = vocabularyRepository.findAllByWordIgnoreCaseAndUserId(cleanWord, currentUser.getId());
+        Optional<Vocabulary> existingSamePos = existingList.stream()
+                .filter(v -> {
+                    if (v.getPos() != null && !v.getPos().trim().isEmpty()) {
+                        return v.getPos().equalsIgnoreCase(posBadge);
+                    }
+                    if (!v.getForms().isEmpty()) {
+                        return v.getForms().get(0).getPartOfSpeech() == targetPos;
+                    }
+                    return false;
+                })
+                .findFirst();
+
+        if (existingSamePos.isPresent()) {
+            vocab = existingSamePos.get();
             vocab.getForms().clear();
         } else {
             vocab = Vocabulary.builder()
                     .user(currentUser)
                     .word(cleanWord)
+                    .pos(posBadge)
                     .build();
         }
 
+        vocab.setPos(posBadge);
         vocab.setPhonetic(request.getPhonetic());
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
@@ -189,12 +212,34 @@ public class VocabularyServiceImpl implements VocabularyService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy từ vựng với ID: " + id));
 
         String newWord = request.getWord().trim();
-        Optional<Vocabulary> existing = vocabularyRepository.findByWordIgnoreCaseAndUserId(newWord, currentUser.getId());
-        if (existing.isPresent() && !existing.get().getId().equals(id)) {
-            throw new RuntimeException("Từ vựng '" + newWord + "' đã tồn tại trong danh sách của bạn!");
+
+        String requestPos = request.getPos();
+        if ((requestPos == null || requestPos.trim().isEmpty()) && request.getForms() != null && !request.getForms().isEmpty()) {
+            requestPos = request.getForms().get(0).getPos();
+        }
+        PartOfSpeech parsedUpdatePos = parsePos(requestPos);
+        final PartOfSpeech targetPos = (parsedUpdatePos != null) ? parsedUpdatePos : PartOfSpeech.V;
+        String posBadge = formatPosBadge(targetPos);
+
+        List<Vocabulary> existingList = vocabularyRepository.findAllByWordIgnoreCaseAndUserId(newWord, currentUser.getId());
+        boolean duplicateExists = existingList.stream()
+                .filter(v -> !v.getId().equals(id))
+                .anyMatch(v -> {
+                    if (v.getPos() != null && !v.getPos().trim().isEmpty()) {
+                        return v.getPos().equalsIgnoreCase(posBadge);
+                    }
+                    if (!v.getForms().isEmpty()) {
+                        return v.getForms().get(0).getPartOfSpeech() == targetPos;
+                    }
+                    return false;
+                });
+
+        if (duplicateExists) {
+            throw new RuntimeException("Từ vựng '" + newWord + "' với dạng từ này đã tồn tại trong danh sách của bạn!");
         }
 
         vocab.setWord(newWord);
+        vocab.setPos(posBadge);
         vocab.setPhonetic(request.getPhonetic());
         vocab.setAudioUrl(request.getAudioUrl());
         vocab.setGeneralNote(request.getGeneralNote());
@@ -382,14 +427,21 @@ public class VocabularyServiceImpl implements VocabularyService {
     }
 
     private VocabDetailResponse mapToDetailResponse(Vocabulary vocab) {
-        String primaryPos = "v";
-        String primaryPosLabel = "Verb";
+        String primaryPos = vocab.getPos();
+        if (primaryPos == null || primaryPos.trim().isEmpty()) {
+            if (!vocab.getForms().isEmpty()) {
+                VocabForm firstForm = vocab.getForms().get(0);
+                primaryPos = formatPosBadge(firstForm.getPartOfSpeech());
+            } else {
+                primaryPos = "v";
+            }
+        }
+        PartOfSpeech mappedPosEnum = parsePos(primaryPos);
+        String primaryPosLabel = formatPosLabel(mappedPosEnum);
         String primaryCountability = null;
 
         if (!vocab.getForms().isEmpty()) {
             VocabForm firstForm = vocab.getForms().get(0);
-            primaryPos = formatPosBadge(firstForm.getPartOfSpeech());
-            primaryPosLabel = formatPosLabel(firstForm.getPartOfSpeech());
             primaryCountability = formatCountability(firstForm.getCountability());
         }
 
