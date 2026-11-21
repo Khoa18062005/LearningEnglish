@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import astronautImg from '../../../assets/Chibi_PhiHanhGia.png';
 import MoveFolderConfirmModal from '../components/MoveFolderConfirmModal';
 
 export default function ListVocabularyPage({
@@ -17,9 +16,34 @@ export default function ListVocabularyPage({
   onReorderReadingLists,
   onMoveReadingListToFolder,
   showNotification,
+  // Trang tổng quan thư mục: truyền ID thư mục để chỉ hiển thị thư mục đó
+  focusedFolderId = null,
+  onOpenFolder,
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  // Bố cục trang tổng quan: 'grouped' (thư mục kèm danh sách) | 'folders' (chỉ lưới thư mục)
+  const [layoutMode, setLayoutMode] = useState(() => {
+    try {
+      return localStorage.getItem('list_vocab_layout_mode') === 'folders' ? 'folders' : 'grouped';
+    } catch {
+      return 'grouped';
+    }
+  });
+  const handleSetLayoutMode = (mode) => {
+    setLayoutMode(mode);
+    try {
+      localStorage.setItem('list_vocab_layout_mode', mode);
+    } catch {
+      // localStorage có thể bị chặn; bỏ qua
+    }
+  };
   const [selectedFolderFilter, setSelectedFolderFilter] = useState('all'); // 'all' | folderId | 'none'
+  const isFolderMode = focusedFolderId != null && focusedFolderId !== '';
+  const focusedFolder = isFolderMode
+    ? noteFolders.find((f) => String(f.id) === String(focusedFolderId)) || null
+    : null;
+  // Ở trang thư mục luôn lọc theo đúng thư mục đó, bỏ qua bộ lọc thư mục của trang tổng quan
+  const activeFolderFilter = isFolderMode ? String(focusedFolderId) : selectedFolderFilter;
   const [sortBy, setSortBy] = useState(() => {
     try {
       return localStorage.getItem('list_vocab_sort_by') || 'custom';
@@ -111,22 +135,6 @@ export default function ListVocabularyPage({
     });
   }, [readingLists, vocabList, noteFolders]);
 
-  // Tổng số từ vựng thuộc các bài đọc
-  const totalVocabsInLists = useMemo(() => {
-    const uniqueVocabIds = new Set();
-    vocabList.forEach((v) => {
-      if (
-        v.readingListId != null ||
-        v.noteListId != null ||
-        (Array.isArray(v.noteListIds) && v.noteListIds.length > 0) ||
-        (Array.isArray(v.noteLists) && v.noteLists.length > 0)
-      ) {
-        uniqueVocabIds.add(v.id || v.word);
-      }
-    });
-    return uniqueVocabIds.size;
-  }, [vocabList]);
-
   // Lọc và sắp xếp
   const filteredAndSortedLists = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -142,11 +150,11 @@ export default function ListVocabularyPage({
       );
     }
 
-    if (selectedFolderFilter && selectedFolderFilter !== 'all') {
-      if (selectedFolderFilter === 'none') {
+    if (activeFolderFilter && activeFolderFilter !== 'all') {
+      if (activeFolderFilter === 'none') {
         result = result.filter((list) => !list.folderId);
       } else {
-        result = result.filter((list) => String(list.folderId) === String(selectedFolderFilter));
+        result = result.filter((list) => String(list.folderId) === String(activeFolderFilter));
       }
     }
 
@@ -171,7 +179,7 @@ export default function ListVocabularyPage({
     }
 
     return sorted;
-  }, [listsWithStats, searchTerm, sortBy, selectedFolderFilter]);
+  }, [listsWithStats, searchTerm, sortBy, activeFolderFilter]);
 
   // Nhóm các danh sách bài đọc theo Thư mục
   const folderGroups = useMemo(() => {
@@ -211,7 +219,7 @@ export default function ListVocabularyPage({
 
     const result = [];
 
-    if (selectedFolderFilter === 'all') {
+    if (activeFolderFilter === 'all') {
       // Khi chọn "Tất cả thư mục": Hiển thị các thư mục trước
       noteFolders.forEach((f) => {
         const grp = groupsMap.get(String(f.id));
@@ -230,21 +238,21 @@ export default function ListVocabularyPage({
       if (standaloneGroup.lists.length > 0) {
         result.push(standaloneGroup);
       }
-    } else if (selectedFolderFilter === 'none') {
+    } else if (activeFolderFilter === 'none') {
       // Chỉ xem danh sách riêng lẻ
       if (standaloneGroup.lists.length > 0 || !searchTerm.trim()) {
         result.push(standaloneGroup);
       }
     } else {
       // Khi lọc theo một thư mục cụ thể
-      const grp = groupsMap.get(String(selectedFolderFilter));
+      const grp = groupsMap.get(String(activeFolderFilter));
       if (grp) {
         result.push(grp);
       }
     }
 
     return result;
-  }, [noteFolders, filteredAndSortedLists, selectedFolderFilter, searchTerm]);
+  }, [noteFolders, filteredAndSortedLists, activeFolderFilter, searchTerm]);
 
   // Quản lý trạng thái mở rộng (hiển thị 3 hay 6 danh sách) cho từng thư mục
   const [expandedFolderIds, setExpandedFolderIds] = useState({});
@@ -869,6 +877,68 @@ export default function ListVocabularyPage({
     });
   };
 
+  // Bố cục lưới thư mục chỉ áp dụng ở trang tổng quan
+  const showFolderGrid = !isFolderMode && layoutMode === 'folders';
+
+  // Thống kê từng thư mục: số danh sách, số bài đọc, các từ vựng (không trùng)
+  const folderStatsById = useMemo(() => {
+    const map = {};
+    noteFolders.forEach((f) => {
+      map[String(f.id)] = { listCount: 0, passageCount: 0, vocabIds: new Set() };
+    });
+    const listToFolder = {};
+    listsWithStats.forEach((l) => {
+      const fid = l.folderId ? String(l.folderId) : null;
+      if (!fid || !map[fid]) return;
+      map[fid].listCount += 1;
+      map[fid].passageCount +=
+        Array.isArray(l.passages) && l.passages.length > 0 ? l.passages.length : l.passage ? 1 : 0;
+      listToFolder[String(l.id)] = fid;
+    });
+    vocabList.forEach((v) => {
+      if (!v) return;
+      const ids = [];
+      if (v.readingListId != null && v.readingListId !== '') ids.push(v.readingListId);
+      if (v.noteListId != null && v.noteListId !== '') ids.push(v.noteListId);
+      if (Array.isArray(v.noteListIds)) ids.push(...v.noteListIds);
+      if (Array.isArray(v.noteLists)) ids.push(...v.noteLists.map((nl) => nl && nl.id));
+      const folderIds = new Set();
+      ids.forEach((id) => {
+        const fid = id != null ? listToFolder[String(id)] : null;
+        if (fid) folderIds.add(fid);
+      });
+      folderIds.forEach((fid) => map[fid].vocabIds.add(v.id || v.word));
+    });
+    return map;
+  }, [noteFolders, listsWithStats, vocabList]);
+
+  // Thư mục hiển thị trong lưới: khớp tên/mã thư mục hoặc có danh sách khớp từ khóa
+  const folderCards = useMemo(() => {
+    if (selectedFolderFilter === 'none') return [];
+    const term = searchTerm.trim().toLowerCase();
+    const matchedFolderIds = new Set(
+      filteredAndSortedLists.filter((l) => l.folderId).map((l) => String(l.folderId))
+    );
+    return noteFolders.filter((f) => {
+      if (selectedFolderFilter !== 'all' && String(f.id) !== String(selectedFolderFilter)) return false;
+      if (!term) return true;
+      return (
+        (f.name || '').toLowerCase().includes(term) ||
+        (f.code || '').toLowerCase().includes(term) ||
+        matchedFolderIds.has(String(f.id))
+      );
+    });
+  }, [noteFolders, filteredAndSortedLists, searchTerm, selectedFolderFilter]);
+
+  // Danh sách không thuộc thư mục nào (vẫn hiển thị bên dưới lưới thư mục)
+  const standaloneLists = useMemo(
+    () =>
+      filteredAndSortedLists.filter(
+        (l) => !l.folderId || !noteFolders.some((f) => String(f.id) === String(l.folderId))
+      ),
+    [filteredAndSortedLists, noteFolders]
+  );
+
   const renderCard = (list, customOnSelect = null, dragProps = null) => {
     const displayCode = list.code || list.shortTitle || 'LIST';
     const displayTitle = list.title || 'Danh sách từ vựng';
@@ -1186,101 +1256,8 @@ export default function ListVocabularyPage({
 
   return (
     <div className="w-full flex flex-col gap-6 animate-in fade-in duration-150">
-      {/* 1. Hero Banner: List Vocabulary (Lexicon) */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#c41b26] via-[#d3212c] to-[#c61e27] shadow-lg border border-red-500/25 p-6 sm:p-7 lg:p-8 text-white transition-all">
-        {/* Decorative glowing halos in background */}
-        <div className="absolute -left-12 -top-12 w-80 h-80 bg-white/15 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute -right-12 -bottom-12 w-72 h-72 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute left-1/4 -top-12 w-64 h-64 bg-white/10 rounded-full blur-xl pointer-events-none" />
-
-        {/* Decorative concentric ripples */}
-        <svg
-          className="absolute -left-12 -top-12 w-96 h-96 opacity-15 pointer-events-none text-white"
-          viewBox="0 0 200 200"
-        >
-          <circle cx="100" cy="100" r="25" fill="none" stroke="currentColor" strokeWidth="1" />
-          <circle cx="100" cy="100" r="50" fill="none" stroke="currentColor" strokeWidth="1" />
-          <circle cx="100" cy="100" r="75" fill="none" stroke="currentColor" strokeWidth="1" />
-          <circle cx="100" cy="100" r="100" fill="none" stroke="currentColor" strokeWidth="1" />
-        </svg>
-
-        <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div className="flex-1 min-w-0 flex flex-col gap-2.5">
-            {/* Badges */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-wider shadow-xs">
-                <span className="material-symbols-outlined text-[14px]">auto_stories</span>
-                <span>List Vocabulary</span>
-              </span>
-              <span className="text-xs text-white/90 font-medium tracking-wide">
-                Quản lí danh sách từ vựng
-              </span>
-            </div>
-
-            {/* Title & Description */}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight drop-shadow-sm font-sans leading-tight">
-              Quản lý danh sách từ vựng
-            </h1>
-            <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-normal max-w-xl">
-              Hệ thống hóa từ vựng theo từng chủ đề, bài đọc, bài nghe hay ngữ cảnh thực tế.
-              Nắm bắt cấu trúc và liên kết từ vựng một cách mạch lạc và có hệ thống.
-            </p>
-
-            {/* Action Buttons & Statistics (Cả 5 nhãn trên cùng 1 hàng) */}
-            <div className="flex items-center gap-2.5 pt-2 flex-wrap">
-              {onOpenAddFolderModal && (
-                <button
-                  type="button"
-                  onClick={onOpenAddFolderModal}
-                  className="h-10 px-4 rounded-xl bg-white hover:bg-slate-50 text-amber-800 font-bold text-xs shadow-md shadow-red-950/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-amber-600">create_new_folder</span>
-                  <span>Thêm thư mục</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={onOpenAddReadingListModal}
-                className="h-10 px-4 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                <span>Thêm danh sách</span>
-              </button>
-
-              <div className="h-10 px-3.5 rounded-xl bg-black/15 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-semibold shrink-0">
-                <span className="material-symbols-outlined text-[16px] text-yellow-300">folder_open</span>
-                <span>{noteFolders.length} thư mục</span>
-              </div>
-
-              <div className="h-10 px-3.5 rounded-xl bg-black/15 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-semibold shrink-0">
-                <span className="material-symbols-outlined text-[16px] text-amber-300">article</span>
-                <span>{readingLists.length} bài đọc</span>
-              </div>
-
-              <div className="h-10 px-3.5 rounded-xl bg-black/15 backdrop-blur-md border border-white/20 text-white flex items-center gap-2 text-xs font-semibold shrink-0">
-                <span className="material-symbols-outlined text-[16px] text-emerald-300">style</span>
-                <span>{totalVocabsInLists} từ trong bài</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Mascot */}
-          <div className="shrink-0 hidden lg:flex items-center justify-center group/mascot">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white/20 rounded-full blur-xl scale-75 animate-pulse group-hover/mascot:scale-110 transition-transform duration-300 pointer-events-none" />
-              <img
-                src={astronautImg}
-                alt="LexiconVocab Mascot"
-                className="relative z-10 w-32 sm:w-36 lg:w-40 max-h-36 sm:max-h-40 object-contain drop-shadow-xl transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-1 hover:rotate-2 select-none"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 2. Toolbar: Search, Filter, Sort & Count */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap items-stretch sm:items-center justify-between gap-3">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[19px]">
@@ -1306,8 +1283,40 @@ export default function ListVocabularyPage({
 
         {/* Right Filter & Sort Controls */}
         <div className="flex items-center gap-2.5 justify-between sm:justify-end flex-wrap">
+          {/* Chuyển bố cục: theo nhóm / chỉ thư mục */}
+          {!isFolderMode && (
+            <div className="h-10 p-1 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => handleSetLayoutMode('grouped')}
+                className={`h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  layoutMode === 'grouped'
+                    ? 'bg-white text-crimson-primary shadow-xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Hiển thị thư mục kèm danh sách"
+              >
+                <span className="material-symbols-outlined text-[18px]">view_agenda</span>
+                <span className="hidden md:inline">Theo nhóm</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetLayoutMode('folders')}
+                className={`h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  layoutMode === 'folders'
+                    ? 'bg-white text-crimson-primary shadow-xs border border-slate-200'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Chỉ hiển thị các thư mục"
+              >
+                <span className="material-symbols-outlined text-[18px]">grid_view</span>
+                <span className="hidden md:inline">Thư mục</span>
+              </button>
+            </div>
+          )}
+
           {/* Folder filter dropdown */}
-          {noteFolders.length > 0 && (
+          {!isFolderMode && noteFolders.length > 0 && (
             <div className="relative" ref={folderFilterRef}>
               <button
                 type="button"
@@ -1470,14 +1479,196 @@ export default function ListVocabularyPage({
             )}
           </div>
 
-          <div className="text-xs font-semibold text-slate-500 pl-2 border-l border-slate-200">
-            <span>{filteredAndSortedLists.length}</span> danh sách
-          </div>
+          {!isFolderMode && (
+            <div className="text-xs font-semibold text-slate-500 pl-2 border-l border-slate-200 whitespace-nowrap">
+              {showFolderGrid ? (
+                <>
+                  <span>{folderCards.length}</span> thư mục
+                </>
+              ) : (
+                <>
+                  <span>{filteredAndSortedLists.length}</span> danh sách
+                </>
+              )}
+            </div>
+          )}
+
+          {isFolderMode && (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+              {onOpenAddReadingListModal && (
+                <button
+                  type="button"
+                  onClick={() => onOpenAddReadingListModal({ defaultFolderId: focusedFolderId })}
+                  className="h-10 px-3.5 rounded-xl bg-crimson-primary hover:bg-crimson-dark text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  <span>Thêm danh sách</span>
+                </button>
+              )}
+              {onEditFolder && focusedFolder && (
+                <button
+                  type="button"
+                  onClick={() => onEditFolder(focusedFolder)}
+                  className="w-10 h-10 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Sửa thư mục"
+                >
+                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                </button>
+              )}
+              {onDeleteFolder && focusedFolder && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteFolder(focusedFolder.id)}
+                  className="w-10 h-10 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 text-slate-500 hover:text-rose-600 flex items-center justify-center transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Xóa thư mục"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* 3. Reading Task Cards Grid Grouped by Folder */}
-      {folderGroups.length === 0 ? (
+      {showFolderGrid ? (
+        /* 3a. Bố cục "Thư mục": chỉ hiển thị các thư mục dạng lưới */
+        <div className="flex flex-col gap-8">
+          {folderCards.length === 0 && standaloneLists.length === 0 && searchTerm.trim() ? (
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-10 text-center max-w-xl mx-auto shadow-xs my-4">
+              <p className="text-base font-extrabold text-slate-900 mb-1">Không tìm thấy thư mục phù hợp</p>
+              <p className="text-xs text-slate-500">Thử tìm theo tên thư mục, mã thư mục hoặc tên danh sách bên trong.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
+              {folderCards.map((folder) => {
+                const stats = folderStatsById[String(folder.id)] || {
+                  listCount: 0,
+                  passageCount: 0,
+                  vocabIds: new Set(),
+                };
+                return (
+                  <div
+                    key={folder.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onOpenFolder && onOpenFolder(folder.id)}
+                    onKeyDown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && onOpenFolder) {
+                        e.preventDefault();
+                        onOpenFolder(folder.id);
+                      }
+                    }}
+                    className="group relative bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs hover:shadow-md hover:border-crimson-primary/40 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col gap-3 focus:outline-none focus:ring-2 focus:ring-crimson-primary/25"
+                  >
+                    {/* Hàng trên: biểu tượng, mã thư mục, thao tác */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-500 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                        <span className="material-symbols-outlined text-[24px]">folder_open</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {folder.code && (
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200 text-[11px] font-semibold tracking-wide">
+                            {folder.code}
+                          </span>
+                        )}
+                        {onEditFolder && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditFolder(folder);
+                            }}
+                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
+                            title="Sửa thư mục"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                          </button>
+                        )}
+                        {onDeleteFolder && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteFolder(folder.id);
+                            }}
+                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all cursor-pointer"
+                            title="Xóa thư mục"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tên và ghi chú */}
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <h3 className="text-base font-black text-slate-900 tracking-tight truncate group-hover:text-crimson-primary transition-colors" title={folder.name}>
+                        {folder.name}
+                      </h3>
+                      <p className={`text-xs leading-relaxed line-clamp-2 min-h-[2.5em] ${folder.description?.trim() ? 'text-slate-500' : 'text-slate-300 italic'}`}>
+                        {folder.description?.trim() || 'Chưa có ghi chú'}
+                      </p>
+                    </div>
+
+                    {/* Thống kê */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                      <div className="flex items-center gap-3 text-slate-500 font-semibold">
+                        <span className="inline-flex items-center gap-1" title="Số danh sách">
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">list_alt</span>
+                          {stats.listCount}
+                        </span>
+                        <span className="inline-flex items-center gap-1" title="Số bài đọc">
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">article</span>
+                          {stats.passageCount}
+                        </span>
+                        <span className="inline-flex items-center gap-1" title="Số từ vựng">
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">style</span>
+                          {stats.vocabIds.size}
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-0.5 text-crimson-primary font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                        Mở
+                        <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Thẻ tạo thư mục mới */}
+              {onOpenAddFolderModal && !searchTerm.trim() && (
+                <button
+                  type="button"
+                  onClick={onOpenAddFolderModal}
+                  className="rounded-2xl border-2 border-dashed border-slate-200 hover:border-crimson-primary/50 bg-slate-50/50 hover:bg-red-50/40 text-slate-400 hover:text-crimson-primary flex flex-col items-center justify-center gap-2 p-5 min-h-[180px] transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[28px]">create_new_folder</span>
+                  <span className="text-xs font-bold">Tạo thư mục mới</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Danh sách chưa thuộc thư mục nào */}
+          {standaloneLists.length > 0 && (
+            <section className="flex flex-col gap-4">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-[22px] text-slate-400">folder_off</span>
+                <h2 className="text-base font-black text-slate-900 tracking-tight">Danh sách riêng lẻ</h2>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-bold border border-slate-200/90">
+                  {standaloneLists.length} danh sách
+                </span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-1">
+                {standaloneLists.map((list) => renderCard(list))}
+              </div>
+            </section>
+          )}
+        </div>
+      ) : folderGroups.length === 0 ? (
+
         /* Empty State */
         <div className="bg-white rounded-3xl border border-slate-200/90 p-10 sm:p-14 text-center max-w-xl mx-auto shadow-xs my-4">
           <div className="w-16 h-16 rounded-2xl bg-surface-crimson-subtle border border-border-crimson-tint text-crimson-primary flex items-center justify-center mx-auto mb-4 shadow-xs">
@@ -1520,8 +1711,8 @@ export default function ListVocabularyPage({
         <div className="flex flex-col">
           {folderGroups.map((group) => {
             const isExpanded = Boolean(expandedFolderIds[group.id]);
-            const isCollapsed = Boolean(collapsedFolderIds[group.id]);
-            const limit = isExpanded ? 6 : 3;
+            const isCollapsed = !isFolderMode && Boolean(collapsedFolderIds[group.id]);
+            const limit = isFolderMode ? group.lists.length : isExpanded ? 6 : 3;
             const displayedLists = group.lists.slice(0, limit);
 
             return (
@@ -1529,6 +1720,8 @@ export default function ListVocabularyPage({
                 key={group.id}
                 className={`flex flex-col ${isCollapsed ? 'mb-2.5 sm:mb-3' : 'mb-8'} last:mb-0`}
               >
+                {!isFolderMode && (
+                <>
                 {/* Header: Tên folder bên trái trên cùng kèm một đường kẻ ngang */}
                 <div className={`flex items-center gap-3.5 ${isCollapsed ? 'mb-0' : 'mb-4'}`}>
                   {/* Left: Icon, Name, Badge, Count */}
@@ -1543,7 +1736,18 @@ export default function ListVocabularyPage({
 
                     <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight font-sans">
-                        {group.name}
+                        {!group.isStandalone && onOpenFolder ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenFolder(group.id)}
+                            className="hover:text-crimson-primary hover:underline underline-offset-4 decoration-2 transition-colors cursor-pointer text-left"
+                            title="Mở trang tổng quan thư mục"
+                          >
+                            {group.name}
+                          </button>
+                        ) : (
+                          group.name
+                        )}
                       </h2>
 
                       {group.code && (
@@ -1619,6 +1823,9 @@ export default function ListVocabularyPage({
                   </div>
                 </div>
 
+                </>
+                )}
+
                 {/* Danh sách thẻ: Mặc định hiển thị 3 thẻ, ấn Xem thêm sẽ hiển thị 6 thẻ */}
                 {!isCollapsed && (
                   group.lists.length === 0 ? (
@@ -1627,7 +1834,7 @@ export default function ListVocabularyPage({
                         <span className="material-symbols-outlined text-[24px]">folder_open</span>
                       </div>
                       <p className="text-xs font-semibold text-slate-600">
-                        Chưa có danh sách bài đọc nào trong thư mục này
+                        {searchTerm.trim() ? 'Không có danh sách nào khớp với từ khóa tìm kiếm' : 'Chưa có danh sách bài đọc nào trong thư mục này'}
                       </p>
                       {onOpenAddReadingListModal && (
                         <button
@@ -1673,7 +1880,7 @@ export default function ListVocabularyPage({
                         </span>
 
                         <div className="flex items-center gap-2">
-                          {group.lists.length > 3 && (
+                          {!isFolderMode && group.lists.length > 3 && (
                             <button
                               type="button"
                               onClick={() => toggleExpandFolder(group.id)}
@@ -1690,9 +1897,14 @@ export default function ListVocabularyPage({
                             </button>
                           )}
 
+                          {!isFolderMode && (
                           <button
                             type="button"
                             onClick={() => {
+                              if (!group.isStandalone && onOpenFolder) {
+                                onOpenFolder(group.id);
+                                return;
+                              }
                               setViewingFolderId(group.id);
                               setModalSearchTerm('');
                             }}
@@ -1701,6 +1913,7 @@ export default function ListVocabularyPage({
                             <span>Xem chi tiết</span>
                             <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                           </button>
+                          )}
                         </div>
                       </div>
                     </div>
