@@ -29,6 +29,8 @@ export default function Sidebar({
   onNavigateHome,
   isSidebarCollapsed = false,
   onToggleSidebar,
+  selectedFolderId = null,
+  onOpenFolder,
 }) {
   const activeReadingListRef = useRef(null);
   const activeCategoryRef = useRef(null);
@@ -828,13 +830,21 @@ export default function Sidebar({
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-line/60 shrink-0">
           <div 
             className="flex items-center gap-2.5 cursor-pointer" 
-            onClick={() => { setCurrentView('master'); setSelectedReadingListId(null); }}
+            onClick={() => {
+              // Logo đưa về trang chủ
+              if (onNavigateHome) {
+                onNavigateHome();
+              } else {
+                setCurrentView('home');
+              }
+            }}
+            title="Về trang chủ"
           >
             <div className="w-9 h-9 rounded-xl bg-crimson-primary flex items-center justify-center text-white shadow-sm shadow-red-200">
               <span className="material-symbols-outlined text-[20px]">menu_book</span>
             </div>
             <span className="font-headline font-bold text-base text-text-high-contrast leading-none tracking-tight">
-              LexiconVocab
+              <span className="text-crimson-primary">Lexicon</span>Vocab
             </span>
           </div>
 
@@ -1087,10 +1097,19 @@ export default function Sidebar({
                             onDragEnd={handleFolderDragEnd}
                             onClick={() => {
                               if (dragJustEndedRef.current) return;
-                              toggleFolder(folder.id);
+                              if (onOpenFolder) {
+                                onOpenFolder(folder.id);
+                                if (!isFolderExpanded) toggleFolder(folder.id);
+                              } else {
+                                toggleFolder(folder.id);
+                              }
                             }}
                             className={`group/folder relative flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-100/90 transition-all text-xs cursor-grab active:cursor-grabbing select-none ${
                               isFolderBeingDragged ? 'opacity-35' : ''
+                            } ${
+                              currentView === 'folder' && String(selectedFolderId) === String(folder.id)
+                                ? 'bg-surface-crimson-subtle ring-1 ring-inset ring-crimson-primary/25'
+                                : ''
                             } ${
                               isFolderDropTargetForList
                                 ? 'ring-2 ring-[#E31E24] bg-red-50/80 shadow-xs'
@@ -1277,7 +1296,7 @@ export default function Sidebar({
                                         isListBeingDragged ? 'opacity-35' : ''
                                       } ${
                                         isActive
-                                          ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
+                                          ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-inset ring-crimson-primary/20'
                                           : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                                       }`}
                                     >
@@ -1449,7 +1468,7 @@ export default function Sidebar({
                                   isListBeingDragged ? 'opacity-35' : ''
                                 } ${
                                   isActive
-                                    ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-crimson-primary/20'
+                                    ? 'bg-surface-crimson-subtle text-crimson-primary font-semibold ring-1 ring-inset ring-crimson-primary/20'
                                     : 'text-text-body hover:bg-surface-crimson-subtle hover:text-crimson-primary'
                                 }`}
                               >
@@ -1697,29 +1716,6 @@ export default function Sidebar({
               </div>
             </nav>
           </div>
-        </div>
-      </div>
-
-      {/* Footer Cloud Sync Widget */}
-      <div className="p-3.5 border-t border-slate-line/80 bg-card-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="relative flex items-center justify-center w-8 h-8 rounded-full bg-surface-crimson-subtle text-crimson-primary">
-              <span className="material-symbols-outlined text-[18px]">cloud_done</span>
-              <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-pos-adj-text animate-pulse"></span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-text-high-contrast">Cloud Sync</span>
-              <span className="text-[10px] text-text-muted">Đồng bộ 2 phút trước</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            title="Đồng bộ thủ công"
-            className="w-7 h-7 rounded flex items-center justify-center text-text-muted hover:text-crimson-primary hover:bg-surface-crimson-subtle transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">sync</span>
-          </button>
         </div>
       </div>
 
