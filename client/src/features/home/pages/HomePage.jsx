@@ -224,7 +224,7 @@ export default function HomePage({
                 </div>
                 <p className="text-sm sm:text-base text-slate-600 font-semibold group-hover:text-white transition-colors duration-300">
                   {currentUser
-                    ? `Chào ${currentUser.fullName}, tiếp tục học từ vựng`
+                    ? `Xin chào ${currentUser.fullName}`
                     : 'Người dùng đã có tài khoản!'}
                 </p>
               </div>
